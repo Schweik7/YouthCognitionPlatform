@@ -1,0 +1,13 @@
+/* 导入jsPsych默认样式 */
+@import url(node_modules/jspsych/css/jspsych.css);
+/* import 'jspsych/css/jspsych.css' */
+
+/* 自定义样式 */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f0f0f0;
+}
+
+#jspsych-target {
+  margin: 0 auto;
+}
