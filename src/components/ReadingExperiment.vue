@@ -1,4 +1,82 @@
-<template>
+// 标记为正确的辅助函数
+const markAsCorrect = (answerMark, trialId) => {
+  answerMark.textContent = '√';
+  answerMark.classList.remove('wrong-mark'); // 先移除可能存在的错误标记
+  answerMark.classList.add('correct-mark');
+  answerMark.classList.remove('answer-animation'); // 先移除以确保动画重新触发
+  setTimeout(() => {
+    answerMark.classList.add('answer-animation');
+  }, 10);
+  
+  // 高亮正确按钮
+  const correctBtn = document.getElementById(`correct-btn-${trialId}`);
+  if (correctBtn) {
+    correctBtn.classList.add('selected');
+  }
+  
+  // 自动进入下一题
+  setTimeout(() => {
+    keyProcessing.value = false;
+    if (jsPsych && typeof jsPsych.finishTrial === 'function') {
+      jsPsych.finishTrial();
+    }
+  }, 500); // 延长动画时间
+};
+
+// 标记为错误的辅助函数
+const markAsWrong = (answerMark, trialId) => {
+  answerMark.textContent = '╳';
+  answerMark.classList.remove('correct-mark'); // 先移除可能存在的正确标记
+  answerMark.classList.add('wrong-mark');
+  answerMark.classList.remove('answer-animation'); // 先移除以确保动画重新触发
+  setTimeout(() => {
+    answerMark.classList.add('answer-animation');
+  }, 10);
+  
+  // 高亮错误按钮
+  const wrongBtn = document.getElementById(`wrong-btn-${trialId}`);
+  if (wrongBtn) {
+    wrongBtn.classList.add('selected');
+  }
+  
+  // 自动进入下一题
+  setTimeout(() => {
+    keyProcessing.value = false;
+    if (jsPsych && typeof jsPsych.finishTrial === 'function') {
+      jsPsych.finishTrial();
+    }
+  }, 500); // 延长动画时间
+};
+
+// 教学阶段使用的正确标记函数
+const practiceMarkAsCorrect = (answerMark) => {
+  answerMark.textContent = '√';
+  answerMark.classList.remove('wrong-mark'); // 先移除错误标记
+  answerMark.classList.add('correct-mark');
+  answerMark.classList.remove('answer-animation'); // 先移除以确保动画重新触发
+  setTimeout(() => {
+    answerMark.classList.add('answer-animation');
+  }, 10);
+  
+  setTimeout(() => {
+    keyProcessing.value = false;
+  }, 300);
+};
+
+// 教学阶段使用的错误标记函数
+const practiceMarkAsWrong = (answerMark) => {
+  answerMark.textContent = '╳';
+  answerMark.classList.remove('correct-mark'); // 先移除正确标记
+  answerMark.classList.add('wrong-mark');
+  answerMark.classList.remove('answer-animation'); // 先移除以确保动画重新触发
+  setTimeout(() => {
+    answerMark.classList.add('answer-animation');
+  }, 10);
+  
+  setTimeout(() => {
+    keyProcessing.value = false;
+  }, 300);
+};<template>
   <div class="experiment-container">
     <div id="jspsych-target"></div>
     
@@ -34,6 +112,8 @@ let jsPsych = null;
 let experimentStarted = false;
 let intervalId = null;
 let currentTrialIndex = 0;
+// 添加防抖变量
+const keyProcessing = ref(false);
 
 // 教学阶段试题数据
 const practiceTrials = [
@@ -64,9 +144,29 @@ const updateTimer = () => {
 const jumpToTrialNumber = () => {
   if (jsPsych && experimentStarted) {
     const targetIndex = jumpToTrial.value - 1 + practiceTrials.length + 3; // 加上指导语和练习题的数量
-    jsPsych.endCurrentTimeline();
-    jsPsych.resumeExperiment();
-    currentTrialIndex = jumpToTrial.value - 1;
+    try {
+      // 尝试使用可用的方法
+      if (typeof jsPsych.endCurrentTimeline === 'function') {
+        jsPsych.endCurrentTimeline();
+      } else if (typeof jsPsych.finishTrial === 'function') {
+        // 多次调用finishTrial来跳过当前试验
+        for (let i = 0; i < 5; i++) {
+          jsPsych.finishTrial();
+        }
+      }
+      
+      if (typeof jsPsych.resumeExperiment === 'function') {
+        jsPsych.resumeExperiment();
+      }
+      
+      currentTrialIndex = jumpToTrial.value - 1;
+      console.log(`跳转到题号: ${jumpToTrial.value}`);
+    } catch (error) {
+      console.error('跳转题目时出错:', error);
+      ElMessage.error('跳转失败，请尝试其他方法');
+    }
+  } else {
+    ElMessage.warning('实验尚未开始，无法跳转');
   }
 };
 
@@ -74,6 +174,7 @@ const jumpToTrialNumber = () => {
 const createTimerComponent = () => {
   // 设置全局计时器值
   window.timerValue = 180; // 3分钟
+  window.timerStarted = false; // 跟踪计时器是否已启动
   
   const timerHtml = `
     <div class="timer-container">
@@ -92,7 +193,31 @@ const createTimerComponent = () => {
   const updateTimerDisplay = () => {
     if (window.timerValue <= 0) {
       clearInterval(intervalId);
-      jsPsych.endExperiment('<div class="experiment-end"><h2>实验结束</h2><p>感谢你的参与！</p></div>');
+      
+      // 使用正确的方法结束实验
+      try {
+        // 尝试使用可用的方法结束实验
+        if (jsPsych && typeof jsPsych.endExperiment === 'function') {
+          jsPsych.endExperiment('<div class="experiment-end"><h2>实验结束</h2><p>感谢你的参与！</p></div>');
+        } else {
+          // 显示结束信息
+          const jspsychTarget = document.getElementById('jspsych-target');
+          if (jspsychTarget) {
+            jspsychTarget.innerHTML = '<div class="experiment-end"><h2>实验结束</h2><p>感谢你的参与！</p></div>';
+          }
+          // 尝试使用finishTrial
+          if (jsPsych && typeof jsPsych.finishTrial === 'function') {
+            jsPsych.finishTrial();
+          }
+        }
+      } catch (error) {
+        console.error('结束实验时出错:', error);
+        // 确保实验结束信息显示
+        const jspsychTarget = document.getElementById('jspsych-target');
+        if (jspsychTarget) {
+          jspsychTarget.innerHTML = '<div class="experiment-end"><h2>实验结束</h2><p>感谢你的参与！</p></div>';
+        }
+      }
       return;
     }
 
@@ -122,8 +247,14 @@ const createTimerComponent = () => {
     },
     version: '1.0.0',
     on_start: () => {
-      // 启动计时器
-      intervalId = setInterval(updateTimerDisplay, 1000);
+      // 防止重复启动计时器
+      if (!window.timerStarted) {
+        window.timerStarted = true;
+        // 启动计时器
+        intervalId = setInterval(updateTimerDisplay, 1000);
+        // 立即更新一次显示
+        updateTimerDisplay();
+      }
     }
   };
 };
@@ -143,7 +274,7 @@ const createInstructionTrials = () => {
         <div>Q 键 = 正确（√）</div>
         <div>W 键 = 错误（╳）</div>
       </div>
-      <div class="continue-btn">点击下一步继续</div>
+      <p style="margin-top:15px">你也可以直接点击屏幕上的"正确"或"错误"按钮来回答。</p>
     </div>
   `;
 
@@ -151,7 +282,6 @@ const createInstructionTrials = () => {
     <div class="instruction">
       <h2>练习阶段</h2>
       <p>我们先来练习几道题，看你有没有明白，好吗？</p>
-      <div class="continue-btn">点击下一步开始练习</div>
     </div>
   `;
 
@@ -160,7 +290,6 @@ const createInstructionTrials = () => {
       <h2>正式测验</h2>
       <p>好的，现在我们来多做一些。都准备好了吗？</p>
       <p>准备好后，点击"开始"按钮，计时将立即开始！</p>
-      <div class="continue-btn">开始</div>
     </div>
   `;
 
@@ -255,6 +384,10 @@ const createPracticeTrials = () => {
               <div>按 W 键 = 错误（╳）</div>
             </div>
           </div>
+          <div class="answer-buttons">
+            <button class="answer-btn correct-btn" id="practice-correct-btn">正确 (√)</button>
+            <button class="answer-btn wrong-btn" id="practice-wrong-btn">错误 (╳)</button>
+          </div>
         </div>
       `;
       
@@ -270,18 +403,70 @@ const createPracticeTrials = () => {
         version: '1.0.0',
         on_load: () => {
           // 添加按键响应处理
-          document.addEventListener('keydown', (e) => {
+          const handleKeyDown = (e) => {
+            // 防抖处理
+            if (keyProcessing.value) return;
+            keyProcessing.value = true;
+            
             const answerMark = document.getElementById('answer-mark');
             if (!answerMark) return;
 
             if (e.key.toLowerCase() === 'q') {
-              answerMark.textContent = '√';
-              answerMark.classList.add('correct-mark');
+              practiceMarkAsCorrect(answerMark);
             } else if (e.key.toLowerCase() === 'w') {
-              answerMark.textContent = '╳';
-              answerMark.classList.add('wrong-mark');
+              practiceMarkAsWrong(answerMark);
+            } else {
+              keyProcessing.value = false;
             }
-          }, { once: true });
+          };
+          
+          // 添加鼠标点击支持
+          const correctBtn = document.getElementById('practice-correct-btn');
+          const wrongBtn = document.getElementById('practice-wrong-btn');
+          const answerMark = document.getElementById('answer-mark');
+          
+          // 正确按钮处理函数
+          const handleCorrectClick = () => {
+            console.log("正确按钮点击");
+            if (keyProcessing.value) return;
+            keyProcessing.value = true;
+            if (answerMark) {
+              practiceMarkAsCorrect(answerMark);
+              if (correctBtn) correctBtn.classList.add('selected');
+              if (wrongBtn) wrongBtn.classList.remove('selected');
+            }
+          };
+          
+          // 错误按钮处理函数
+          const handleWrongClick = () => {
+            console.log("错误按钮点击");
+            if (keyProcessing.value) return;
+            keyProcessing.value = true;
+            if (answerMark) {
+              practiceMarkAsWrong(answerMark);
+              if (wrongBtn) wrongBtn.classList.add('selected');
+              if (correctBtn) correctBtn.classList.remove('selected');
+            }
+          };
+          
+          if (correctBtn) {
+            correctBtn.onclick = handleCorrectClick;
+            correctBtn.classList.add('btn-hover-enabled');
+          }
+          
+          if (wrongBtn) {
+            wrongBtn.onclick = handleWrongClick;
+            wrongBtn.classList.add('btn-hover-enabled');
+          }
+          
+          document.addEventListener('keydown', handleKeyDown);
+          
+          // 返回清理函数
+          return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            if (correctBtn) correctBtn.onclick = null;
+            if (wrongBtn) wrongBtn.onclick = null;
+          };
         },
         on_finish: (data) => {
           // 记录用户的响应
@@ -289,9 +474,20 @@ const createPracticeTrials = () => {
             data.user_answer = true;
           } else if (data.response === 'w') {
             data.user_answer = false;
+          } else {
+            // 如果没有响应，设置默认值
+            data.user_answer = false;
           }
           
           data.correct = data.user_answer === trial.correct;
+          
+          // 记录练习题结果但不保存到服务器
+          console.log(`练习题 ${trial.id} 完成:`, {
+            response: data.response,
+            user_answer: data.user_answer,
+            correct: data.correct,
+            rt: data.rt || 0
+          });
         }
       });
     }
@@ -315,7 +511,7 @@ const createFormalTrials = () => {
       <div class="trial-container formal-trial">
         <div class="trial-header">
           <div class="trial-number">第 ${trial.id} 题</div>
-          <div class="timer">
+          <div class="trial-timer">
             <span id="timer-minutes">03</span>:<span id="timer-seconds">00</span>
           </div>
         </div>
@@ -324,6 +520,10 @@ const createFormalTrials = () => {
           <span class="answer-label">（</span>
           <span class="answer-mark" id="answer-mark-${trial.id}"></span>
           <span class="answer-label">）</span>
+        </div>
+        <div class="answer-buttons">
+          <button class="answer-btn correct-btn" id="correct-btn-${trial.id}">正确 (√)</button>
+          <button class="answer-btn wrong-btn" id="wrong-btn-${trial.id}">错误 (╳)</button>
         </div>
       </div>
     `;
@@ -345,6 +545,10 @@ const createFormalTrials = () => {
         
         // 添加按键响应处理
         const handleKeyDown = (e) => {
+          // 按键防抖
+          if (keyProcessing.value) return;
+          keyProcessing.value = true;
+          
           const answerMark = document.getElementById(`answer-mark-${trial.id}`);
           if (!answerMark) return;
 
@@ -353,6 +557,7 @@ const createFormalTrials = () => {
             answerMark.classList.add('correct-mark');
             // 自动进入下一题
             setTimeout(() => {
+              keyProcessing.value = false;
               jsPsych.finishTrial();
             }, 300);
           } else if (e.key.toLowerCase() === 'w') {
@@ -360,8 +565,11 @@ const createFormalTrials = () => {
             answerMark.classList.add('wrong-mark');
             // 自动进入下一题
             setTimeout(() => {
+              keyProcessing.value = false;
               jsPsych.finishTrial();
             }, 300);
+          } else {
+            keyProcessing.value = false;
           }
         };
         
@@ -370,20 +578,26 @@ const createFormalTrials = () => {
         // 清理函数
         return () => {
           document.removeEventListener('keydown', handleKeyDown);
+          this.keyProcessing = false;
         };
       },
       on_finish: (data) => {
+        // 记录用户的响应
         if (data.response === 'q') {
           data.user_answer = true; // 正确
         } else if (data.response === 'w') {
           data.user_answer = false; // 错误
+        } else {
+          // 如果没有响应，设置默认值避免验证错误
+          data.user_answer = false;
+          data.rt = data.rt || 0; // 确保有响应时间，即使用户没有响应
         }
         
         // 保存试验数据到服务器
         saveTrialData({
           trial_id: trial.id,
           user_answer: data.user_answer,
-          response_time: data.rt
+          response_time: data.rt || 0
         });
       }
     });
@@ -394,10 +608,27 @@ const createFormalTrials = () => {
 
 // 保存试验数据到服务器
 const saveTrialData = async (trialData) => {
+  // 验证数据
+  if (trialData.user_answer === undefined) {
+    console.error('saveTrialData: user_answer 未定义，设置为默认值false');
+    trialData.user_answer = false;
+  }
+  
+  if (trialData.response_time === undefined || trialData.response_time === null) {
+    console.error('saveTrialData: response_time 未定义，设置为默认值0');
+    trialData.response_time = 0;
+  }
+  
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
   
+  // 确保必要的用户信息存在
+  if (!userInfo.name || !userInfo.school || !userInfo.grade || !userInfo.classNumber) {
+    console.error('saveTrialData: 用户信息不完整', userInfo);
+    return; // 如果用户信息不完整，不继续保存
+  }
+  
   try {
-    await fetch('/api/save-trial', {
+    const response = await fetch('/api/save-trial', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -408,8 +639,15 @@ const saveTrialData = async (trialData) => {
         timestamp: new Date().toISOString()
       })
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('保存数据失败:', errorData);
+    } else {
+      console.log('试验数据保存成功:', trialData.trial_id);
+    }
   } catch (error) {
-    console.error('保存数据失败:', error);
+    console.error('保存数据出错:', error);
   }
 };
 
@@ -471,7 +709,15 @@ const initializeExperiment = () => {
       // 实验结束时的处理
       clearInterval(intervalId);
       ElMessage.success('实验已完成，感谢您的参与！');
-    }
+    },
+    use_webaudio: false, // 禁用Web Audio以防止在某些浏览器中出现问题
+    exclusions: {
+      min_width: 300, // 最小屏幕宽度
+      min_height: 300 // 最小屏幕高度
+    },
+    show_progress_bar: false,
+    auto_update_progress_bar: false,
+    default_iti: 0 // 默认试验间隔
   });
   
   // 合并所有试验
@@ -577,11 +823,22 @@ onUnmounted(() => {
   justify-content: space-between;
   width: 100%;
   margin-bottom: 20px;
+  align-items: center;
 }
 
 :deep(.trial-number) {
   font-weight: bold;
   font-size: 18px;
+}
+
+:deep(.trial-timer) {
+  font-size: 20px;
+  font-weight: bold;
+  color: #409EFF;
+  background-color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 :deep(.sentence) {
@@ -619,6 +876,99 @@ onUnmounted(() => {
 
 :deep(.wrong-mark) {
   color: #F56C6C;
+}
+
+:deep(.answer-animation) {
+  animation: pop-in 0.3s ease;
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+:deep(.answer-buttons) {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+:deep(.answer-btn) {
+  padding: 10px 20px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+:deep(.answer-btn::after) {
+  content: '';
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, #000 10%, transparent 10.01%);
+  background-repeat: no-repeat;
+  background-position: 50%;
+  transform: scale(10, 10);
+  opacity: 0;
+  transition: transform 0.5s, opacity 0.5s;
+}
+
+:deep(.answer-btn:active::after) {
+  transform: scale(0, 0);
+  opacity: 0.1;
+  transition: 0s;
+}
+
+:deep(.btn-hover-enabled:hover) {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+:deep(.correct-btn) {
+  color: #67C23A;
+  border-color: #c2e7b0;
+}
+
+:deep(.correct-btn:hover) {
+  background-color: #f0f9eb;
+  border-color: #85ce61;
+}
+
+:deep(.wrong-btn) {
+  color: #F56C6C;
+  border-color: #fbc4c4;
+}
+
+:deep(.wrong-btn:hover) {
+  background-color: #fef0f0;
+  border-color: #f78989;
+}
+
+:deep(.correct-btn.selected) {
+  background-color: #f0f9eb;
+  color: #67C23A;
+  border-color: #67C23A;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.2);
+}
+
+:deep(.wrong-btn.selected) {
+  background-color: #fef0f0;
+  color: #F56C6C;
+  border-color: #F56C6C;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(245, 108, 108, 0.2);
 }
 
 :deep(.explanation) {
