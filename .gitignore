@@ -1,5 +1,5 @@
 pnpm-lock.yaml
-
+*.pdf
 # Logs
 logs
 *.log
