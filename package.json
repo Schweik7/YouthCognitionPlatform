@@ -1,18 +1,32 @@
 {
-	"name": "jspsych-project",
+	"name": "reading-fluency-experiment",
 	"version": "1.0.0",
-	"description": "A simple jsPsych experiment",
-	"main": "experiment.js",
+	"description": "阅读流畅性实验平台",
 	"type": "module",
 	"scripts": {
-	  "start": "npx vite",
-	  "build": "npx vite build"
+	  "dev": "vite",
+	  "build": "vite build",
+	  "preview": "vite preview",
+	  "start:server": "node server.js",
+	  "start": "concurrently \"npm run dev\" \"npm run start:server\"",
+	  "init": "mkdir -p src/components public server",
+	  "setup": "npm run init && npm install"
 	},
 	"dependencies": {
 	  "jspsych": "^8.2.1",
-	  "@jspsych/plugin-html-keyboard-response": "^1.1.2"
+	  "@jspsych/plugin-html-keyboard-response": "^1.1.2",
+	  "@jspsych/plugin-html-button-response": "^1.1.2",
+	  "vue": "^3.3.4",
+	  "vue-router": "^4.2.4",
+	  "element-plus": "^2.3.8",
+	  "express": "^4.18.2",
+	  "mongoose": "^7.4.1",
+	  "cors": "^2.8.5",
+	  "csv-parse": "^5.4.0"
 	},
 	"devDependencies": {
+	  "@vitejs/plugin-vue": "^4.2.3",
+	  "concurrently": "^8.2.0",
 	  "vite": "^4.4.9"
 	}
   }
