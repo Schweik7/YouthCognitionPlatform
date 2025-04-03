@@ -18,8 +18,8 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs';
 <style>
 .app-container {
   width: 100%;
-  min-height: 100vh;
-  padding: 20px;
+  min-height: 5vh;
+  padding: 10px;
   box-sizing: border-box;
 }
 
