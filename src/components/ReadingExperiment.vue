@@ -1,525 +1,65 @@
-<script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
-import { initJsPsych } from 'jspsych';
-import htmlKeyboardResponse from '@jspsych/plugin-html-keyboard-response';
-import htmlButtonResponse from '@jspsych/plugin-html-button-response';
-import { ElMessage } from 'element-plus';
-
-// 调试模式状态
-const debugMode = ref(false);
-const jumpToTrial = ref(1);
-const maxTrials = ref(100);
-const remainingTime = ref(180);
-let jsPsych = null;
-let experimentStarted = false;
-let intervalId = null;
-let currentTrialIndex = 0;
-// 添加防抖变量
-const keyProcessing = ref(false);
-
-// 全局变量，跟踪当前活动试验ID
-let currentTrialId = null;
-let trialTransitioning = false;
-
-/**
- * 统一的答案标记函数 - 标记为正确
- * @param {HTMLElement} answerMark - 答案标记元素
- * @param {string} trialId - 试验ID
- * @param {boolean} autoFinish - 是否自动完成试验
- */
-const markAsCorrect = (answerMark, trialId, autoFinish = true) => {
-  try {
-    // 防止重复处理
-    if (!answerMark || answerMark.textContent === '√' || trialTransitioning) {
-      keyProcessing.value = false;
-      return;
-    }
-    
-    // 标记正在处理试验转换
-    if (autoFinish) {
-      trialTransitioning = true;
-    }
-    
-    // 设置当前试验ID
-    currentTrialId = trialId;
-    
-    // 更新标记和样式
-    answerMark.textContent = '√';
-    answerMark.classList.remove('wrong-mark');
-    answerMark.classList.add('correct-mark');
-    
-    // 重置并触发动画
-    answerMark.classList.remove('answer-animation');
-    setTimeout(() => {
-      answerMark.classList.add('answer-animation');
-    }, 10);
-
-    // 高亮正确按钮
-    const correctBtn = document.getElementById(`correct-btn-${trialId}`);
-    const wrongBtn = document.getElementById(`wrong-btn-${trialId}`);
-    if (correctBtn) {
-      correctBtn.classList.add('selected');
-      if (wrongBtn) wrongBtn.classList.remove('selected');
-    }
-
-    // 自动进入下一题
-    if (autoFinish) {
-      setTimeout(() => {
-        keyProcessing.value = false;
-        
-        // 确保仍然是当前正在处理的试验
-        if (currentTrialId === trialId && jsPsych && typeof jsPsych.finishTrial === 'function') {
-          // 使用一次性定时器延迟执行finishTrial，防止事件冲突
-          setTimeout(() => {
-            trialTransitioning = false;
-            jsPsych.finishTrial();
-          }, 50);
-        } else {
-          trialTransitioning = false;
-        }
-      }, 500);
-    } else {
-      setTimeout(() => {
-        keyProcessing.value = false;
-      }, 300);
-    }
-  } catch (error) {
-    console.error('标记为正确时出错:', error);
-    keyProcessing.value = false;
-    trialTransitioning = false;
-  }
-};
-
-/**
- * 统一的答案标记函数 - 标记为错误
- * @param {HTMLElement} answerMark - 答案标记元素
- * @param {string} trialId - 试验ID
- * @param {boolean} autoFinish - 是否自动完成试验
- */
-const markAsWrong = (answerMark, trialId, autoFinish = true) => {
-  try {
-    // 防止重复处理
-    if (!answerMark || answerMark.textContent === '╳' || trialTransitioning) {
-      keyProcessing.value = false;
-      return;
-    }
-    
-    // 标记正在处理试验转换
-    if (autoFinish) {
-      trialTransitioning = true;
-    }
-    
-    // 设置当前试验ID
-    currentTrialId = trialId;
-    
-    // 更新标记和样式
-    answerMark.textContent = '╳';
-    answerMark.classList.remove('correct-mark');
-    answerMark.classList.add('wrong-mark');
-    
-    // 重置并触发动画
-    answerMark.classList.remove('answer-animation');
-    setTimeout(() => {
-      answerMark.classList.add('answer-animation');
-    }, 10);
-
-    // 高亮错误按钮
-    const correctBtn = document.getElementById(`correct-btn-${trialId}`);
-    const wrongBtn = document.getElementById(`wrong-btn-${trialId}`);
-    if (wrongBtn) {
-      wrongBtn.classList.add('selected');
-      if (correctBtn) correctBtn.classList.remove('selected');
-    }
-
-    // 自动进入下一题
-    if (autoFinish) {
-      setTimeout(() => {
-        keyProcessing.value = false;
-        
-        // 确保仍然是当前正在处理的试验
-        if (currentTrialId === trialId && jsPsych && typeof jsPsych.finishTrial === 'function') {
-          // 使用一次性定时器延迟执行finishTrial，防止事件冲突
-          setTimeout(() => {
-            trialTransitioning = false;
-            jsPsych.finishTrial();
-          }, 50);
-        } else {
-          trialTransitioning = false;
-        }
-      }, 500);
-    } else {
-      setTimeout(() => {
-        keyProcessing.value = false;
-      }, 300);
-    }
-  } catch (error) {
-    console.error('标记为错误时出错:', error);
-    keyProcessing.value = false;
-    trialTransitioning = false;
-  }
-};
-
-/**
- * 处理用户响应 - 统一键盘和鼠标事件
- * @param {string} response - 用户响应 ('correct' 或 'wrong')
- * @param {string} trialId - 试验ID
- * @param {boolean} autoFinish - 是否自动完成试验
- */
-const handleUserResponse = (response, trialId, autoFinish = true) => {
-  // 防抖处理 - 如果正在处理中或试验切换中则拒绝新操作
-  if (keyProcessing.value || trialTransitioning) {
-    console.log('跳过操作 - 按键处理中或试验切换中');
-    return;
-  }
-  
-  // 标记正在处理按键
-  keyProcessing.value = true;
-  
-  // 如果当前试验ID不为空且不等于请求的trialId，忽略此操作
-  if (currentTrialId !== null && currentTrialId !== trialId) {
-    console.log(`跳过操作 - 试验ID不匹配: 当前=${currentTrialId}, 请求=${trialId}`);
-    keyProcessing.value = false;
-    return;
-  }
-  
-  // 检查当前活动试验元素
-  const activeTrialElement = document.querySelector('.jspsych-display-element .jspsych-content-wrapper');
-  if (!activeTrialElement) {
-    console.log('跳过操作 - 找不到活动试验元素');
-    keyProcessing.value = false;
-    return;
-  }
-
-  // 用tryCatch包装DOM操作，防止意外错误
-  try {
-    const answerMark = document.getElementById(`answer-mark-${trialId}`);
-    if (!answerMark) {
-      console.log(`跳过操作 - 找不到标记元素: answer-mark-${trialId}`);
-      keyProcessing.value = false;
-      return;
-    }
-    
-    // 验证标记元素在当前活动试验中
-    if (!activeTrialElement.contains(answerMark)) {
-      console.log(`跳过操作 - 标记元素不在当前活动试验中`);
-      keyProcessing.value = false;
-      return;
-    }
-
-    // 更新当前处理的试验ID
-    currentTrialId = trialId;
-    
-    // 处理用户响应
-    if (response === 'correct') {
-      markAsCorrect(answerMark, trialId, autoFinish);
-    } else if (response === 'wrong') {
-      markAsWrong(answerMark, trialId, autoFinish);
-    } else {
-      keyProcessing.value = false;
-    }
-  } catch (error) {
-    console.error('处理用户响应时出错:', error);
-    keyProcessing.value = false;
-    trialTransitioning = false;
-  }
-};
-
-// 教学阶段试题数据
-const practiceTrials = [
-  { id: 1, text: "太阳从西边升起。（      ）", correct: false, demonstrated: true },
-  { id: 2, text: "燕子会飞。（       ）", correct: true, demonstrated: false },
-  { id: 3, text: "写字要用手。（       ）", correct: true, demonstrated: false }
-];
-
-// 正式阶段试题数据（初始为空，将从后端获取）
-const formalTrials = ref([]);
-
-// 键盘监听函数，用于调试模式
-const keyHandler = (e) => {
-  // 检测是否同时按下【】键
-  if ((e.key === '[' && e.altKey) || (e.key === ']' && e.altKey)) {
-    debugMode.value = !debugMode.value;
-  }
-};
-
-// 更新计时器
-const updateTimer = () => {
-  if (window.timerValue !== undefined) {
-    window.timerValue = remainingTime.value;
-  }
-};
-
-// 跳转到指定题号
-const jumpToTrialNumber = () => {
-  if (jsPsych && experimentStarted) {
-    const targetIndex = jumpToTrial.value - 1 + practiceTrials.length + 3; // 加上指导语和练习题的数量
-    try {
-      // 尝试使用可用的方法
-      if (typeof jsPsych.endCurrentTimeline === 'function') {
-        jsPsych.endCurrentTimeline();
-      } else if (typeof jsPsych.finishTrial === 'function') {
-        // 多次调用finishTrial来跳过当前试验
-        for (let i = 0; i < 5; i++) {
-          jsPsych.finishTrial();
-        }
-      }
-
-      if (typeof jsPsych.resumeExperiment === 'function') {
-        jsPsych.resumeExperiment();
-      }
-
-      currentTrialIndex = jumpToTrial.value - 1;
-      console.log(`跳转到题号: ${jumpToTrial.value}`);
-    } catch (error) {
-      console.error('跳转题目时出错:', error);
-      ElMessage.error('跳转失败，请尝试其他方法');
-    }
-  } else {
-    ElMessage.warning('实验尚未开始，无法跳转');
-  }
-};
-
-// 创建计时器组件
-const createTimerComponent = () => {
-  // 设置全局计时器值
-  window.timerValue = 180; // 3分钟
-  window.timerStarted = false; // 跟踪计时器是否已启动
-  
-  // 使用performance API跟踪实际时间
-  let startTime = null;
-  let lastUpdateTime = null;
-
-  const timerHtml = `
-    <div class="timer-container">
-      <div class="timer">
-        <span id="timer-minutes">03</span>:<span id="timer-seconds">00</span>
+<template>
+  <div class="experiment-container">
+    <!-- 调试面板 -->
+    <div v-if="debugMode" class="debug-panel">
+      <h3>调试模式</h3>
+      <div class="debug-controls">
+        <el-input-number v-model="jumpToTrial" :min="1" :max="maxTrials" label="跳转题号"></el-input-number>
+        <el-button type="primary" @click="jumpToTrialNumber">跳转</el-button>
+        <el-input-number v-model="remainingTime" :min="0" :max="180" label="剩余时间(秒)"></el-input-number>
+        <el-button type="primary" @click="updateTimer">更新时间</el-button>
       </div>
-      <div class="hourglass-container">
-        <div class="hourglass">
-          <div class="hourglass-top"></div>
-          <div class="hourglass-bottom"></div>
+    </div>
+
+    <!-- 实验内容区域 -->
+    <div class="content-area">
+      <!-- 指导语阶段 -->
+      <div v-if="phase === 'welcome'" class="instruction">
+        <h2>阅读流畅性实验</h2>
+        <p>同学们，我们现在来玩的这个游戏是让你阅读句子，并判断句子是否正确。</p>
+        <p>请你快速认真地读完句子（默读），如果你觉得句子是正确的，你就在句子后面的括号内打个"√"；如果你觉得句子是错误的，那就在句子后面的括号内打个"╳"。</p>
+        <p>如果读句子时遇到不认识的字，也不要停下来，抓紧时间，继续往后做。</p>
+        <p>记住要一题一题从上往下做，做完一页后快速翻到后面再继续做。</p>
+        <p>一共有3分钟时间来阅读，题目很多，肯定做不完的。所以没有做完也没有关系，只要尽快做就好了。</p>
+        <div class="key-instruction">
+          <div>按键说明：</div>
+          <div>Q 键 = 正确（√）</div>
+          <div>W 键 = 错误（╳）</div>
         </div>
+        <p style="margin-top:15px">你也可以直接点击屏幕上的"正确"或"错误"按钮来回答。</p>
+        <el-button type="primary" class="continue-btn" @click="nextPhase">下一步</el-button>
       </div>
-    </div>
-  `;
 
-  const updateTimerDisplay = () => {
-    // 初始化开始时间（如果尚未设置）
-    if (startTime === null) {
-      startTime = performance.now();
-      lastUpdateTime = startTime;
-    }
-    
-    // 获取当前时间
-    const currentTime = performance.now();
-    
-    // 根据实际经过的时间更新计时器值
-    const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
-    window.timerValue = Math.max(0, 180 - elapsedSeconds);
-    
-    // 至少过去了1秒才更新显示
-    if (currentTime - lastUpdateTime >= 1000) {
-      lastUpdateTime = currentTime;
-      
-      if (window.timerValue <= 0) {
-        clearInterval(intervalId);
-
-        // 使用正确的方法结束实验
-        try {
-          // 尝试使用可用的方法结束实验
-          if (jsPsych && typeof jsPsych.endExperiment === 'function') {
-            jsPsych.endExperiment('<div class="experiment-end"><h2>实验结束</h2><p>感谢你的参与！</p></div>');
-          } else {
-            // 显示结束信息
-            const jspsychTarget = document.getElementById('jspsych-target');
-            if (jspsychTarget) {
-              jspsychTarget.innerHTML = '<div class="experiment-end"><h2>实验结束</h2><p>感谢你的参与！</p></div>';
-            }
-            // 尝试使用finishTrial
-            if (jsPsych && typeof jsPsych.finishTrial === 'function') {
-              jsPsych.finishTrial();
-            }
-          }
-        } catch (error) {
-          console.error('结束实验时出错:', error);
-          // 确保实验结束信息显示
-          const jspsychTarget = document.getElementById('jspsych-target');
-          if (jspsychTarget) {
-            jspsychTarget.innerHTML = '<div class="experiment-end"><h2>实验结束</h2><p>感谢你的参与！</p></div>';
-          }
-        }
-        return;
-      }
-
-      const minutes = Math.floor(window.timerValue / 60);
-      const seconds = window.timerValue % 60;
-      const minutesDisplay = String(minutes).padStart(2, '0');
-      const secondsDisplay = String(seconds).padStart(2, '0');
-
-      const minutesEl = document.getElementById('timer-minutes');
-      const secondsEl = document.getElementById('timer-seconds');
-
-      if (minutesEl && secondsEl) {
-        minutesEl.textContent = minutesDisplay;
-        secondsEl.textContent = secondsDisplay;
-      }
-    }
-  };
-
-  return {
-    type: htmlKeyboardResponse,
-    stimulus: timerHtml,
-    choices: "NO_KEYS",
-    trial_duration: 0,
-    data: {
-      phase: 'timer'
-    },
-    version: '1.0.0',
-    on_start: () => {
-      // 防止重复启动计时器
-      if (!window.timerStarted) {
-        window.timerStarted = true;
-        // 高频率更新计时器，以确保平滑运行
-        intervalId = setInterval(updateTimerDisplay, 100);
-        // 立即更新一次显示
-        updateTimerDisplay();
-      }
-    }
-  };
-};
-
-// 创建实验指导语试验
-const createInstructionTrials = () => {
-  const welcomeHtml = `
-    <div class="instruction">
-      <h2>阅读流畅性实验</h2>
-      <p>同学们，我们现在来玩的这个游戏是让你阅读句子，并判断句子是否正确。</p>
-      <p>请你快速认真地读完句子（默读），如果你觉得句子是正确的，你就在句子后面的括号内打个"√"；如果你觉得句子是错误的，那就在句子后面的括号内打个"╳"。</p>
-      <p>如果读句子时遇到不认识的字，也不要停下来，抓紧时间，继续往后做。</p>
-      <p>记住要一题一题从上往下做，做完一页后快速翻到后面再继续做。</p>
-      <p>一共有3分钟时间来阅读，题目很多，肯定做不完的。所以没有做完也没有关系，只要尽快做就好了。</p>
-      <div class="key-instruction">
-        <div>按键说明：</div>
-        <div>Q 键 = 正确（√）</div>
-        <div>W 键 = 错误（╳）</div>
+      <!-- 练习阶段说明 -->
+      <div v-else-if="phase === 'practice-intro'" class="instruction">
+        <h2>练习阶段</h2>
+        <p>我们先来练习几道题，看你有没有明白，好吗？</p>
+        <el-button type="primary" class="continue-btn" @click="nextPhase">开始练习</el-button>
       </div>
-      <p style="margin-top:15px">你也可以直接点击屏幕上的"正确"或"错误"按钮来回答。</p>
-    </div>
-  `;
 
-  const practiceInstructionHtml = `
-    <div class="instruction">
-      <h2>练习阶段</h2>
-      <p>我们先来练习几道题，看你有没有明白，好吗？</p>
-    </div>
-  `;
-
-  const formalInstructionHtml = `
-    <div class="instruction">
-      <h2>正式测验</h2>
-      <p>好的，现在我们来多做一些。都准备好了吗？</p>
-      <p>准备好后，点击"开始"按钮，计时将立即开始！</p>
-    </div>
-  `;
-
-  return [
-    {
-      type: htmlButtonResponse,
-      stimulus: welcomeHtml,
-      choices: ['下一步'],
-      button_html: ['<button class="jspsych-btn btn-hover-enabled">%choice%</button>'],
-      data: {
-        phase: 'instruction'
-      },
-      version: '1.0.0',
-      on_load: () => {
-        // 确保滚动位置在顶部
-        window.scrollTo(0, 0);
-      }
-    },
-    {
-      type: htmlButtonResponse,
-      stimulus: practiceInstructionHtml,
-      choices: ['开始练习'],
-      button_html: ['<button class="jspsych-btn btn-hover-enabled">%choice%</button>'],
-      data: {
-        phase: 'practice-instruction'
-      },
-      version: '1.0.0',
-      on_load: () => {
-        // 确保滚动位置在顶部
-        window.scrollTo(0, 0);
-      }
-    },
-    // 练习题在此之后添加
-    {
-      type: htmlButtonResponse,
-      stimulus: formalInstructionHtml,
-      choices: ['开始'],
-      button_html: ['<button class="jspsych-btn primary-btn btn-hover-enabled">%choice%</button>'],
-      data: {
-        phase: 'formal-instruction'
-      },
-      version: '1.0.0',
-      on_load: () => {
-        // 确保滚动位置在顶部
-        window.scrollTo(0, 0);
-      },
-      on_finish: () => {
-        experimentStarted = true;
-      }
-    }
-  ];
-};
-
-// 创建练习阶段试验
-const createPracticeTrials = () => {
-  const practiceTrialsList = [];
-
-  practiceTrials.forEach((trial, index) => {
-    let stimulus;
-
-    if (trial.demonstrated) {
-      // 第一个演示题，自动显示结果
-      stimulus = `
-        <div class="trial-container">
-          <div class="sentence">${trial.text.replace('（      ）', '')}</div>
+      <!-- 练习题阶段 -->
+      <div v-else-if="phase === 'practice'" class="trial-container">
+        <!-- 演示题 -->
+        <div v-if="currentPracticeTrial.demonstrated" class="practice-demo">
+          <div class="sentence">{{ currentPracticeTrial.text.split('（')[0] }}</div>
           <div class="answer">
             <span class="answer-label">（</span>
             <span class="answer-mark wrong-mark answer-animation">╳</span>
             <span class="answer-label">）</span>
           </div>
           <div class="explanation">
-            <p>第${trial.id}题："${trial.text.replace('（      ）', '')}"对还是错？这是错的。</p>
+            <p>第{{ currentPracticeTrial.id }}题："{{ currentPracticeTrial.text.split('（')[0] }}"对还是错？这是错的。</p>
             <p>（自动打个"╳"）</p>
           </div>
+          <el-button type="primary" class="continue-btn" @click="nextTrial">下一题</el-button>
         </div>
-      `;
 
-      practiceTrialsList.push({
-        type: htmlButtonResponse,
-        stimulus: stimulus,
-        choices: ['下一题'],
-        button_html: ['<button class="jspsych-btn btn-hover-enabled">%choice%</button>'],
-        data: {
-          phase: 'practice',
-          trial_id: trial.id,
-          demonstrated: true
-        },
-        version: '1.0.0',
-        on_load: () => {
-          // 确保滚动位置在顶部
-          window.scrollTo(0, 0);
-        }
-      });
-    } else {
-      // 由用户自己完成的练习题
-      stimulus = `
-        <div class="trial-container">
-          <div class="sentence">${trial.text.replace('（       ）', '')}</div>
+        <!-- 练习题 -->
+        <div v-else>
+          <div class="sentence">{{ currentPracticeTrial.text.split('（')[0] }}</div>
           <div class="answer">
             <span class="answer-label">（</span>
-            <span class="answer-mark" id="answer-mark-${trial.id}"></span>
+            <span class="answer-mark" ref="answerMark"></span>
             <span class="answer-label">）</span>
           </div>
           <div class="instruction">
@@ -530,248 +70,173 @@ const createPracticeTrials = () => {
             </div>
           </div>
           <div class="answer-buttons">
-            <button class="answer-btn correct-btn btn-hover-enabled" id="correct-btn-${trial.id}">正确 (√)</button>
-            <button class="answer-btn wrong-btn btn-hover-enabled" id="wrong-btn-${trial.id}">错误 (╳)</button>
+            <button class="answer-btn correct-btn" :class="{ 'selected': userAnswer === true }"
+              @click="handleAnswer(true)">
+              正确 (√)
+            </button>
+            <button class="answer-btn wrong-btn" :class="{ 'selected': userAnswer === false }"
+              @click="handleAnswer(false)">
+              错误 (╳)
+            </button>
           </div>
         </div>
-      `;
+      </div>
 
-      // 增加安全检查的事件处理函数
-      const safeHandleResponse = (response, trialId) => {
-        const answerMark = document.getElementById(`answer-mark-${trialId}`);
-        if (!answerMark) {
-          console.warn(`找不到标记元素: answer-mark-${trialId}`);
-          return;
-        }
-        handleUserResponse(response, trialId, true);
-      };
+      <!-- 正式阶段说明 -->
+      <div v-else-if="phase === 'formal-intro'" class="instruction">
+        <h2>正式测验</h2>
+        <p>好的，现在我们来多做一些。都准备好了吗？</p>
+        <p>准备好后，点击"开始"按钮，计时将立即开始！</p>
+        <el-button type="primary" class="continue-btn" @click="startFormalTest">开始</el-button>
+      </div>
 
-      practiceTrialsList.push({
-        type: htmlKeyboardResponse,
-        stimulus: stimulus,
-        choices: ['q', 'w'],
-        data: {
-          phase: 'practice',
-          trial_id: trial.id,
-          demonstrated: false
-        },
-        version: '1.0.0',
-        on_load: () => {
-          // 确保滚动位置在顶部
-          window.scrollTo(0, 0);
-          
-          // 添加按键响应处理
-          const handleKeyDown = (e) => {
-            if (e.key.toLowerCase() === 'q') {
-              safeHandleResponse('correct', trial.id);
-            } else if (e.key.toLowerCase() === 'w') {
-              safeHandleResponse('wrong', trial.id);
-            }
-          };
-
-          document.addEventListener('keydown', handleKeyDown);
-
-          // 添加鼠标点击支持
-          const correctBtn = document.getElementById(`correct-btn-${trial.id}`);
-          const wrongBtn = document.getElementById(`wrong-btn-${trial.id}`);
-
-          if (correctBtn) {
-            correctBtn.addEventListener('click', () => {
-              safeHandleResponse('correct', trial.id);
-            });
-          }
-
-          if (wrongBtn) {
-            wrongBtn.addEventListener('click', () => {
-              safeHandleResponse('wrong', trial.id);
-            });
-          }
-
-          // 返回清理函数
-          return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-            if (correctBtn) correctBtn.onclick = null;
-            if (wrongBtn) wrongBtn.onclick = null;
-          };
-        },
-        on_finish: (data) => {
-          // 记录用户的响应
-          if (data.response === 'q') {
-            data.user_answer = true;
-          } else if (data.response === 'w') {
-            data.user_answer = false;
-          } else {
-            // 如果没有响应，设置默认值
-            data.user_answer = false;
-          }
-
-          data.correct = data.user_answer === trial.correct;
-
-          // 记录练习题结果但不保存到服务器
-          console.log(`练习题 ${trial.id} 完成:`, {
-            response: data.response,
-            user_answer: data.user_answer,
-            correct: data.correct,
-            rt: data.rt || 0
-          });
-        }
-      });
-    }
-  });
-
-  return practiceTrialsList;
-};
-
-// 创建正式阶段试验
-const createFormalTrials = () => {
-  if (!formalTrials.value.length) return [];
-
-  const formalTrialsList = [];
-
-  // 添加计时器试验（在正式阶段开始时）
-  formalTrialsList.push(createTimerComponent());
-
-  // 添加每个正式题目
-  formalTrials.value.forEach((trial, index) => {
-    const stimulus = `
-      <div class="trial-container formal-trial">
+      <!-- 正式阶段题目 -->
+      <div v-else-if="phase === 'formal' && !testEnded" class="trial-container formal-trial">
         <div class="trial-header">
-          <div class="trial-number">第 ${trial.id} 题</div>
+          <div class="trial-number">第 {{ currentFormalTrial.id }} 题</div>
           <div class="trial-timer">
-            <span id="timer-minutes">03</span>:<span id="timer-seconds">00</span>
+            <span>{{ formatTime(remainingTime) }}</span>
           </div>
         </div>
-        <div class="sentence">${trial.text.split('（')[0]}</div>
+        <div class="sentence">{{ currentFormalTrial.text.split('（')[0] }}</div>
         <div class="answer">
           <span class="answer-label">（</span>
-          <span class="answer-mark" id="answer-mark-${trial.id}"></span>
+          <span class="answer-mark" ref="answerMark"></span>
           <span class="answer-label">）</span>
         </div>
         <div class="answer-buttons">
-          <button class="answer-btn correct-btn btn-hover-enabled" id="correct-btn-${trial.id}">正确 (√)</button>
-          <button class="answer-btn wrong-btn btn-hover-enabled" id="wrong-btn-${trial.id}">错误 (╳)</button>
+          <button class="answer-btn correct-btn" :class="{ 'selected': userAnswer === true }" @click="handleAnswer(true)">
+            正确 (√)
+          </button>
+          <button class="answer-btn wrong-btn" :class="{ 'selected': userAnswer === false }" @click="handleAnswer(false)">
+            错误 (╳)
+          </button>
+        </div>
+
+        <!-- 计时器沙漏 -->
+        <div class="timer-container">
+          <div class="hourglass-container">
+            <div class="hourglass">
+              <div class="hourglass-top" :style="hourglassTopStyle"></div>
+              <div class="hourglass-bottom" :style="hourglassBottomStyle"></div>
+            </div>
+          </div>
         </div>
       </div>
-    `;
 
-    formalTrialsList.push({
-      type: htmlKeyboardResponse,
-      stimulus: stimulus,
-      choices: ['q', 'w'],
-      data: {
-        trial_id: trial.id,
-        trial_type: 'formal',
-        sentence: trial.text,
-        phase: 'formal'
-      },
-      version: '1.0.0',
-      on_load: () => {
-        // 确保滚动位置在顶部
-        window.scrollTo(0, 0);
-        
-        // 更新当前试验状态
-        currentTrialId = trial.id;
-        trialTransitioning = false;
-        keyProcessing.value = false;
-        
-        // 同步显示计时器的当前时间
-        const updateCurrentTimerDisplay = () => {
-          if (window.timerValue !== undefined) {
-            const minutes = Math.floor(window.timerValue / 60);
-            const seconds = window.timerValue % 60;
-            const minutesDisplay = String(minutes).padStart(2, '0');
-            const secondsDisplay = String(seconds).padStart(2, '0');
+      <!-- 实验结束 -->
+      <div v-else-if="phase === 'end'" class="experiment-end">
+        <h2>实验结束</h2>
+        <p>感谢你的参与！</p>
+      </div>
+    </div>
+  </div>
+</template>
 
-            const minutesEl = document.getElementById('timer-minutes');
-            const secondsEl = document.getElementById('timer-seconds');
+<script setup>
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ElMessage } from 'element-plus';
 
-            if (minutesEl && secondsEl) {
-              minutesEl.textContent = minutesDisplay;
-              secondsEl.textContent = secondsDisplay;
-            }
-          }
-        };
+// 状态变量
+const phase = ref('welcome'); // 实验阶段: welcome, practice-intro, practice, formal-intro, formal, end
+const currentPracticeIndex = ref(0);
+const currentFormalIndex = ref(0);
+const userAnswer = ref(null);
+const answerMark = ref(null);
+const isProcessing = ref(false);
+const testEnded = ref(false);
+const debugMode = ref(false);
+const jumpToTrial = ref(1);
+const maxTrials = ref(100);
+const remainingTime = ref(180); // 3分钟倒计时
+const startTime = ref(null);
+const timerInterval = ref(null);
 
-        // 立即更新一次计时器显示
-        updateCurrentTimerDisplay();
+// 计算属性
+const currentPracticeTrial = computed(() => {
+  return practiceTrials[currentPracticeIndex.value] || {};
+});
 
-        // 添加按键响应处理
-        const handleKeyDown = (e) => {
-          // 忽略重复触发的键盘事件（长按）
-          if (e.repeat) return;
-          
-          // 忽略试验间切换
-          if (trialTransitioning) return;
-          
-          // 防止事件冒泡导致多次触发
-          e.stopPropagation();
-          
-          if (e.key.toLowerCase() === 'q') {
-            handleUserResponse('correct', trial.id);
-          } else if (e.key.toLowerCase() === 'w') {
-            handleUserResponse('wrong', trial.id);
-          }
-        };
+const currentFormalTrial = computed(() => {
+  return formalTrials.value[currentFormalIndex.value] || {};
+});
 
-        document.addEventListener('keydown', handleKeyDown, {capture: true, once: false});
+// 沙漏样式计算
+const hourglassTopStyle = computed(() => {
+  const percentage = (remainingTime.value / 180) * 100;
+  return {
+    height: `${percentage / 2}%`,
+    transition: 'height 1s linear'
+  };
+});
 
-        // 添加鼠标点击事件
-        const correctBtn = document.getElementById(`correct-btn-${trial.id}`);
-        const wrongBtn = document.getElementById(`wrong-btn-${trial.id}`);
+const hourglassBottomStyle = computed(() => {
+  const percentage = 100 - (remainingTime.value / 180) * 100;
+  return {
+    height: `${percentage / 2}%`,
+    backgroundColor: percentage > 80 ? '#409EFF' : '#E6E6E6',
+    transition: 'height 1s linear, background-color 1s linear'
+  };
+});
 
-        if (correctBtn) {
-          correctBtn.addEventListener('click', (e) => {
-            // 防止事件冒泡
-            e.stopPropagation();
-            // 忽略试验间切换
-            if (trialTransitioning) return;
-            handleUserResponse('correct', trial.id);
-          }, {capture: true, once: true});
-        }
+// 教学阶段试题数据
+const practiceTrials = [
+  { id: 1, text: "太阳从西边升起。（      ）", correct: false, demonstrated: true },
+  { id: 2, text: "燕子会飞。（       ）", correct: true, demonstrated: false },
+  { id: 3, text: "写字要用手。（       ）", correct: true, demonstrated: false }
+];
 
-        if (wrongBtn) {
-          wrongBtn.addEventListener('click', (e) => {
-            // 防止事件冒泡
-            e.stopPropagation();
-            // 忽略试验间切换
-            if (trialTransitioning) return;
-            handleUserResponse('wrong', trial.id);
-          }, {capture: true, once: true});
-        }
+// 正式阶段试题数据
+const formalTrials = ref([]);
 
-        // 清理函数
-        return () => {
-          document.removeEventListener('keydown', handleKeyDown, {capture: true});
-          if (correctBtn) correctBtn.onclick = null;
-          if (wrongBtn) wrongBtn.onclick = null;
-        };
-      },
-      on_finish: (data) => {
-        // 记录用户的响应
-        if (data.response === 'q') {
-          data.user_answer = true; // 正确
-        } else if (data.response === 'w') {
-          data.user_answer = false; // 错误
-        } else {
-          // 如果没有响应，设置默认值避免验证错误
-          data.user_answer = false;
-          data.rt = data.rt || 0; // 确保有响应时间，即使用户没有响应
-        }
+// 记录开始时间的方法（用于计算反应时间）
+let trialStartTime = 0;
 
-        // 保存试验数据到服务器
-        saveTrialData({
-          trial_id: trial.id,
-          user_answer: data.user_answer,
-          response_time: data.rt || 0
-        });
-        
-        // 重置试验状态
-        currentTrialId = null;
-      }
-    });
-  });
+// 键盘监听函数
+const keyHandler = (e) => {
+  // 检测是否同时按下【】键 (Alt+[ 和 Alt+])
+  if ((e.key === '[' && e.altKey) || (e.key === ']' && e.altKey)) {
+    debugMode.value = !debugMode.value;
+    return;
+  }
 
-  return formalTrialsList;
+  // 如果正在处理答案或不在练习/正式阶段，则不处理键盘输入
+  if (isProcessing.value || (phase.value !== 'practice' && phase.value !== 'formal') ||
+    (phase.value === 'practice' && currentPracticeTrial.value.demonstrated)) {
+    return;
+  }
+
+  // 按键响应
+  if (e.key.toLowerCase() === 'q') {
+    handleAnswer(true);
+  } else if (e.key.toLowerCase() === 'w') {
+    handleAnswer(false);
+  }
+};
+
+// 格式化时间显示
+const formatTime = (seconds) => {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+};
+
+// 更新计时器
+const updateTimer = () => {
+  if (phase.value !== 'formal' || testEnded.value) return;
+
+  remainingTime.value--;
+
+  if (remainingTime.value <= 0) {
+    clearInterval(timerInterval.value);
+    endTest();
+  }
+};
+
+// 启动倒计时
+const startTimer = () => {
+  if (timerInterval.value) clearInterval(timerInterval.value);
+  timerInterval.value = setInterval(updateTimer, 1000);
 };
 
 // 获取试验数据
@@ -782,7 +247,10 @@ const fetchTrials = async () => {
       const data = await response.json();
       formalTrials.value = data.formalTrials.map((trial, index) => ({
         id: index + 1,
-        text: trial
+        text: trial,
+        startTime: 0,
+        responseTime: 0,
+        userAnswer: null
       }));
       maxTrials.value = formalTrials.value.length;
     } else {
@@ -796,10 +264,8 @@ const fetchTrials = async () => {
   }
 };
 
-// 解析本地试验数据（从上传的文件）
+// 解析本地试验数据（备用方案）
 const parseLocalTrials = () => {
-  // 使用服务器中上传的CSV文件的硬编码样例
-  // 这只是在API请求失败时的备用方案
   const formalTrialsRaw = [
     "天安门在北京。（       ）",
     "老虎喜欢吃青草。（        ）",
@@ -815,106 +281,158 @@ const parseLocalTrials = () => {
 
   formalTrials.value = formalTrialsRaw.map((trial, index) => ({
     id: index + 1,
-    text: trial
+    text: trial,
+    startTime: 0,
+    responseTime: 0,
+    userAnswer: null
   }));
 
   maxTrials.value = formalTrials.value.length;
-
   console.warn('使用备用试题数据，请检查API连接');
 };
 
-// 初始化jsPsych并运行实验
-const initializeExperiment = () => {
-  // 先确保目标元素存在
-  let targetElement = document.getElementById('jspsych-target');
-  
-  if (!targetElement) {
-    console.warn('JSPsych目标元素不存在，创建一个新的元素');
-    // 直接添加到body上，不依赖experiment-container
-    const newTarget = document.createElement('div');
-    newTarget.id = 'jspsych-target';
-    newTarget.className = 'jspsych-display-element';
-    document.body.appendChild(newTarget);
-    targetElement = newTarget;
+// 处理用户回答
+const handleAnswer = (isCorrect) => {
+  if (isProcessing.value) return;
+
+  isProcessing.value = true;
+  userAnswer.value = isCorrect;
+
+  // 计算反应时间（毫秒）
+  const responseTime = Date.now() - trialStartTime;
+
+  // 更新答案标记
+  const markEl = answerMark.value;
+  if (markEl) {
+    markEl.textContent = isCorrect ? '√' : '╳';
+    markEl.classList.remove('correct-mark', 'wrong-mark', 'answer-animation');
+
+    if (isCorrect) {
+      markEl.classList.add('correct-mark');
+    } else {
+      markEl.classList.add('wrong-mark');
+    }
+
+    // 触发动画
+    setTimeout(() => {
+      markEl.classList.add('answer-animation');
+    }, 10);
   }
 
-  // 添加顶部空间占位元素，使内容显示在屏幕中央偏上
-  const spacer = document.createElement('div');
-  spacer.className = 'top-spacer';
-  document.body.insertBefore(spacer, targetElement);
+  // 保存数据（如果在正式阶段）
+  if (phase.value === 'formal') {
+    const currentTrial = formalTrials.value[currentFormalIndex.value];
+    if (currentTrial) {
+      currentTrial.userAnswer = isCorrect;
+      currentTrial.responseTime = responseTime;
 
-  // 确保初始滚动位置在页面顶部
-  window.scrollTo(0, 0);
+      // 保存到服务器
+      saveTrialData({
+        trial_id: currentTrial.id,
+        user_answer: isCorrect,
+        response_time: responseTime
+      });
+    }
+  }
 
-  try {
-    // 初始化jsPsych
-    jsPsych = initJsPsych({
-      display_element: targetElement, // 直接传递DOM元素而非ID字符串
-      on_finish: () => {
-        // 实验结束时的处理
-        clearInterval(intervalId);
-        ElMessage.success('实验已完成，感谢您的参与！');
-      },
-      use_webaudio: false, // 禁用Web Audio以防止在某些浏览器中出现问题
-      exclusions: {
-        min_width: 300, // 最小屏幕宽度
-        min_height: 300 // 最小屏幕高度
-      },
-      show_progress_bar: false,
-      auto_update_progress_bar: false,
-      default_iti: 0 // 默认试验间隔
-    });
+  // 短暂延迟后进入下一题
+  setTimeout(() => {
+    nextTrial();
+    isProcessing.value = false;
+  }, 500);
+};
 
-    // 合并所有试验
-    const timeline = [
-      ...createInstructionTrials(),
-      ...createPracticeTrials(),
-      ...createFormalTrials()
-    ];
-
-    // 运行jsPsych
-    jsPsych.run(timeline);
-  } catch (error) {
-    console.error('初始化jsPsych时出错:', error);
-    ElMessage.error('实验初始化失败，请刷新页面重试');
+// 进入下一阶段
+const nextPhase = () => {
+  switch (phase.value) {
+    case 'welcome':
+      phase.value = 'practice-intro';
+      break;
+    case 'practice-intro':
+      phase.value = 'practice';
+      currentPracticeIndex.value = 0;
+      prepareCurrentTrial();
+      break;
+    case 'practice':
+      if (currentPracticeIndex.value >= practiceTrials.length - 1) {
+        phase.value = 'formal-intro';
+      } else {
+        currentPracticeIndex.value++;
+        prepareCurrentTrial();
+      }
+      break;
+    case 'formal-intro':
+      startFormalTest();
+      break;
+    default:
+      break;
   }
 };
 
-// 生命周期钩子
-onMounted(async () => {
-  console.log('组件已挂载，开始初始化实验');
-  // 添加键盘事件监听器（用于调试模式）
-  window.addEventListener('keydown', keyHandler);
+// 开始正式测试
+const startFormalTest = () => {
+  phase.value = 'formal';
+  currentFormalIndex.value = 0;
+  remainingTime.value = 180; // 重置计时器
+  startTimer(); // 启动计时器
+  prepareCurrentTrial();
+};
 
-  try {
-    // 获取试验数据
-    await fetchTrials();
+// 准备当前试题
+const prepareCurrentTrial = () => {
+  userAnswer.value = null;
 
-    // 确保初始滚动位置在页面顶部
-    window.scrollTo(0, 0);
+  // 记录试题开始时间（用于计算反应时间）
+  trialStartTime = Date.now();
 
-    // 使用更长的延迟确保DOM完全渲染
-    setTimeout(() => {
-      console.log('DOM状态检查:');
-      console.log('- jspsych-target元素:', !!document.getElementById('jspsych-target'));
-      
-      // 初始化实验
-      initializeExperiment();
-      
-      // 再次确保滚动位置在顶部
-      window.scrollTo(0, 0);
-    }, 500); // 降到500ms延迟，加快加载速度
-  } catch (error) {
-    console.error('初始化实验时出错:', error);
-    ElMessage.error('初始化实验失败，请刷新页面重试');
+  nextTick(() => {
+    // 确保DOM更新后再重置答案标记
+    if (answerMark.value) {
+      answerMark.value.textContent = '';
+      answerMark.value.classList.remove('correct-mark', 'wrong-mark', 'answer-animation');
+    }
+  });
+};
+
+// 进入下一题
+const nextTrial = () => {
+  if (phase.value === 'practice') {
+    if (currentPracticeIndex.value >= practiceTrials.length - 1) {
+      phase.value = 'formal-intro';
+    } else {
+      currentPracticeIndex.value++;
+      prepareCurrentTrial();
+    }
+  } else if (phase.value === 'formal') {
+    if (currentFormalIndex.value >= formalTrials.value.length - 1 || remainingTime.value <= 0) {
+      endTest();
+    } else {
+      currentFormalIndex.value++;
+      prepareCurrentTrial();
+    }
   }
-});
+};
 
-onUnmounted(() => {
-  // 清理资源
-  window.removeEventListener('keydown', keyHandler);
-  clearInterval(intervalId);
-});
+// 结束测试
+const endTest = () => {
+  clearInterval(timerInterval.value);
+  testEnded.value = true;
+  phase.value = 'end';
+  ElMessage.success('实验已完成，感谢您的参与！');
+};
+
+// 跳转到指定题号（仅调试模式）
+const jumpToTrialNumber = () => {
+  if (phase.value !== 'formal') {
+    ElMessage.warning('只能在正式阶段跳转题目');
+    return;
+  }
+
+  const targetIndex = Math.min(jumpToTrial.value - 1, formalTrials.value.length - 1);
+  currentFormalIndex.value = Math.max(0, targetIndex);
+  prepareCurrentTrial();
+  ElMessage.success(`已跳转到第 ${jumpToTrial.value} 题`);
+};
 
 // 保存试验数据到服务器
 const saveTrialData = async (trialData) => {
@@ -959,11 +477,36 @@ const saveTrialData = async (trialData) => {
   } catch (error) {
     console.error('保存数据出错:', error);
   }
-}
+};
+
+// 生命周期钩子
+onMounted(async () => {
+  // 添加键盘事件监听
+  window.addEventListener('keydown', keyHandler);
+
+  // 获取试验数据
+  await fetchTrials();
+
+  // 确保初始滚动位置在页面顶部
+  window.scrollTo(0, 0);
+});
+
+onUnmounted(() => {
+  // 清理资源
+  window.removeEventListener('keydown', keyHandler);
+  clearInterval(timerInterval.value);
+});
+
+// 观察remainingTime变化，以便在调试模式下更新
+watch(remainingTime, (newVal) => {
+  if (debugMode.value && phase.value === 'formal') {
+    // 调试模式下手动更新倒计时，触发计算属性重新计算沙漏样式
+  }
+});
 </script>
 
 <style>
-/* 全局样式 - 不使用scoped，确保应用到jsPsych生成的元素 */
+/* 全局样式 */
 .experiment-container {
   display: flex;
   flex-direction: column;
@@ -972,48 +515,34 @@ const saveTrialData = async (trialData) => {
   padding: 20px;
 }
 
-/* 顶部空间，用于将内容向下推 */
-.top-spacer {
-  height: 10vh; /* 调整这个值可以控制内容向下的距离 */
+.content-area {
   width: 100%;
-}
-
-/* JSPsych显示元素样式，确保居中 */
-.jspsych-display-element {
-  width: 100%;
-  max-width: 1000px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 20px;
   box-sizing: border-box;
 }
 
-/* 内容容器样式，控制显示范围 */
-#jspsych-content {
-  max-width: 800px !important;
-  margin: 0 auto !important;
-}
-
-/* 添加jsPsych自定义样式 */
-.jspsych-content {
-  max-width: 800px;
-}
-
-.jspsych-btn {
-  padding: 10px 20px;
-  font-size: 16px;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  margin: 10px;
-}
-
-.primary-btn {
-  background-color: #409EFF;
+/* 调试面板 */
+.debug-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.8);
   color: white;
-  font-weight: bold;
+  padding: 10px;
+  z-index: 1000;
+  border-radius: 0 0 5px 0;
 }
 
+.debug-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 指导语样式 */
 .instruction {
   max-width: 700px;
   margin: 0 auto;
@@ -1037,12 +566,12 @@ const saveTrialData = async (trialData) => {
 
 .continue-btn {
   margin: 20px auto;
-  text-align: center;
-  padding: 10px 0;
+  display: block;
+  min-width: 120px;
   font-weight: bold;
-  color: #409EFF;
 }
 
+/* 试题样式 */
 .trial-container {
   display: flex;
   flex-direction: column;
@@ -1152,6 +681,11 @@ const saveTrialData = async (trialData) => {
   overflow: hidden;
 }
 
+.answer-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .answer-btn::after {
   content: '';
   display: block;
@@ -1173,11 +707,6 @@ const saveTrialData = async (trialData) => {
   transform: scale(0, 0);
   opacity: 0.1;
   transition: 0s;
-}
-
-.btn-hover-enabled:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .correct-btn {
@@ -1224,11 +753,6 @@ const saveTrialData = async (trialData) => {
   width: 100%;
 }
 
-.instruction {
-  margin: 10px 0;
-  line-height: 1.6;
-}
-
 .key-guide {
   background-color: #f5f7fa;
   padding: 10px;
@@ -1236,25 +760,13 @@ const saveTrialData = async (trialData) => {
   margin: 10px 0;
 }
 
+/* 计时器和沙漏 */
 .timer-container {
   position: fixed;
   top: 20px;
   right: 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-}
-
-.timer {
-  font-size: 24px;
-  font-weight: bold;
-  color: #409EFF;
-  background-color: white;
-  padding: 10px 15px;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  display: flex;
-  justify-content: center;
   align-items: center;
 }
 
@@ -1277,41 +789,18 @@ const saveTrialData = async (trialData) => {
   height: 25px;
   background-color: #409EFF;
   clip-path: polygon(0 0, 100% 0, 50% 100%, 0 0);
-  animation: drainSand 180s linear forwards;
 }
 
 .hourglass-bottom {
   position: absolute;
   bottom: 0;
   width: 30px;
-  height: 25px;
+  height: 0;
   background-color: #E6E6E6;
   clip-path: polygon(0 100%, 100% 100%, 50% 0, 0 100%);
-  animation: fillSand 180s linear forwards;
 }
 
-@keyframes drainSand {
-  from {
-    height: 25px;
-  }
-
-  to {
-    height: 0;
-  }
-}
-
-@keyframes fillSand {
-  from {
-    height: 0;
-    background-color: #E6E6E6;
-  }
-
-  to {
-    height: 25px;
-    background-color: #409EFF;
-  }
-}
-
+/* 实验结束 */
 .experiment-end {
   text-align: center;
   padding: 40px;
