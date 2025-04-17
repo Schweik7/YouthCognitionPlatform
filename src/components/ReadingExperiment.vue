@@ -48,8 +48,7 @@
             <span class="answer-label">）</span>
           </div>
           <div class="explanation">
-            <p>第{{ currentPracticeTrial.id }}题："{{ currentPracticeTrial.text.split('（')[0] }}"对还是错？这是错的。</p>
-            <p>（自动打个"╳"）</p>
+            <p>第{{ currentPracticeTrial.id }}题："{{ currentPracticeTrial.text.split('（')[0] }}"对还是错呢？这是错的。</p>
           </div>
           <el-button type="primary" class="continue-btn" @click="nextTrial">下一题</el-button>
         </div>
