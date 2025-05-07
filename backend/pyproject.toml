@@ -1,0 +1,62 @@
+[project]
+name = "jsPsych-demo"
+version = "0.1.0"
+description = "认知能力评估平台"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Schweik7", email = "schweik7@qq.com"},
+]
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.23.2",
+    "sqlmodel>=0.0.8",
+    "python-multipart>=0.0.6",
+    "pymysql>=1.1.0",
+    "pydantic>=2.4.2",
+    "cryptography>=41.0.5",  # 用于 PyMySQL 加密
+    "python-jose[cryptography]>=3.3.0",  # JWT 认证
+    "passlib[bcrypt]>=1.7.4",  # 密码哈希
+    "aiofiles>=23.2.1",  # 异步文件处理
+    "pandas>=2.1.1",  # 数据处理
+    "pytest>=7.4.2",  # 测试框架
+    "pydantic-settings>=2.8.0",  # 配置管理
+    "python-dotenv>=1.0.0"  # 环境变量管理
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.9.1",
+    "isort>=5.12.0",
+    "flake8>=6.1.0",
+    "mypy>=1.5.1",
+    "pytest-cov>=4.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

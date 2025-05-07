@@ -61,7 +61,7 @@ const rules = {
 // 获取最近的学校信息
 onMounted(async () => {
     try {
-        const response = await fetch('/api/schools/recent');
+        const response = await fetch('/api/users/schools/recent');
         if (response.ok) {
             const data = await response.json();
             recentSchools.value = data.schools;

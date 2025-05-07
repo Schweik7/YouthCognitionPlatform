@@ -1,0 +1,121 @@
+import os
+from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from sqlmodel import Session
+import uvicorn
+from pathlib import Path
+import time
+from datetime import datetime
+
+from config import settings
+from database import get_session, create_db_and_tables
+from logger import init_logger, close_logger
+
+# 导入各个应用的路由
+from apps.users.router import router as users_router
+from apps.reading_fluency.router import router as reading_fluency_router
+# 未来可以导入其他测试系统的路由
+# from apps.word_recognition.router import router as word_recognition_router
+# from apps.attention_test.router import router as attention_test_router
+# from apps.calculation.router import router as calculation_router
+
+# 初始化日志记录器
+logger = init_logger()
+
+# 创建FastAPI应用
+app = FastAPI(
+    title=settings.APP_NAME,
+    description="认知能力评估平台API",
+    version="0.1.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
+
+# 添加CORS中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# 添加请求日志中间件
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    print(f"[{datetime.now().isoformat()}] {request.method} {request.url.path}")
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    print(
+        f"[{datetime.now().isoformat()}] {request.method} {request.url.path} {response.status_code} - {process_time:.4f}s"
+    )
+    return response
+
+
+# 注册路由
+# 用户管理路由
+app.include_router(users_router, prefix=f"{settings.API_PREFIX}/users")
+
+# 测试系统路由
+app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}/reading-fluency")
+# 未来可以注册其他测试系统的路由
+# app.include_router(word_recognition_router, prefix=f"{settings.API_PREFIX}/word-recognition")
+# app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
+# app.include_router(calculation_router, prefix=f"{settings.API_PREFIX}/calculation")
+
+# 向后兼容的路由处理
+# 将 /api/schools/recent 重定向到 /api/users/schools/recent
+app.include_router(users_router, prefix=f"{settings.API_PREFIX}", include_in_schema=False)
+# 将 /api/save-trial 等重定向到 /api/reading-fluency/save-trial
+app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}", include_in_schema=False)
+
+# 挂载静态文件服务（前端资源）
+static_dir = Path("dist")
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def serve_spa(request: Request):
+    """提供前端SPA页面"""
+    index_html = static_dir / "index.html"
+    if index_html.exists():
+        return FileResponse(index_html)
+    return HTMLResponse("<html><body><h1>认知能力评估平台</h1><p>前端资源未构建</p></body></html>")
+
+
+@app.on_event("startup")
+def on_startup():
+    """应用启动时执行"""
+    # 创建数据库表
+    create_db_and_tables()
+    print("数据库表创建完成")
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    """应用关闭时执行"""
+    # 关闭日志记录器
+    close_logger()
+
+
+@app.get("/health", tags=["健康检查"])
+async def health_check():
+    """API健康检查"""
+    return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    # 直接运行此文件时启动服务器
+    try:
+        uvicorn.run("main:app", host="0.0.0.0", port=3000, reload=True)
+    except KeyboardInterrupt:
+        print("\n用户中断，应用正在关闭...")
+    finally:
+        # 确保日志记录器被关闭
+        close_logger()

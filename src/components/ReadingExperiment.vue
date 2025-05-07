@@ -241,7 +241,7 @@ const startTimer = () => {
 // 获取试验数据
 const fetchTrials = async () => {
   try {
-    const response = await fetch('/api/trials');
+    const response = await fetch('/api/reading-fluency/trials');
     if (response.ok) {
       const data = await response.json();
       formalTrials.value = data.formalTrials.map((trial, index) => ({
@@ -455,7 +455,7 @@ const saveTrialData = async (trialData) => {
   }
 
   try {
-    const response = await fetch('/api/save-trial', {
+    const response = await fetch('/api/reading-fluency/save-trial', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
