@@ -11,18 +11,16 @@ from datetime import datetime
 
 from config import settings
 from database import get_session, create_db_and_tables
-from logger import init_logger, close_logger
+from logger_config import logger
 
 # 导入各个应用的路由
 from apps.users.router import router as users_router
 from apps.reading_fluency.router import router as reading_fluency_router
+
 # 未来可以导入其他测试系统的路由
 # from apps.word_recognition.router import router as word_recognition_router
 # from apps.attention_test.router import router as attention_test_router
 # from apps.calculation.router import router as calculation_router
-
-# 初始化日志记录器
-logger = init_logger()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -48,12 +46,14 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
-    print(f"[{datetime.now().isoformat()}] {request.method} {request.url.path}")
+
+    logger.info(f"{request.method} {request.url.path}")
+
     response = await call_next(request)
+
     process_time = time.time() - start_time
-    print(
-        f"[{datetime.now().isoformat()}] {request.method} {request.url.path} {response.status_code} - {process_time:.4f}s"
-    )
+    logger.info(f"{request.method} {request.url.path} {response.status_code} - {process_time:.4f}s")
+
     return response
 
 
@@ -94,14 +94,8 @@ def on_startup():
     """应用启动时执行"""
     # 创建数据库表
     create_db_and_tables()
-    print("数据库表创建完成")
-
-
-@app.on_event("shutdown")
-def on_shutdown():
-    """应用关闭时执行"""
-    # 关闭日志记录器
-    close_logger()
+    logger.info("数据库表创建完成")
+    logger.info(f"应用启动成功，访问地址: http://localhost:{settings.PORT}")
 
 
 @app.get("/health", tags=["健康检查"])
@@ -113,9 +107,9 @@ async def health_check():
 if __name__ == "__main__":
     # 直接运行此文件时启动服务器
     try:
-        uvicorn.run("main:app", host="0.0.0.0", port=3000, reload=True)
+        logger.info(f"启动服务器 - 端口: {settings.PORT}")
+        uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True)
     except KeyboardInterrupt:
-        print("\n用户中断，应用正在关闭...")
-    finally:
-        # 确保日志记录器被关闭
-        close_logger()
+        logger.info("用户中断，应用正在关闭...")
+    except Exception as e:
+        logger.error(f"应用启动失败: {e}")

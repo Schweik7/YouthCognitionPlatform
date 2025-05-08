@@ -23,8 +23,8 @@
                         class="full-width"></el-input-number>
                 </el-form-item>
 
-                <el-form-item label="班级" prop="classNumber">
-                    <el-input-number v-model="userForm.classNumber" :min="1" :max="30" placeholder="请输入班级"
+                <el-form-item label="班级" prop="class_number">
+                    <el-input-number v-model="userForm.class_number" :min="1" :max="30" placeholder="请输入班级"
                         class="full-width"></el-input-number>
                 </el-form-item>
 
@@ -48,14 +48,14 @@ const userForm = reactive({
     name: '',
     school: '',
     grade: null,
-    classNumber: null
+    class_number: null
 });
 
 const rules = {
     name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
     school: [{ required: true, message: '请输入学校', trigger: 'blur' }],
     grade: [{ required: true, message: '请输入年级', trigger: 'blur' }],
-    classNumber: [{ required: true, message: '请输入班级', trigger: 'blur' }]
+    class_number: [{ required: true, message: '请输入班级', trigger: 'blur' }]
 };
 
 // 获取最近的学校信息

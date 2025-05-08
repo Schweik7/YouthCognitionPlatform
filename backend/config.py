@@ -5,11 +5,13 @@ from typing import Optional, List
 
 class Settings(BaseSettings):
     """应用配置类"""
+
     # 基础设置
     APP_NAME: str = "认知能力评估平台"
     API_PREFIX: str = "/api"
     DEBUG: bool = True
-    
+    PORT: int = 3000
+
     # 数据库设置
     DB_USER: str = "meng"
     DB_PASSWORD: str = "meng123456"
@@ -17,15 +19,15 @@ class Settings(BaseSettings):
     DB_PORT: int = 3306
     DB_NAME: str = "appdb"
     DATABASE_URL: Optional[str] = None
-    
+
     # 安全设置
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
-    
+
     # CORS设置
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
-    
+
     # 文件路径设置
     DATA_DIR: str = "data"
 

@@ -79,6 +79,8 @@ uv pip install -r pyproject.toml
 
 ### 3. 配置数据库
 
+docker run -d --name mysql-8-app -p 3306:3306 -e MYSQL_ROOT_PASSWORD=meng123456 -e MYSQL_DATABASE=appdb -e MYSQL_USER=meng -e MYSQL_PASSWORD=meng123456 -v mysql_data:/var/lib/mysql mysql:8.0.39 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
+
 确保 MySQL 服务已启动，并创建名为 `appdb` 的数据库：
 
 ```sql

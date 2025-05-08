@@ -22,7 +22,8 @@ dependencies = [
     "pandas>=2.1.1",  # 数据处理
     "pytest>=7.4.2",  # 测试框架
     "pydantic-settings>=2.8.0",  # 配置管理
-    "python-dotenv>=1.0.0"  # 环境变量管理
+    "python-dotenv>=1.0.0",  # 环境变量管理
+    "loguru>=0.7.0",  # 日志记录
 ]
 
 [project.optional-dependencies]

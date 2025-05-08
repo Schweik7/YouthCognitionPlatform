@@ -2,7 +2,7 @@ pnpm-lock.yaml
 *.pdf
 *.exe
 *.pyc
-
+新建文件夹/**
 # Logs
 logs
 *.log

@@ -449,7 +449,7 @@ const saveTrialData = async (trialData) => {
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
 
   // 确保必要的用户信息存在
-  if (!userInfo.name || !userInfo.school || !userInfo.grade || !userInfo.classNumber) {
+  if (!userInfo.name || !userInfo.school || !userInfo.grade || !userInfo.class_number) {
     console.error('saveTrialData: 用户信息不完整', userInfo);
     return; // 如果用户信息不完整，不继续保存
   }
