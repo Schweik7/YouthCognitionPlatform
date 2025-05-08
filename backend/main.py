@@ -43,18 +43,18 @@ app.add_middleware(
 
 
 # 添加请求日志中间件
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start_time = time.time()
+# @app.middleware("http")
+# async def log_requests(request: Request, call_next):
+#     start_time = time.time()
 
-    logger.info(f"{request.method} {request.url.path}")
+#     logger.info(f"{request.method} {request.url.path}")
 
-    response = await call_next(request)
+#     response = await call_next(request)
 
-    process_time = time.time() - start_time
-    logger.info(f"{request.method} {request.url.path} {response.status_code} - {process_time:.4f}s")
+#     process_time = time.time() - start_time
+#     logger.info(f"{request.method} {request.url.path} {response.status_code} - {process_time:.4f}s")
 
-    return response
+#     return response
 
 
 # 注册路由
@@ -67,12 +67,6 @@ app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}/readin
 # app.include_router(word_recognition_router, prefix=f"{settings.API_PREFIX}/word-recognition")
 # app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
 # app.include_router(calculation_router, prefix=f"{settings.API_PREFIX}/calculation")
-
-# 向后兼容的路由处理
-# 将 /api/schools/recent 重定向到 /api/users/schools/recent
-app.include_router(users_router, prefix=f"{settings.API_PREFIX}", include_in_schema=False)
-# 将 /api/save-trial 等重定向到 /api/reading-fluency/save-trial
-app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}", include_in_schema=False)
 
 # 挂载静态文件服务（前端资源）
 static_dir = Path("dist")
@@ -98,7 +92,7 @@ def on_startup():
     logger.info(f"应用启动成功，访问地址: http://localhost:{settings.PORT}")
 
 
-@app.get("/health", tags=["健康检查"])
+@app.get("/api/health", tags=["健康检查"])
 async def health_check():
     """API健康检查"""
     return {"status": "ok"}

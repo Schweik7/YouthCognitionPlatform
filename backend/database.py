@@ -8,7 +8,8 @@ from config import settings
 # 创建数据库引擎
 engine = create_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
+    # echo=settings.DEBUG,
+    echo=False,
     pool_pre_ping=True,
 )
 
@@ -16,10 +17,11 @@ engine = create_engine(
 # 基础模型类
 class BaseModel(SQLModel):
     """所有模型的基类"""
+
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(default_factory=datetime.now, index=True)
-    
+
     class Config:
         arbitrary_types_allowed = True
 

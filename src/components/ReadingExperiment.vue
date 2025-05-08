@@ -150,7 +150,8 @@ const maxTrials = ref(100);
 const remainingTime = ref(180); // 3分钟倒计时
 const startTime = ref(null);
 const timerInterval = ref(null);
-
+const testSessionId = ref(null);
+const userId = ref(null);
 // 计算属性
 const currentPracticeTrial = computed(() => {
   return practiceTrials[currentPracticeIndex.value] || {};
@@ -190,7 +191,166 @@ const formalTrials = ref([]);
 
 // 记录开始时间的方法（用于计算反应时间）
 let trialStartTime = 0;
+// 获取用户信息
+const getUserInfo = () => {
+  const userInfoStr = localStorage.getItem('userInfo');
+  if (userInfoStr) {
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      
+      // 如果已经有userId字段，直接使用
+      if (userInfo.userId) {
+        userId.value = userInfo.userId;
+        return;
+      }
+      
+      // 否则，尝试查找或创建用户
+      createUser(userInfo);
+    } catch (error) {
+      console.error('解析用户信息失败:', error);
+    }
+  }
+};
 
+// 创建用户
+const createUser = async (userInfo) => {
+  try {
+    const response = await fetch('/api/users/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: userInfo.name,
+        school: userInfo.school,
+        grade: userInfo.grade,
+        class_number: userInfo.classNumber || userInfo.class_number
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      userId.value = data.id;
+      
+      // 更新localStorage中的用户信息
+      const updatedUserInfo = { ...userInfo, userId: data.id };
+      localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+    } else {
+      console.error('创建用户失败:', await response.text());
+    }
+  } catch (error) {
+    console.error('创建用户请求失败:', error);
+  }
+};
+
+// 创建测试会话
+const createTestSession = async () => {
+  if (!userId.value) {
+    console.error('无法创建测试会话：缺少用户ID');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/reading-fluency/sessions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: userId.value,
+        total_questions: formalTrials.value.length
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      testSessionId.value = data.id;
+      console.log('测试会话创建成功，ID:', testSessionId.value);
+    } else {
+      console.error('创建测试会话失败:', await response.text());
+    }
+  } catch (error) {
+    console.error('创建测试会话请求失败:', error);
+  }
+};
+// 添加计算正确题目数量的计算属性
+const correctTrialsCount = computed(() => {
+  return formalTrials.value.filter(trial => trial.userAnswer === true).length;
+});
+// 更新测试会话进度
+const updateTestSession = async (progress, correctCount) => {
+  if (!testSessionId.value) return;
+  
+  try {
+    const response = await fetch(`/api/reading-fluency/sessions/${testSessionId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        progress: progress,
+        correct_count: correctCount
+      })
+    });
+    
+    if (!response.ok) {
+      console.error('更新测试会话失败:', await response.text());
+    }
+  } catch (error) {
+    console.error('更新测试会话请求失败:', error);
+  }
+};
+
+// 完成测试会话
+const completeTestSession = async () => {
+  if (!testSessionId.value) return;
+  
+  try {
+    const response = await fetch(`/api/reading-fluency/sessions/${testSessionId.value}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      console.log('测试会话已完成');
+    } else {
+      console.error('完成测试会话失败:', await response.text());
+    }
+  } catch (error) {
+    console.error('完成测试会话请求失败:', error);
+  }
+};
+
+// 在测试会话中保存答题记录
+const saveTrialWithSession = async (trialData) => {
+  if (!testSessionId.value || !userId.value) {
+    // 如果测试会话不存在，使用旧的保存方法
+    return saveTrialLegacy(trialData);
+  }
+  
+  try {
+    const response = await fetch(`/api/reading-fluency/sessions/${testSessionId.value}/trials`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: userId.value,
+        trial_id: trialData.trial_id,
+        user_answer: trialData.user_answer,
+        response_time: trialData.response_time
+      })
+    });
+    
+    if (!response.ok) {
+      console.error('保存答题记录失败:', await response.text());
+    }
+  } catch (error) {
+    console.error('保存答题记录请求失败:', error);
+  }
+};
 // 键盘监听函数
 const keyHandler = (e) => {
   // 检测是否同时按下【】键 (Alt+[ 和 Alt+])
@@ -289,8 +449,7 @@ const parseLocalTrials = () => {
   maxTrials.value = formalTrials.value.length;
   console.warn('使用备用试题数据，请检查API连接');
 };
-
-// 处理用户回答
+// 修改 handleAnswer 方法
 const handleAnswer = (isCorrect) => {
   if (isProcessing.value) return;
 
@@ -326,11 +485,14 @@ const handleAnswer = (isCorrect) => {
       currentTrial.responseTime = responseTime;
 
       // 保存到服务器
-      saveTrialData({
+      saveTrialWithSession({
         trial_id: currentTrial.id,
         user_answer: isCorrect,
         response_time: responseTime
       });
+      
+      // 更新测试会话进度
+      updateTestSession(currentFormalIndex.value + 1, correctTrialsCount.value);
     }
   }
 
@@ -368,11 +530,18 @@ const nextPhase = () => {
   }
 };
 
-// 开始正式测试
-const startFormalTest = () => {
+// 修改 startFormalTest 方法
+const startFormalTest = async () => {
   phase.value = 'formal';
   currentFormalIndex.value = 0;
   remainingTime.value = 180; // 重置计时器
+  
+  // 获取用户信息
+  await getUserInfo();
+  
+  // 创建测试会话
+  await createTestSession();
+  
   startTimer(); // 启动计时器
   prepareCurrentTrial();
 };
@@ -412,14 +581,17 @@ const nextTrial = () => {
   }
 };
 
-// 结束测试
-const endTest = () => {
+// 修改 endTest 方法
+const endTest = async () => {
   clearInterval(timerInterval.value);
   testEnded.value = true;
+  
+  // 完成测试会话
+  await completeTestSession();
+  
   phase.value = 'end';
   ElMessage.success('实验已完成，感谢您的参与！');
 };
-
 // 跳转到指定题号（仅调试模式）
 const jumpToTrialNumber = () => {
   if (phase.value !== 'formal') {

@@ -1,0 +1,165 @@
+###############################################
+# 认知能力评估平台 API 测试文件
+# 使用 VS Code REST Client 扩展
+###############################################
+
+@baseUrl = http://localhost:3000/api
+
+###
+# 健康检查
+GET {{baseUrl}}/health
+Accept: application/json
+
+###############################################
+# 用户管理 API
+###############################################
+
+###
+# 创建新用户
+POST {{baseUrl}}/users/
+Content-Type: application/json
+
+{
+  "name": "测试用户",
+  "school": "测试学校",
+  "grade": 3,
+  "class_number": 2
+}
+
+###
+# 获取用户信息
+GET {{baseUrl}}/users/1
+Accept: application/json
+
+###
+# 获取最近的学校列表
+GET {{baseUrl}}/users/schools/recent
+Accept: application/json
+
+###############################################
+# 阅读流畅性测试 API
+###############################################
+
+###
+# 获取试题数据
+GET {{baseUrl}}/reading-fluency/trials
+Accept: application/json
+
+###
+# 保存试验数据（直接使用用户ID）
+POST {{baseUrl}}/reading-fluency/trials
+Content-Type: application/json
+
+{
+  "user_id": 1,
+  "trial_id": 1,
+  "user_answer": true,
+  "response_time": 1200
+}
+
+###
+# 获取用户结果
+GET {{baseUrl}}/reading-fluency/results/1
+Accept: application/json
+
+###############################################
+# 测试会话 API
+###############################################
+
+###
+# 创建测试会话
+POST {{baseUrl}}/reading-fluency/sessions
+Content-Type: application/json
+
+{
+  "user_id": 1,
+  "total_questions": 100
+}
+
+# 变量保存会话ID
+@sessionId = 1
+
+###
+# 获取测试会话信息
+GET {{baseUrl}}/reading-fluency/sessions/{{sessionId}}
+Accept: application/json
+
+###
+# 更新测试会话
+PUT {{baseUrl}}/reading-fluency/sessions/{{sessionId}}
+Content-Type: application/json
+
+{
+  "progress": 10,
+  "correct_count": 8
+}
+
+###
+# 在测试会话中保存试验记录
+POST {{baseUrl}}/reading-fluency/sessions/{{sessionId}}/trials
+Content-Type: application/json
+
+{
+  "user_id": 1,
+  "trial_id": 12,
+  "user_answer": true,
+  "response_time": 1500
+}
+
+###
+# 获取测试会话中的所有试验记录
+GET {{baseUrl}}/reading-fluency/sessions/{{sessionId}}/trials
+Accept: application/json
+
+###
+# 完成测试会话
+POST {{baseUrl}}/reading-fluency/sessions/{{sessionId}}/complete
+Content-Type: application/json
+
+{}
+
+###
+# 获取测试会话结果
+GET {{baseUrl}}/reading-fluency/sessions/{{sessionId}}/results
+Accept: application/json
+
+###############################################
+# 批量操作示例
+###############################################
+
+###
+# 创建用户后创建会话并保存试验记录
+# 1. 创建用户
+POST {{baseUrl}}/users/
+Content-Type: application/json
+
+{
+  "name": "新学生",
+  "school": "示范小学",
+  "grade": 4,
+  "class_number": 1
+}
+
+###
+# 2. 使用上一步返回的用户ID创建会话
+@newUserId = 2
+POST {{baseUrl}}/reading-fluency/sessions
+Content-Type: application/json
+
+{
+  "user_id": {{newUserId}},
+  "total_questions": 50
+}
+
+###
+# 3. 使用上一步返回的会话ID保存试验记录
+@newSessionId = 2
+POST {{baseUrl}}/reading-fluency/sessions/{{newSessionId}}/trials
+Content-Type: application/json
+
+{
+  "user_id": {{newUserId}},
+  "trial_id": 1,
+  "user_answer": true,
+  "response_time": 980
+}
