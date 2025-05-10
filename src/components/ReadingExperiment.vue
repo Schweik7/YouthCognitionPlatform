@@ -201,11 +201,13 @@ const getUserInfo = () => {
       // 如果已经有userId字段，直接使用
       if (userInfo.userId) {
         userId.value = userInfo.userId;
+        console.log('已存在的用户ID:', userId.value);
         return;
       }
       
       // 否则，尝试查找或创建用户
       createUser(userInfo);
+      console.log('新用户创建成功');
     } catch (error) {
       console.error('解析用户信息失败:', error);
     }
@@ -231,6 +233,7 @@ const createUser = async (userInfo) => {
     if (response.ok) {
       const data = await response.json();
       userId.value = data.id;
+      console.log('新用户创建成功，ID:', userId.value);
       
       // 更新localStorage中的用户信息
       const updatedUserInfo = { ...userInfo, userId: data.id };
