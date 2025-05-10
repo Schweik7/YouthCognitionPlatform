@@ -66,9 +66,9 @@ onMounted(async () => {
             const data = await response.json();
             recentSchools.value = data.schools;
 
-            // 如果有最近的学校，自动填充第一个
+            // 如果有最近的学校，自动填充最后一个
             if (recentSchools.value.length > 0) {
-                userForm.school = recentSchools.value[0];
+                userForm.school = recentSchools.value[recentSchools.value.length - 1];
             }
         }
     } catch (error) {

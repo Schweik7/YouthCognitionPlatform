@@ -266,6 +266,34 @@ def save_trial_direct(session: Session, trial_data: TrialData) -> Trial:
     return trial
 
 
+# 修复后端的 create_test_session 函数 (apps/reading_fluency/service.py)
+def create_test_session(session: Session, test_session_data: TestSessionCreate) -> TestSession:
+    """创建新的测试会话"""
+    try:
+        # 检查用户是否存在
+        user = session.get(User, test_session_data.user_id)
+        if not user:
+            logger.error(f"用户不存在: ID={test_session_data.user_id}")
+            raise ValueError(f"用户不存在: ID={test_session_data.user_id}")
+
+        # 创建测试会话
+        test_session = TestSession(
+            user_id=test_session_data.user_id,
+            total_questions=test_session_data.total_questions,
+            start_time=datetime.now(),
+        )
+
+        session.add(test_session)
+        session.commit()
+        session.refresh(test_session)
+
+        logger.info(f"为用户 {user.name} 创建测试会话，ID: {test_session.id}")
+        return test_session
+    except Exception as e:
+        logger.error(f"创建测试会话失败: {str(e)}")
+        session.rollback()
+        raise
+
 def get_user_results(session: Session, user_id: int) -> Dict[str, Any]:
     """获取用户实验结果"""
     # 查找用户

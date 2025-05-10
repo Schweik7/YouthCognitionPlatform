@@ -192,25 +192,57 @@ const formalTrials = ref([]);
 // 记录开始时间的方法（用于计算反应时间）
 let trialStartTime = 0;
 // 获取用户信息
-const getUserInfo = () => {
+const getUserInfo = async () => {
   const userInfoStr = localStorage.getItem('userInfo');
-  if (userInfoStr) {
-    try {
-      const userInfo = JSON.parse(userInfoStr);
-      
-      // 如果已经有userId字段，直接使用
-      if (userInfo.userId) {
-        userId.value = userInfo.userId;
-        console.log('已存在的用户ID:', userId.value);
-        return;
-      }
-      
-      // 否则，尝试查找或创建用户
-      createUser(userInfo);
-      console.log('新用户创建成功');
-    } catch (error) {
-      console.error('解析用户信息失败:', error);
+  if (!userInfoStr) {
+    console.error('无法获取用户信息：localStorage中没有userInfo');
+    return;
+  }
+  
+  try {
+    const userInfo = JSON.parse(userInfoStr);
+    
+    // 如果已经有userId字段，直接使用
+    if (userInfo.userId) {
+      userId.value = userInfo.userId;
+      console.log('使用已存在的用户ID:', userId.value);
+      return userInfo.userId;
     }
+    
+    // 否则，创建新用户
+    console.log('准备创建新用户...');
+    
+    const userResponse = await fetch('/api/users/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: userInfo.name,
+        school: userInfo.school,
+        grade: userInfo.grade,
+        class_number: userInfo.class_number || userInfo.classNumber
+      })
+    });
+    
+    if (!userResponse.ok) {
+      const errorText = await userResponse.text();
+      console.error('创建用户失败:', errorText);
+      throw new Error(`创建用户失败: ${errorText}`);
+    }
+    
+    const userData = await userResponse.json();
+    userId.value = userData.id;
+    console.log('新用户创建成功，ID:', userId.value);
+    
+    // 更新localStorage中的用户信息
+    const updatedUserInfo = { ...userInfo, userId: userData.id };
+    localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+    
+    return userData.id;
+  } catch (error) {
+    console.error('处理用户信息失败:', error);
+    throw error;
   }
 };
 
@@ -250,10 +282,12 @@ const createUser = async (userInfo) => {
 const createTestSession = async () => {
   if (!userId.value) {
     console.error('无法创建测试会话：缺少用户ID');
-    return;
+    throw new Error('缺少用户ID');
   }
   
   try {
+    console.log(`准备为用户ID=${userId.value}创建测试会话`);
+    
     const response = await fetch('/api/reading-fluency/sessions', {
       method: 'POST',
       headers: {
@@ -265,15 +299,19 @@ const createTestSession = async () => {
       })
     });
     
-    if (response.ok) {
-      const data = await response.json();
-      testSessionId.value = data.id;
-      console.log('测试会话创建成功，ID:', testSessionId.value);
-    } else {
-      console.error('创建测试会话失败:', await response.text());
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('创建测试会话失败:', errorText);
+      throw new Error(`创建测试会话失败: ${errorText}`);
     }
+    
+    const data = await response.json();
+    testSessionId.value = data.id;
+    console.log('测试会话创建成功，ID:', testSessionId.value);
+    return data;
   } catch (error) {
     console.error('创建测试会话请求失败:', error);
+    throw error;
   }
 };
 // 添加计算正确题目数量的计算属性
@@ -533,20 +571,38 @@ const nextPhase = () => {
   }
 };
 
-// 修改 startFormalTest 方法
+// 修改 startFormalTest 方法确保正确的执行顺序
 const startFormalTest = async () => {
   phase.value = 'formal';
   currentFormalIndex.value = 0;
   remainingTime.value = 180; // 重置计时器
   
-  // 获取用户信息
-  await getUserInfo();
-  
-  // 创建测试会话
-  await createTestSession();
-  
-  startTimer(); // 启动计时器
-  prepareCurrentTrial();
+  try {
+    // 获取用户信息并等待完成
+    await getUserInfo();
+    
+    // 确保已获取到用户ID
+    if (!userId.value) {
+      console.error('无法开始测试：未获取到用户ID');
+      ElMessage.error('用户信息不完整，请返回重新填写');
+      return;
+    }
+    
+    // 创建测试会话并等待完成
+    await createTestSession();
+    
+    // 只有在成功创建会话后才启动计时器
+    if (testSessionId.value) {
+      startTimer(); // 启动计时器
+      prepareCurrentTrial();
+    } else {
+      console.error('无法启动测试：会话创建失败');
+      ElMessage.error('会话创建失败，请刷新页面重试');
+    }
+  } catch (error) {
+    console.error('启动正式测试失败:', error);
+    ElMessage.error('启动测试失败，请刷新页面重试');
+  }
 };
 
 // 准备当前试题
