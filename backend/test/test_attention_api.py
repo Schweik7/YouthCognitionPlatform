@@ -92,7 +92,7 @@ def test_get_test_sequence(api_client):
     assert len(data) > 0
     
     # 验证序列长度
-    assert len(data) == 25 * 16  # 16行，每行25个符号
+    assert len(data) == 25 * 17  # 1行训练阶段+16行正式阶段，每行25个符号
     
     # 验证序列格式
     first_item = data[0]
