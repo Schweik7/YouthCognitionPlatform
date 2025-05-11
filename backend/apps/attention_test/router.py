@@ -13,6 +13,7 @@ from .models import (
     AttentionSessionResponse,
     AttentionResultResponse,
     AttentionRecordCreate,
+    AttentionClickedRecordsCreate,
     SymbolRowResponse,
 )
 from .service import (
@@ -24,6 +25,7 @@ from .service import (
     list_user_test_sessions,
     complete_test_session,
     save_attention_record,
+    save_clicked_records,
     get_test_session_records,
     get_test_session_results,
     select_random_target_symbol,
@@ -136,70 +138,42 @@ async def create_record_route(
         )
 
 
-@router.post("/sessions/{test_session_id}/row-records", status_code=status.HTTP_201_CREATED)
-async def save_row_records_route(
+@router.post("/sessions/{test_session_id}/clicked-records", status_code=status.HTTP_201_CREATED)
+async def save_clicked_records_route(
     test_session_id: int, 
-    data: dict,
+    data: AttentionClickedRecordsCreate,
     session: Session = Depends(get_session)
 ):
-    """保存一行符号的所有记录"""
+    """保存用户点击的位置记录"""
     try:
-        # 从请求体中提取数据
-        user_id = data.get("user_id")
-        row_data = data.get("row_data", [])
-        
-        if not user_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="缺少用户ID")
-        
-        if not row_data:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="缺少行数据")
-        
         # 检查会话是否存在
         test_session = session.get(AttentionTestSession, test_session_id)
         if not test_session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
         
         # 检查用户是否存在
-        user = session.get(User, user_id)
+        user = session.get(User, data.user_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
         
-        records = []
+        # 确保test_session_id与请求路径中的一致
+        if test_session_id != data.test_session_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="会话ID不匹配")
         
-        # 批量创建记录
-        for symbol_data in row_data:
-            # 判断是否正确点击
-            is_correct = (symbol_data.get("is_target", False) and symbol_data.get("is_clicked", False)) or \
-                        (not symbol_data.get("is_target", False) and not symbol_data.get("is_clicked", False))
-            
-            # 创建记录
-            record = AttentionRecord(
-                user_id=user_id,
-                test_session_id=test_session_id,
-                row_index=symbol_data.get("row_index", 0),
-                col_index=symbol_data.get("col_index", 0),
-                symbol=symbol_data.get("symbol", ""),
-                is_target=symbol_data.get("is_target", False),
-                is_clicked=symbol_data.get("is_clicked", False),
-                is_correct=is_correct
-            )
-            
-            session.add(record)
-            records.append(record)
+        # 保存点击记录
+        records_count = save_clicked_records(session, data)
         
-        # 批量提交
-        session.commit()
-        
-        return {"message": "数据保存成功", "count": len(records)}
+        return {"message": "数据保存成功", "count": records_count}
     except HTTPException:
         raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
-        logger.error(f"保存行记录失败: {str(e)}")
+        logger.error(f"保存点击记录失败: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存数据失败: {str(e)}"
         )
+
 
 @router.get("/sessions/{test_session_id}/records")
 async def get_session_records_route(test_session_id: int, session: Session = Depends(get_session)):

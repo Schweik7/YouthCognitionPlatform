@@ -15,6 +15,7 @@ from .models import (
     AttentionRecordCreate,
     AttentionSessionCreate,
     AttentionSessionUpdate,
+    AttentionClickedRecordsCreate
 )
 
 # 数据文件路径
@@ -395,3 +396,105 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
     }
 
     return results
+
+def save_clicked_records(session: Session, data: AttentionClickedRecordsCreate) -> int:
+    """保存用户点击的位置记录
+    
+    Args:
+        session: 数据库会话
+        data: 包含用户点击位置的数据对象
+        
+    Returns:
+        保存的记录数量
+    """
+    # 检查会话是否存在
+    test_session = session.get(AttentionTestSession, data.test_session_id)
+    if not test_session:
+        raise ValueError(f"测试会话不存在: ID={data.test_session_id}")
+
+    # 检查用户是否存在
+    user = session.get(User, data.user_id)
+    if not user:
+        raise ValueError(f"用户不存在: ID={data.user_id}")
+    
+    # 临时存储，用于后续计算正确率
+    target_positions, _ = load_target_positions()
+    
+    # 记录数量
+    records_count = 0
+    
+    # 批量保存点击记录
+    for position in data.clicked_positions:
+        row_index = position.get("row_index", 0)
+        col_index = position.get("col_index", 0)
+        symbol = position.get("symbol", "")
+        is_target = position.get("is_target", False)
+        response_time = position.get("response_time")
+        
+        # 判断点击是否正确
+        is_correct = is_target  # 如果点击的是目标符号，则为正确
+        
+        # 创建记录
+        record = AttentionRecord(
+            user_id=data.user_id,
+            test_session_id=data.test_session_id,
+            row_index=row_index,
+            col_index=col_index,
+            symbol=symbol,
+            is_target=is_target,
+            is_correct=is_correct,
+            response_time=response_time
+        )
+        
+        session.add(record)
+        records_count += 1
+    
+    # 批量提交
+    session.commit()
+    
+    return records_count
+
+
+def analyze_user_submissions(session: Session, test_session_id: int) -> Dict[str, Any]:
+    """分析用户的提交并计算结果 - 针对只存储点击位置的优化版本"""
+    # 获取测试会话
+    test_session = session.get(AttentionTestSession, test_session_id)
+    if not test_session:
+        raise ValueError(f"测试会话不存在: ID={test_session_id}")
+
+    # 获取目标符号
+    target_symbol = test_session.target_symbol
+    
+    # 加载所有目标位置数据
+    target_positions, _ = load_target_positions()
+    target_positions_set = set(target_positions.get(target_symbol, []))
+    
+    # 获取用户点击的所有记录
+    records_query = select(AttentionRecord).where(
+        AttentionRecord.test_session_id == test_session_id
+    )
+    clicked_records = session.exec(records_query).all()
+    
+    # 用户点击的位置集合
+    clicked_positions = set((record.row_index, record.col_index) for record in clicked_records)
+    
+    # 计算结果
+    # 1. 正确点击数：用户点击的位置中，是目标位置的数量
+    correct_count = sum(1 for record in clicked_records if record.is_target)
+    
+    # 2. 错误点击数：用户点击的位置中，不是目标位置的数量
+    incorrect_count = sum(1 for record in clicked_records if not record.is_target)
+    
+    # 3. 遗漏数：目标位置中，没有被用户点击的数量
+    missed_count = len(target_positions_set) - correct_count
+    
+    # 计算总分
+    total_score = correct_count - incorrect_count - (0.5 * missed_count)
+    total_score = max(0, total_score)  # 不允许负分
+
+    return {
+        "correct_count": correct_count,
+        "incorrect_count": incorrect_count,
+        "missed_count": missed_count,
+        "total_score": total_score,
+    }

@@ -35,7 +35,7 @@ class AttentionTestSession(BaseModel, table=True):
 
 
 class AttentionRecord(BaseModel, table=True):
-    """注意力筛查测试记录模型，记录每个符号的点击情况"""
+    """注意力筛查测试记录模型，只记录用户点击的位置"""
 
     __tablename__ = "at_records"
 
@@ -47,8 +47,7 @@ class AttentionRecord(BaseModel, table=True):
     col_index: int = Field(index=True)  # 列索引
     symbol: str = Field(default="")  # 实际符号
     is_target: bool = Field(default=False)  # 是否是目标符号
-    is_clicked: bool = Field(default=False)  # 是否被点击
-    is_correct: bool = Field(default=False)  # 是否正确（是目标且点击，或不是目标且未点击）
+    is_correct: bool = Field(default=False)  # 点击是否正确（是否点击了目标符号）
     response_time: Optional[int] = None  # 响应时间（毫秒，从行显示到点击的时间）
 
     # 关系
@@ -66,8 +65,15 @@ class AttentionRecordCreate(SQLModel):
     col_index: int
     symbol: str
     is_target: bool
-    is_clicked: bool
     response_time: Optional[int] = None
+
+
+class AttentionClickedRecordsCreate(SQLModel):
+    """批量创建用户点击记录的请求模型"""
+
+    user_id: int
+    test_session_id: int
+    clicked_positions: List[Dict[str, Any]]  # 包含点击位置的列表
 
 
 class AttentionSessionCreate(SQLModel):

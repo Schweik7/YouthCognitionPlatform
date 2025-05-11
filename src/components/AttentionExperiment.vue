@@ -77,13 +77,6 @@
 
                 <!-- 紧凑型网格视图 -->
                 <div class="compact-grid-view">
-                    <!-- 行标签 -->
-                    <!-- <div class="row-labels">
-              <div v-for="row in totalRows" :key="`row-${row}`" class="row-label" :class="{ 'active': row - 1 === currentRowIndex }">
-                {{ row }}
-              </div>
-            </div> -->
-
                     <!-- 符号网格 -->
                     <div class="compact-grid">
                         <div v-for="row in allRows" :key="row[0].row_index" class="grid-row">
@@ -163,6 +156,7 @@ const debugMode = ref(false); // 调试模式
 const testEnded = ref(false); // 测试是否结束
 const remainingTime = ref(180); // 3分钟倒计时
 const timerInterval = ref(null); // 计时器
+const clickedPositions = ref([]); // 存储用户点击的位置
 const testResults = ref({
     correctCount: 0,
     incorrectCount: 0,
@@ -178,30 +172,12 @@ const allRows = computed(() => {
 
     const rows = [];
     for (let rowIndex = 0; rowIndex < totalRows.value; rowIndex++) {
-        const startIdx = rowIndex *40;
+        const startIdx = rowIndex * 40;
         const endIdx = startIdx + 40;
         const rowSymbols = formalSequence.value.slice(startIdx, endIdx);
         rows.push(rowSymbols);
     }
     return rows;
-});
-
-// 沙漏样式计算
-const hourglassTopStyle = computed(() => {
-    const percentage = (remainingTime.value / 180) * 100;
-    return {
-        height: `${percentage / 2}%`,
-        transition: 'height 1s linear'
-    };
-});
-
-const hourglassBottomStyle = computed(() => {
-    const percentage = 100 - (remainingTime.value / 180) * 100;
-    return {
-        height: `${percentage / 2}%`,
-        backgroundColor: percentage > 80 ? '#409EFF' : '#E6E6E6',
-        transition: 'height 1s linear, background-color 1s linear'
-    };
 });
 
 // 当前行的符号
@@ -211,7 +187,7 @@ const currentRow = computed(() => {
         return practiceSequence.value;
     } else if (phase.value === 'formal') {
         // 正式阶段，根据当前行索引获取
-        const startIdx = currentRowIndex.value *40;
+        const startIdx = currentRowIndex.value * 40;
         const endIdx = startIdx + 40;
         return formalSequence.value.slice(startIdx, endIdx);
     }
@@ -292,7 +268,7 @@ const getUserInfo = async () => {
     }
 };
 
-// 修改 createTestSession 函数，不指定目标符号，由后端随机选择
+// 创建测试会话，由后端随机选择目标符号
 const createTestSession = async () => {
     if (!userId.value) {
         console.error('无法创建测试会话：缺少用户ID');
@@ -328,6 +304,7 @@ const createTestSession = async () => {
         console.error('创建测试会话请求失败:', error);
     }
 };
+
 // 获取练习序列
 const fetchPracticeSequence = async () => {
     try {
@@ -347,7 +324,7 @@ const fetchPracticeSequence = async () => {
     }
 };
 
-// 修改 fetchFormalSequence 函数，传递目标符号
+// 获取正式测试序列
 const fetchFormalSequence = async () => {
     try {
         const response = await fetch(`/api/attention-test/test-sequence?target_symbol=${targetSymbol.value}`);
@@ -355,6 +332,9 @@ const fetchFormalSequence = async () => {
             const data = await response.json();
             formalSequence.value = data;
             totalRows.value = Math.ceil(data.length / 40);
+
+            // 重置已点击位置数组
+            clickedPositions.value = [];
         } else {
             ElMessage.error('获取测试序列失败');
         }
@@ -363,9 +343,10 @@ const fetchFormalSequence = async () => {
         ElMessage.error('网络错误，无法获取测试序列');
     }
 };
+
 // 处理符号点击
 const handleSymbolClick = (symbol) => {
-    // 切换点击状态
+    // 只处理用户点击的位置，切换点击状态
     if (symbol.is_clicked) {
         symbol.showCancelAnimation = true;
 
@@ -378,6 +359,16 @@ const handleSymbolClick = (symbol) => {
             if (phase.value === 'practice' && symbol.is_target) {
                 targetRemaining.value++;
             }
+
+            // 从已点击位置数组中移除
+            if (phase.value === 'formal') {
+                const index = clickedPositions.value.findIndex(
+                    pos => pos.row_index === symbol.row_index && pos.col_index === symbol.col_index
+                );
+                if (index !== -1) {
+                    clickedPositions.value.splice(index, 1);
+                }
+            }
         }, 300); // 动画持续时间
     } else {
         // 设置为已点击
@@ -386,6 +377,18 @@ const handleSymbolClick = (symbol) => {
         // 更新剩余目标符号数量（仅在练习阶段）
         if (phase.value === 'practice' && symbol.is_target) {
             targetRemaining.value--;
+        }
+
+        // 在正式阶段，将点击位置添加到数组
+        if (phase.value === 'formal') {
+            clickedPositions.value.push({
+                row_index: symbol.row_index,
+                col_index: symbol.col_index,
+                symbol: symbol.symbol,
+                is_target: symbol.is_target,
+                response_time: null
+                // response_time: Date.now() // 可以用于计算响应时间
+            });
         }
     }
 };
@@ -407,7 +410,7 @@ const nextPhase = () => {
     }
 };
 
-// 修改 startPractice 函数，从后端获取练习序列时可以提供targetSymbol
+// 开始练习阶段
 const startPractice = async () => {
     try {
         const response = await fetch(`/api/attention-test/practice-sequence`);
@@ -440,7 +443,7 @@ const startPractice = async () => {
     }
 };
 
-// 修改 startFormalTest 函数的顺序
+// 开始正式测试
 const startFormalTest = async () => {
     // 获取用户信息
     await getUserInfo();
@@ -455,6 +458,7 @@ const startFormalTest = async () => {
     currentRowIndex.value = 0;
     remainingTime.value = 180;
     testEnded.value = false;
+    clickedPositions.value = []; // 重置已点击位置数组
     phase.value = 'formal';
 
     // 启动计时器
@@ -473,7 +477,7 @@ const submitTest = () => {
         }
     )
         .then(() => {
-            saveAllResults()
+            saveClickedPositions()
                 .then(() => {
                     endTest();
                 })
@@ -487,10 +491,15 @@ const submitTest = () => {
         });
 };
 
-// 新增 saveAllResults 函数，一次性保存所有结果
-const saveAllResults = async () => {
+// 保存用户点击的位置
+const saveClickedPositions = async () => {
     if (!testSessionId.value || !userId.value) {
         throw new Error('会话ID或用户ID不存在');
+    }
+
+    if (clickedPositions.value.length === 0) {
+        ElMessage.warning('您尚未点击任何符号');
+        return;
     }
 
     // 显示加载中提示
@@ -501,37 +510,30 @@ const saveAllResults = async () => {
     });
 
     try {
-        // 按行保存记录
-        for (const rowSymbols of allRows.value) {
-            if (rowSymbols.length === 0) continue;
+        // 构建请求数据
+        const requestData = {
+            user_id: userId.value,
+            test_session_id: testSessionId.value,
+            clicked_positions: clickedPositions.value
+        };
 
-            // 构建请求数据
-            const requestData = {
-                user_id: userId.value,
-                row_data: rowSymbols.map(symbol => ({
-                    row_index: symbol.row_index,
-                    col_index: symbol.col_index,
-                    symbol: symbol.symbol,
-                    is_target: symbol.is_target,
-                    is_clicked: symbol.is_clicked || false  // 确保未点击的也有状态
-                }))
-            };
+        // 保存点击位置记录
+        const response = await fetch(`/api/attention-test/sessions/${testSessionId.value}/clicked-records`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
 
-            // 保存行记录
-            const response = await fetch(`/api/attention-test/sessions/${testSessionId.value}/row-records`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`保存行记录失败:`, errorText);
-                throw new Error(`保存行记录失败: ${errorText}`);
-            }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`保存点击记录失败:`, errorText);
+            throw new Error(`保存点击记录失败: ${errorText}`);
         }
+
+        const result = await response.json();
+        console.log('保存结果成功:', result);
 
         return true;
     } catch (error) {
@@ -542,6 +544,7 @@ const saveAllResults = async () => {
         loading.close();
     }
 };
+
 // 结束测试
 const endTest = async () => {
     if (testEnded.value) return;
@@ -612,6 +615,7 @@ const restartTest = () => {
     remainingTime.value = 180;
     practiceSequence.value = [];
     formalSequence.value = [];
+    clickedPositions.value = [];
 };
 
 // 键盘监听函数
@@ -630,6 +634,12 @@ onMounted(() => {
 
     // 确保初始滚动位置在页面顶部
     window.scrollTo(0, 0);
+
+    // 加载符号字体
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/fonts/symbols-font.css';
+    document.head.appendChild(link);
 });
 
 onUnmounted(() => {
@@ -647,6 +657,9 @@ watch(remainingTime, (newVal) => {
 </script>
 
 <style scoped>
+/* 导入符号字体 */
+@import url('/fonts/symbols-font.css');
+
 /* 全局样式 */
 .experiment-container {
     display: flex;
@@ -697,8 +710,9 @@ watch(remainingTime, (newVal) => {
     margin-bottom: 20px;
 }
 
+/* 使用Cambria符号字体 */
 .target-symbol {
-    font-family: 'Times New Roman', Times, serif;
+    font-family: 'CambriaSymbols', 'Times New Roman', Times, serif;
     font-size: 1.2em;
     font-weight: bold;
     color: #409EFF;
@@ -771,8 +785,9 @@ watch(remainingTime, (newVal) => {
     color: #409EFF;
 }
 
+/* 使用Cambria符号字体 */
 .symbol {
-    font-family: 'Times New Roman', Times, serif;
+    font-family: 'CambriaSymbols', 'Times New Roman', Times, serif;
     font-size: 18px;
     font-weight: bold;
 }
@@ -857,231 +872,6 @@ watch(remainingTime, (newVal) => {
 }
 
 /* 紧凑型网格视图 */
-.compact-grid-view {
-    display: flex;
-    background-color: #f9f9f9;
-    border-radius: 4px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-    height: calc(100vh - 200px);
-    overflow: hidden;
-}
-
-.row-labels {
-    display: flex;
-    flex-direction: column;
-    background-color: #ebeef5;
-    padding: 4px;
-}
-
-.row-label {
-    height: 22px;
-    width: 24px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 12px;
-    color: #606266;
-    font-weight: bold;
-}
-
-.row-label.active {
-    background-color: #409EFF;
-    color: white;
-    border-radius: 3px;
-}
-
-.compact-grid {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 4px;
-    display: flex;
-    flex-direction: column;
-}
-
-.grid-row {
-    display: flex;
-    height: 22px;
-    margin-bottom: 2px;
-}
-
-.compact-cell {
-    width: 22px;
-    height: 22px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 12px;
-    margin-right: 2px;
-    background-color: #ffffff;
-    border: 1px solid #ebeef5;
-    border-radius: 3px;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-}
-
-.compact-cell:hover {
-    border-color: #c6e2ff;
-    background-color: #ecf5ff;
-}
-
-.compact-cell.clicked {
-    border-color: #409EFF;
-    background-color: #ecf5ff;
-    color: #409EFF;
-}
-
-.compact-symbol {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12px;
-    user-select: none;
-}
-
-.mini-circle {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 1px solid #409EFF;
-    background-color: rgba(64, 158, 255, 0.1);
-    z-index: 0;
-}
-
-/* 计时器和沙漏 */
-.timer-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.hourglass-container {
-    margin-top: 10px;
-    display: flex;
-    justify-content: center;
-}
-
-.hourglass {
-    position: relative;
-    width: 30px;
-    height: 50px;
-}
-
-.hourglass-top {
-    position: absolute;
-    top: 0;
-    width: 30px;
-    height: 25px;
-    background-color: #409EFF;
-    clip-path: polygon(0 0, 100% 0, 50% 100%, 0 0);
-}
-
-.hourglass-bottom {
-    position: absolute;
-    bottom: 0;
-    width: 30px;
-    height: 0px;
-    background-color: #E6E6E6;
-    clip-path: polygon(0 100%, 100% 100%, 50% 0, 0 100%);
-}
-
-/* 结果页面样式 */
-.result-container {
-    max-width: 600px;
-    margin: 0 auto;
-    text-align: center;
-}
-
-.result-container h2 {
-    color: #409EFF;
-    margin-bottom: 20px;
-}
-
-.result-card {
-    margin-bottom: 30px;
-}
-
-.result-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid #ebeef5;
-}
-
-.result-item:last-child {
-    border-bottom: none;
-}
-
-.result-label {
-    font-weight: bold;
-    color: #606266;
-}
-
-.result-value {
-    color: #303133;
-    font-weight: bold;
-}
-
-.total-score {
-    font-size: 1.2em;
-    background-color: #f0f9eb;
-    padding: 10px;
-    border-radius: 4px;
-    margin: 10px 0;
-}
-
-.total-score .result-value {
-    color: #67C23A;
-    font-size: 1.2em;
-}
-
-/* 响应式布局调整 */
-@media (max-width: 768px) {
-    .compact-grid-view {
-        height: calc(100vh - 150px);
-    }
-
-    .compact-cell {
-        width: 18px;
-        height: 18px;
-        font-size: 10px;
-    }
-
-    .row-label {
-        height: 18px;
-        width: 20px;
-        font-size: 10px;
-    }
-
-    .grid-row {
-        height: 18px;
-    }
-}
-
-/* 自定义滚动条样式 */
-.compact-grid::-webkit-scrollbar {
-    width: 6px;
-}
-
-.compact-grid::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.compact-grid::-webkit-scrollbar-thumb {
-    background: #c0c4cc;
-    border-radius: 3px;
-}
-
-.compact-grid::-webkit-scrollbar-thumb:hover {
-    background: #909399;
-}
-
-/* 紧凑型网格视图 - 改进版 */
 .compact-grid-view {
     display: flex;
     background-color: #f9f9f9;
@@ -1177,6 +967,7 @@ watch(remainingTime, (newVal) => {
 }
 
 .compact-symbol {
+    font-family: 'CambriaSymbols', 'Times New Roman', Times, serif;
     font-size: 16px;
     /* 增大字体 */
     user-select: none;
@@ -1287,4 +1078,150 @@ watch(remainingTime, (newVal) => {
         height: 25px;
     }
 }
+.compact-grid {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+}
+
+.grid-row {
+    display: flex;
+    height: 22px;
+    margin-bottom: 2px;
+}
+
+.compact-cell {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    margin-right: 2px;
+    background-color: #ffffff;
+    border: 1px solid #ebeef5;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.compact-cell:hover {
+    border-color: #c6e2ff;
+    background-color: #ecf5ff;
+}
+
+.compact-cell.clicked {
+    border-color: #409EFF;
+    background-color: #ecf5ff;
+    color: #409EFF;
+}
+
+/* 使用Cambria符号字体 */
+.compact-symbol {
+    font-family: 'CambriaSymbols', 'Times New Roman', Times, serif;
+    font-size: 12px;
+    user-select: none;
+}
+
+.mini-circle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 1px solid #409EFF;
+    background-color: rgba(64, 158, 255, 0.1);
+    z-index: 0;
+}
+
+/* 结果页面样式 */
+.result-container {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.result-container h2 {
+    color: #409EFF;
+    margin-bottom: 20px;
+}
+
+.result-card {
+    margin-bottom: 30px;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #ebeef5;
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+.result-label {
+    font-weight: bold;
+    color: #606266;
+}
+
+.result-value {
+    color: #303133;
+    font-weight: bold;
+}
+
+.total-score {
+    font-size: 1.2em;
+    background-color: #f0f9eb;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.total-score .result-value {
+    color: #67C23A;
+    font-size: 1.2em;
+}
+
+/* 响应式布局调整 */
+@media (max-width: 768px) {
+    .compact-grid-view {
+        height: calc(100vh - 150px);
+    }
+
+    .compact-cell {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+    }
+
+    .grid-row {
+        height: 18px;
+    }
+}
+
+/* 自定义滚动条样式 */
+.compact-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.compact-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.compact-grid::-webkit-scrollbar-thumb {
+    background: #c0c4cc;
+    border-radius: 3px;
+}
+
+.compact-grid::-webkit-scrollbar-thumb:hover {
+    background: #909399;
+}
+
 </style>

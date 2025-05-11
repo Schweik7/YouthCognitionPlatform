@@ -1,0 +1,7 @@
+@font-face {
+  font-family: 'CambriaSymbols';
+  src: url('/fonts/cambria-subset.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
