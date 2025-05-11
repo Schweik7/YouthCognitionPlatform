@@ -30,8 +30,8 @@ _target_positions = None
 _metadata = None
 
 # 行列配置
-SYMBOLS_PER_ROW = 25  # 每行符号数
-TOTAL_ROWS = 16  # 总行数
+SYMBOLS_PER_ROW =40  # 每行符号数
+TOTAL_ROWS = 26  # 总行数
 PRACTICE_ROWS = 1  # 练习阶段行数
 
 

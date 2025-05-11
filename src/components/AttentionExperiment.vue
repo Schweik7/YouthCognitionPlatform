@@ -157,7 +157,7 @@ const testSessionId = ref(null);
 const practiceSequence = ref([]); // 练习阶段序列
 const formalSequence = ref([]); // 正式阶段序列
 const currentRowIndex = ref(0); // 当前行索引
-const totalRows = ref(16); // 总行数
+const totalRows = ref(26); // 总行数
 const targetRemaining = ref(0); // 剩余目标符号数量
 const debugMode = ref(false); // 调试模式
 const testEnded = ref(false); // 测试是否结束
@@ -178,8 +178,8 @@ const allRows = computed(() => {
 
     const rows = [];
     for (let rowIndex = 0; rowIndex < totalRows.value; rowIndex++) {
-        const startIdx = rowIndex * 25;
-        const endIdx = startIdx + 25;
+        const startIdx = rowIndex *40;
+        const endIdx = startIdx + 40;
         const rowSymbols = formalSequence.value.slice(startIdx, endIdx);
         rows.push(rowSymbols);
     }
@@ -211,8 +211,8 @@ const currentRow = computed(() => {
         return practiceSequence.value;
     } else if (phase.value === 'formal') {
         // 正式阶段，根据当前行索引获取
-        const startIdx = currentRowIndex.value * 25;
-        const endIdx = startIdx + 25;
+        const startIdx = currentRowIndex.value *40;
+        const endIdx = startIdx + 40;
         return formalSequence.value.slice(startIdx, endIdx);
     }
     return [];
@@ -354,7 +354,7 @@ const fetchFormalSequence = async () => {
         if (response.ok) {
             const data = await response.json();
             formalSequence.value = data;
-            totalRows.value = Math.ceil(data.length / 25);
+            totalRows.value = Math.ceil(data.length / 40);
         } else {
             ElMessage.error('获取测试序列失败');
         }
@@ -742,7 +742,7 @@ watch(remainingTime, (newVal) => {
 
 .practice-grid {
     display: grid;
-    grid-template-columns: repeat(25, 1fr);
+    grid-template-columns: repeat(40, 1fr);
     gap: 5px;
     margin-bottom: 20px;
 }

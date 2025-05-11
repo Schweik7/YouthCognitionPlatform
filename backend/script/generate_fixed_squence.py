@@ -13,8 +13,8 @@ import argparse
 
 # 配置
 SYMBOLS = ["Π", "Θ", "Ψ", "≅", "⊕", "א", "Ϡ", "ʆ", "Ԅ", "Φ"]
-ROWS = 17  # 1行训练 + 16行测试
-COLS = 25
+ROWS = 26  # 1行训练 + 25行测试
+COLS = 40
 PRACTICE_ROW = 0  # 练习行索引
 
 
