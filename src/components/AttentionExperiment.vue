@@ -87,11 +87,11 @@
           <!-- 紧凑型网格视图 -->
           <div class="compact-grid-view">
             <!-- 行标签 -->
-            <div class="row-labels">
+            <!-- <div class="row-labels">
               <div v-for="row in totalRows" :key="`row-${row}`" class="row-label" :class="{ 'active': row - 1 === currentRowIndex }">
                 {{ row }}
               </div>
-            </div>
+            </div> -->
             
             <!-- 符号网格 -->
             <div class="compact-grid">
@@ -168,7 +168,7 @@
   
   // 状态变量
   const phase = ref('welcome'); // 实验阶段: welcome, practice-intro, practice, formal-intro, formal, result
-  const targetSymbol = ref(null); // 目标符号
+  const targetSymbol = ref(); // 目标符号
   const userId = ref(null);
   const testSessionId = ref(null);
   const practiceSequence = ref([]); // 练习阶段序列
