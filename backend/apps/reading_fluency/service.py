@@ -293,7 +293,7 @@ def update_test_session(
 def list_user_test_sessions(session: Session, user_id: int) -> List[TestSession]:
     """获取用户的所有测试会话"""
     query = select(TestSession).where(TestSession.user_id == user_id)
-    return session.exec(query).all()
+    return list(session.exec(query).all())
 
 
 def complete_test_session(session: Session, test_session_id: int) -> Optional[TestSession]:
@@ -438,4 +438,4 @@ def get_user_results(session: Session, user_id: int) -> Dict[str, Any] | None:
 def get_session_trials(session: Session, test_session_id: int) -> List[Trial]:
     """获取测试会话中的所有试验记录"""
     query = select(Trial).where(Trial.test_session_id == test_session_id)
-    return session.exec(query).all()
+    return list(session.exec(query).all())
