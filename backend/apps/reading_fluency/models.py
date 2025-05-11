@@ -1,8 +1,14 @@
 from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from database import BaseModel
 from apps.users.models import User
+
+
+class Answer(SQLModel, table=False):
+    """标准答案模型（非数据库表，用于内存中）"""
+    trial_id: int  # 试题编号
+    correct_answer: bool  # 正确答案
 
 
 class TestSession(BaseModel, table=True):

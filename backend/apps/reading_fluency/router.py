@@ -148,6 +148,7 @@ async def create_session_trial_route(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
+        # raise
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存试验数据失败: {str(e)}"
         )

@@ -318,8 +318,8 @@ const createTestSession = async () => {
 const correctTrialsCount = computed(() => {
   return formalTrials.value.filter(trial => trial.userAnswer === true).length;
 });
-// 更新测试会话进度
-const updateTestSession = async (progress, correctCount) => {
+// 更新测试会话进度 - 修复后的版本
+const updateTestSession = async (progress) => {
   if (!testSessionId.value) return;
   
   try {
@@ -329,8 +329,8 @@ const updateTestSession = async (progress, correctCount) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        progress: progress,
-        correct_count: correctCount
+        progress: progress
+        // 移除 correct_count，让后端根据每道题的正确性计算
       })
     });
     
@@ -341,7 +341,6 @@ const updateTestSession = async (progress, correctCount) => {
     console.error('更新测试会话请求失败:', error);
   }
 };
-
 // 完成测试会话
 const completeTestSession = async () => {
   if (!testSessionId.value) return;
@@ -532,8 +531,8 @@ const handleAnswer = (isCorrect) => {
         response_time: responseTime
       });
       
-      // 更新测试会话进度
-      updateTestSession(currentFormalIndex.value + 1, correctTrialsCount.value);
+      // 只更新会话进度，让后端计算正确数量
+      updateTestSession(currentFormalIndex.value + 1);
     }
   }
 
@@ -543,7 +542,6 @@ const handleAnswer = (isCorrect) => {
     isProcessing.value = false;
   }, 500);
 };
-
 // 进入下一阶段
 const nextPhase = () => {
   switch (phase.value) {
