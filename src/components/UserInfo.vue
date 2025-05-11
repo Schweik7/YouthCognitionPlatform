@@ -86,7 +86,7 @@ const querySchools = (queryString, callback) => {
     callback(results.map(school => ({ value: school })));
 };
 
-// 提交表单
+// 修改 submitForm 函数
 const submitForm = async () => {
     if (!formRef.value) return;
 
@@ -95,8 +95,8 @@ const submitForm = async () => {
             // 保存用户信息到本地存储
             localStorage.setItem('userInfo', JSON.stringify(userForm));
 
-            // 导航到实验页面
-            router.push('/experiment');
+            // 导航到测试选择页面而不是直接到实验页面
+            router.push('/selection');
         }
     });
 };

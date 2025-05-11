@@ -16,7 +16,7 @@ from logger_config import logger
 # 导入各个应用的路由
 from apps.users.router import router as users_router
 from apps.reading_fluency.router import router as reading_fluency_router
-
+from apps.attention_test.router import router as attention_test_router
 # 未来可以导入其他测试系统的路由
 # from apps.word_recognition.router import router as word_recognition_router
 # from apps.attention_test.router import router as attention_test_router
@@ -63,6 +63,7 @@ app.include_router(users_router, prefix=f"{settings.API_PREFIX}/users")
 
 # 测试系统路由
 app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}/reading-fluency")
+app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
 # 未来可以注册其他测试系统的路由
 # app.include_router(word_recognition_router, prefix=f"{settings.API_PREFIX}/word-recognition")
 # app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
