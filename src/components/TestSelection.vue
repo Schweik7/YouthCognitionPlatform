@@ -3,7 +3,7 @@
     <el-card class="selection-card">
       <template #header>
         <div class="card-header">
-          <h1>认知能力评估平台</h1>
+          <h1>学习力测验平台</h1>
           <p>请选择一个测试项目进行评估</p>
         </div>
       </template>
@@ -17,7 +17,7 @@
           @click="selectTest(test)"
         >
           <div class="test-icon">
-            <el-icon :size="36">
+            <el-icon :size="40">
               <component :is="test.icon" />
             </el-icon>
           </div>
@@ -28,7 +28,7 @@
 
       <div class="user-info">
         <p><strong>用户信息:</strong> {{ userInfo.name }} | {{ userInfo.school }} | {{ userInfo.grade }}年级{{ userInfo.class_number }}班</p>
-        <el-button type="text" @click="logout">退出登录</el-button>
+        <el-button link @click="logout">退出登录</el-button>
       </div>
     </el-card>
   </div>
@@ -53,21 +53,21 @@ const availableTests = ref([
   {
     id: 'reading-fluency',
     name: '阅读流畅性测试',
-    description: '测量阅读句子并判断正误的能力',
+    description: '测量阅读句子并判断真假的能力，考察您的阅读速度和理解能力',
     icon: 'Document',
     route: '/experiment'
   },
   {
     id: 'attention-test',
     name: '注意力筛查测试',
-    description: '测量快速定位特定符号的能力',
+    description: '测量快速定位特定符号的能力，评估您的专注力和视觉搜索能力',
     icon: 'View',
     route: '/attention-experiment'
   },
   {
     id: 'calculation-test',
     name: '计算流畅性测试',
-    description: '测量快速运算的能力',
+    description: '测量快速计算数学题的能力，评估您的心算能力和数学流畅度',
     icon: 'EditPen',
     route: '/calculation-experiment'
   }
@@ -116,7 +116,7 @@ const logout = () => {
 
 .selection-card {
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
 }
 
 .card-header {
@@ -125,16 +125,22 @@ const logout = () => {
 }
 
 .card-header h1 {
-  font-size: 24px;
+  font-size: 28px;
   color: #409EFF;
   margin-bottom: 10px;
 }
 
 .test-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   margin-bottom: 30px;
+}
+
+@media (max-width: 900px) {
+  .test-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
 }
 
 .test-card {
@@ -143,7 +149,8 @@ const logout = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
+  padding: 25px 20px;
+  height: 100%;
 }
 
 .test-card:hover {
@@ -154,16 +161,28 @@ const logout = () => {
 .test-icon {
   margin-bottom: 15px;
   color: #409EFF;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .test-card h3 {
   margin: 10px 0;
   color: #303133;
+  font-size: 18px;
+  text-align: center;
 }
 
 .test-card p {
   color: #606266;
   text-align: center;
+  flex-grow: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
 }
 
 .user-info {

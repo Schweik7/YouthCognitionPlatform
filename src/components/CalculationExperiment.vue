@@ -299,11 +299,13 @@
               @keyup.enter="submitAnswer"
               ref="answerInput"
               :disabled="isProcessing"
+              size="large"
             ></el-input>
             <el-button 
               type="primary" 
               @click="submitAnswer" 
               :disabled="isProcessing || userAnswer === ''"
+              size="large"
             >
               确认
             </el-button>

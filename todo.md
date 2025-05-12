@@ -36,64 +36,9 @@ docker update --restart=no ragflow-redis
 
 接下来让我们来设计第三个系统：计算流畅性测试。计算流畅性分为7个级别，分别是一到六年级6个级别和第7个级别大朋友。由于高年级会引入新的内容，我们先实现一到三年级的测试，测试的级别由进入测试的用户信息中的年级决定①一到三年级的题目完全由前端按相应的规则生成，测试一共40道题，默认3分钟（不同年级的时间不一样，可修改不同年级的时间），回传到服务器时应该包含题目的题干、用户答案、是否正确等信息。②一年级的题目为0到10，两个数的加减法，加法减法各20题，只有当其中有一个10的时候，计算结果才能超过10；如果两个数中没有10，计算结果不能超过10或者为负数。因此1+3合法，2+8合法，10+3合法，4+7不合法，2-4不合法。③二年级的题目为两位数（可以包含一位数）的加减法；其中第一部分的0道题为两个数字的加减法，第二部分10道题为三个数字的加减法（此时2个运算符号可以相同可以不同，注意当第一个符号为减号时，不要让第一个数小于第二个数）。计算结果不能超过100或者为负数④三年级的题目与二年级类似，其中第一部分10道为三位数和两位数的加减法，第二部分20道为三位数与三位数的加减法，第三部分10道为三位数3个数字的加减法。计算结果不能超过1000或者为负数⑤二三年级的题目中复杂规则的题目应该集中放后面⑥每道题前面都有题目的编号
 
+非常棒！接下来优化一下。①ElementPlusError: [props] [API] type.text is about to be deprecated in version 3.0.0, please use link instead.
+For more detail, please visit: https://element-plus.org/en-US/component/button.html#button-attributes②优化UI，现在selection页面3个测试的布局不统一，而且计算流畅性测试的回答区域太小了③评分记录到数据库会话中，正确作答计1分，漏答（未答）、答错计0分，可能需要改模型
+
 igneous:gg1ag51o5rlur91hp
 ipb_member_id:4286824
 ipb_pass_hash:7423a7387437ad1b071134c697ad7a59
-[
-{
-    "domain": ".exhentai.org",
-    "expirationDate": 1749617936.416785,
-    "hostOnly": false,
-    "httpOnly": false,
-    "name": "igneous",
-    "path": "/",
-    "sameSite": "unspecified",
-    "secure": false,
-    "session": false,
-    "storeId": "0",
-    "value": "gg1ag51o5rlur91hp",
-    "id": 1
-},
-{
-    "domain": ".exhentai.org",
-    "expirationDate": 1778561935.767668,
-    "hostOnly": false,
-    "httpOnly": false,
-    "name": "ipb_member_id",
-    "path": "/",
-    "sameSite": "unspecified",
-    "secure": false,
-    "session": false,
-    "storeId": "0",
-    "value": "4286824",
-    "id": 2
-},
-{
-    "domain": ".exhentai.org",
-    "expirationDate": 1778561935.767796,
-    "hostOnly": false,
-    "httpOnly": false,
-    "name": "ipb_pass_hash",
-    "path": "/",
-    "sameSite": "unspecified",
-    "secure": false,
-    "session": false,
-    "storeId": "0",
-    "value": "7423a7387437ad1b071134c697ad7a59",
-    "id": 3
-},
-{
-    "domain": ".exhentai.org",
-    "expirationDate": 1747069135.767823,
-    "hostOnly": false,
-    "httpOnly": false,
-    "name": "yay",
-    "path": "/",
-    "sameSite": "unspecified",
-    "secure": false,
-    "session": false,
-    "storeId": "0",
-    "value": "louder",
-    "id": 4
-}
-]
