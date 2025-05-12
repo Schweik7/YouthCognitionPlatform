@@ -14,7 +14,7 @@ from database import create_db_and_tables
 from apps.users.models import User
 from apps.reading_fluency.models import Trial, TestSession
 from apps.attention_test.models import AttentionTestSession, AttentionRecord
-
+from apps.calculation_test.models import CalculationTestSession, CalculationProblem
 # 确保数据目录存在
 data_dir = Path(settings.DATA_DIR)
 data_dir.mkdir(exist_ok=True)

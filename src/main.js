@@ -10,6 +10,7 @@ import App from './App.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import ReadingExperiment from './components/ReadingExperiment.vue';
 import AttentionExperiment from './components/AttentionExperiment.vue';
+import CalculationExperiment from './components/CalculationExperiment.vue';
 import UserInfo from './components/UserInfo.vue';
 import TestSelection from './components/TestSelection.vue';
 
@@ -20,7 +21,8 @@ const router = createRouter({
     { path: '/', component: UserInfo },
     { path: '/selection', component: TestSelection },
     { path: '/experiment', component: ReadingExperiment },
-    { path: '/attention-experiment', component: AttentionExperiment }
+    { path: '/attention-experiment', component: AttentionExperiment },
+    { path: '/calculation-experiment', component: CalculationExperiment }
   ]
 });
 

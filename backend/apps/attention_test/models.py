@@ -8,7 +8,7 @@ from apps.users.models import User
 class AttentionTestSession(BaseModel, table=True):
     """注意力筛查测试会话模型，记录单次测试的整体情况"""
 
-    __tablename__ = "at_test_sessions"
+    __tablename__ = "at_test_sessions" # type: ignore
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     start_time: datetime = Field(default_factory=datetime.now)
@@ -37,7 +37,7 @@ class AttentionTestSession(BaseModel, table=True):
 class AttentionRecord(BaseModel, table=True):
     """注意力筛查测试记录模型，只记录用户点击的位置"""
 
-    __tablename__ = "at_records"
+    __tablename__ = "at_records" # type: ignore
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     test_session_id: Optional[int] = Field(

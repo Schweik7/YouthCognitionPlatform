@@ -14,7 +14,7 @@ class Answer(SQLModel, table=False):
 class TestSession(BaseModel, table=True):
     """测试会话模型，记录单次测试的整体情况"""
 
-    __tablename__ = "rf_test_sessions"
+    __tablename__ = "rf_test_sessions" # type: ignore
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     start_time: datetime = Field(default_factory=datetime.now)
@@ -47,7 +47,7 @@ class TestSession(BaseModel, table=True):
 class Trial(BaseModel, table=True):
     """试验记录模型，记录单个试题的回答情况"""
 
-    __tablename__ = "rf_trials"
+    __tablename__ = "rf_trials" # type: ignore
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     test_session_id: Optional[int] = Field(

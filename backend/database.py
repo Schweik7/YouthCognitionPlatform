@@ -7,7 +7,7 @@ from config import settings
 
 # 创建数据库引擎
 engine = create_engine(
-    settings.DATABASE_URL,
+    settings.DATABASE_URL,  # type: ignore
     # echo=settings.DEBUG,
     echo=False,
     pool_pre_ping=True,

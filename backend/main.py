@@ -17,10 +17,10 @@ from logger_config import logger
 from apps.users.router import router as users_router
 from apps.reading_fluency.router import router as reading_fluency_router
 from apps.attention_test.router import router as attention_test_router
+from apps.calculation_test.router import router as calculation_router  # 新增计算流畅性测试路由
+
 # 未来可以导入其他测试系统的路由
-# from apps.word_recognition.router import router as word_recognition_router
-# from apps.attention_test.router import router as attention_test_router
-# from apps.calculation.router import router as calculation_router
+
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -42,21 +42,6 @@ app.add_middleware(
 )
 
 
-# 添加请求日志中间件
-# @app.middleware("http")
-# async def log_requests(request: Request, call_next):
-#     start_time = time.time()
-
-#     logger.info(f"{request.method} {request.url.path}")
-
-#     response = await call_next(request)
-
-#     process_time = time.time() - start_time
-#     logger.info(f"{request.method} {request.url.path} {response.status_code} - {process_time:.4f}s")
-
-#     return response
-
-
 # 注册路由
 # 用户管理路由
 app.include_router(users_router, prefix=f"{settings.API_PREFIX}/users")
@@ -64,10 +49,10 @@ app.include_router(users_router, prefix=f"{settings.API_PREFIX}/users")
 # 测试系统路由
 app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}/reading-fluency")
 app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
+app.include_router(calculation_router, prefix=f"{settings.API_PREFIX}/calculation")  # 新增计算流畅性测试路由
+
 # 未来可以注册其他测试系统的路由
-# app.include_router(word_recognition_router, prefix=f"{settings.API_PREFIX}/word-recognition")
-# app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
-# app.include_router(calculation_router, prefix=f"{settings.API_PREFIX}/calculation")
+
 
 # 挂载静态文件服务（前端资源）
 static_dir = Path("dist")
