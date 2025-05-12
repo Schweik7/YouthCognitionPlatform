@@ -18,6 +18,7 @@ async def get_recent_schools(session: Session = Depends(get_session)):
         schools = session.exec(select(User.school)).all()
         return {"schools": schools}
     except Exception as e:
+        raise
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取最近学校失败: {str(e)}"
         )

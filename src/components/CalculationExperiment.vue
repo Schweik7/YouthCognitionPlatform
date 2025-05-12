@@ -190,6 +190,23 @@
   font-weight: bold;
 }
 
+.total-score {
+  background-color: #f0f9eb;
+  padding: 15px;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.total-score .result-label {
+  color: #67C23A;
+  font-size: 1.1em;
+}
+
+.total-score .result-value {
+  color: #67C23A;
+  font-size: 1.2em;
+}
+
 /* 题型统计 */
 .type-stats {
   margin-top: 30px;
@@ -238,11 +255,11 @@
   .problem-text {
     font-size: 28px;
   }
-  
+
   .test-timer {
     font-size: 20px;
   }
-  
+
   .problem-card {
     padding: 20px;
   }
@@ -292,21 +309,9 @@
             {{ currentProblem.text }}
           </div>
           <div class="answer-input">
-            <el-input
-              v-model.number="userAnswer"
-              type="number"
-              placeholder="输入答案"
-              @keyup.enter="submitAnswer"
-              ref="answerInput"
-              :disabled="isProcessing"
-              size="large"
-            ></el-input>
-            <el-button 
-              type="primary" 
-              @click="submitAnswer" 
-              :disabled="isProcessing || userAnswer === ''"
-              size="large"
-            >
+            <el-input v-model.number="userAnswer" type="number" placeholder="输入答案" @keyup.enter="submitAnswer"
+              ref="answerInput" :disabled="isProcessing" size="large"></el-input>
+            <el-button type="primary" @click="submitAnswer" :disabled="isProcessing || userAnswer === ''" size="large">
               确认
             </el-button>
           </div>
@@ -324,10 +329,19 @@
       </div>
 
       <!-- 测试结果 -->
+      <!-- 测试结果 -->
       <div v-else-if="phase === 'result'" class="result-container">
         <h2>测试结果</h2>
 
         <el-card class="result-card">
+          <div class="result-item total-score">
+            <div class="result-label">总得分:</div>
+            <div class="result-value">{{ testResults.totalScore }} / {{ testResults.maxPossibleScore }}</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">得分率:</div>
+            <div class="result-value">{{ formatPercentage(testResults.scorePercentage) }}%</div>
+          </div>
           <div class="result-item">
             <div class="result-label">共完成题目:</div>
             <div class="result-value">{{ testResults.completedProblems }} / {{ totalProblems }}</div>
@@ -364,7 +378,11 @@
                 </template>
                 <div class="type-stats-content">
                   <div class="type-stat-item">
-                    <span>完成数量:</span>
+                    <span>总数量:</span>
+                    <span>{{ typeStats.addition.total }}</span>
+                  </div>
+                  <div class="type-stat-item">
+                    <span>已完成:</span>
                     <span>{{ typeStats.addition.completed }}</span>
                   </div>
                   <div class="type-stat-item">
@@ -385,7 +403,11 @@
                 </template>
                 <div class="type-stats-content">
                   <div class="type-stat-item">
-                    <span>完成数量:</span>
+                    <span>总数量:</span>
+                    <span>{{ typeStats.subtraction.total }}</span>
+                  </div>
+                  <div class="type-stat-item">
+                    <span>已完成:</span>
                     <span>{{ typeStats.subtraction.completed }}</span>
                   </div>
                   <div class="type-stat-item">
@@ -412,7 +434,11 @@
                 </template>
                 <div class="type-stats-content">
                   <div class="type-stat-item">
-                    <span>完成数量:</span>
+                    <span>总数量:</span>
+                    <span>{{ typeStats.twoNumbers.total }}</span>
+                  </div>
+                  <div class="type-stat-item">
+                    <span>已完成:</span>
                     <span>{{ typeStats.twoNumbers.completed }}</span>
                   </div>
                   <div class="type-stat-item">
@@ -433,7 +459,11 @@
                 </template>
                 <div class="type-stats-content">
                   <div class="type-stat-item">
-                    <span>完成数量:</span>
+                    <span>总数量:</span>
+                    <span>{{ typeStats.threeNumbers.total }}</span>
+                  </div>
+                  <div class="type-stat-item">
+                    <span>已完成:</span>
                     <span>{{ typeStats.threeNumbers.completed }}</span>
                   </div>
                   <div class="type-stat-item">
@@ -460,7 +490,11 @@
                 </template>
                 <div class="type-stats-content">
                   <div class="type-stat-item">
-                    <span>完成数量:</span>
+                    <span>总数量:</span>
+                    <span>{{ typeStats.type1.total }}</span>
+                  </div>
+                  <div class="type-stat-item">
+                    <span>已完成:</span>
                     <span>{{ typeStats.type1.completed }}</span>
                   </div>
                   <div class="type-stat-item">
@@ -481,7 +515,11 @@
                 </template>
                 <div class="type-stats-content">
                   <div class="type-stat-item">
-                    <span>完成数量:</span>
+                    <span>总数量:</span>
+                    <span>{{ typeStats.type2.total }}</span>
+                  </div>
+                  <div class="type-stat-item">
+                    <span>已完成:</span>
                     <span>{{ typeStats.type2.completed }}</span>
                   </div>
                   <div class="type-stat-item">
@@ -502,7 +540,11 @@
                 </template>
                 <div class="type-stats-content">
                   <div class="type-stat-item">
-                    <span>完成数量:</span>
+                    <span>总数量:</span>
+                    <span>{{ typeStats.type3.total }}</span>
+                  </div>
+                  <div class="type-stat-item">
+                    <span>已完成:</span>
                     <span>{{ typeStats.type3.completed }}</span>
                   </div>
                   <div class="type-stat-item">
@@ -559,6 +601,9 @@ const timerInterval = ref(null); // 计时器
 const testResults = reactive({
   completedProblems: 0,
   correctProblems: 0,
+  totalScore: 0,
+  maxPossibleScore: totalProblems.value,
+  scorePercentage: 0,
   accuracy: 0,
   averageResponseTime: 0
 });
@@ -566,15 +611,15 @@ const testResults = reactive({
 // 题型统计
 const typeStats = reactive({
   // 一年级
-  addition: { completed: 0, correct: 0, accuracy: 0 },
-  subtraction: { completed: 0, correct: 0, accuracy: 0 },
+  addition: { total: 0, completed: 0, correct: 0, accuracy: 0 },
+  subtraction: { total: 0, completed: 0, correct: 0, accuracy: 0 },
   // 二年级
-  twoNumbers: { completed: 0, correct: 0, accuracy: 0 },
-  threeNumbers: { completed: 0, correct: 0, accuracy: 0 },
+  twoNumbers: { total: 0, completed: 0, correct: 0, accuracy: 0 },
+  threeNumbers: { total: 0, completed: 0, correct: 0, accuracy: 0 },
   // 三年级
-  type1: { completed: 0, correct: 0, accuracy: 0 }, // 三位数和两位数加减法
-  type2: { completed: 0, correct: 0, accuracy: 0 }, // 三位数与三位数加减法
-  type3: { completed: 0, correct: 0, accuracy: 0 }  // 三位数三数加减法
+  type1: { total: 0, completed: 0, correct: 0, accuracy: 0 }, // 三位数和两位数加减法
+  type2: { total: 0, completed: 0, correct: 0, accuracy: 0 }, // 三位数与三位数加减法
+  type3: { total: 0, completed: 0, correct: 0, accuracy: 0 }  // 三位数三数加减法
 });
 
 // 当前题目
@@ -647,10 +692,10 @@ const getUserInfo = async () => {
 
   try {
     const userInfo = JSON.parse(userInfoStr);
-    
+
     // 设置年级
     gradeLevel.value = userInfo.grade > 0 && userInfo.grade <= 3 ? userInfo.grade : 1;
-    
+
     // 设置测试时间（根据年级不同）
     if (gradeLevel.value === 1) {
       testDuration.value = 180; // 一年级3分钟
@@ -699,7 +744,7 @@ const getUserInfo = async () => {
 // 生成题目
 const generateProblems = () => {
   const problems = [];
-  
+
   if (gradeLevel.value === 1) {
     // 一年级：0-10的加减法，加法减法各20题
     // 加法题：20道
@@ -715,7 +760,7 @@ const generateProblems = () => {
         a = Math.floor(Math.random() * 10) + 1; // 1-10的随机数
         b = Math.floor(Math.random() * (11 - a)); // 确保a+b不超过10
       }
-      
+
       // 创建题目
       problems.push({
         index: i + 1,
@@ -724,7 +769,7 @@ const generateProblems = () => {
         type: "addition"
       });
     }
-    
+
     // 减法题：20道
     for (let i = 0; i < 20; i++) {
       let a, b;
@@ -738,7 +783,7 @@ const generateProblems = () => {
         a = Math.floor(Math.random() * 10) + 1; // 1-10的随机数
         b = Math.floor(Math.random() * (a + 1)); // 确保b不大于a
       }
-      
+
       // 创建题目
       problems.push({
         index: i + 21,
@@ -752,14 +797,14 @@ const generateProblems = () => {
     // 第一部分：30道两数加减法
     for (let i = 0; i < 30; i++) {
       let a, b, isAddition;
-      
+
       isAddition = Math.random() < 0.5; // 50%概率加法
-      
+
       if (isAddition) {
         // 加法，确保结果不超过100
         a = Math.floor(Math.random() * 90) + 10; // 10-99的随机数
         b = Math.floor(Math.random() * (101 - a)); // 确保a+b不超过100
-        
+
         // 创建题目
         problems.push({
           index: i + 1,
@@ -771,7 +816,7 @@ const generateProblems = () => {
         // 减法，确保结果不为负
         a = Math.floor(Math.random() * 90) + 10; // 10-99的随机数
         b = Math.floor(Math.random() * (a + 1)); // 确保b不大于a
-        
+
         // 创建题目
         problems.push({
           index: i + 1,
@@ -781,25 +826,25 @@ const generateProblems = () => {
         });
       }
     }
-    
+
     // 第二部分：10道三数加减法
     for (let i = 0; i < 10; i++) {
       let a, b, c, op1, op2, text, answer;
-      
+
       // 第一个运算符
       op1 = Math.random() < 0.5 ? "+" : "-";
-      
+
       // 第二个运算符
       op2 = Math.random() < 0.5 ? "+" : "-";
-      
+
       if (op1 === "+") {
         // 第一个运算是加法
         a = Math.floor(Math.random() * 50) + 10; // 10-59的随机数
         b = Math.floor(Math.random() * 40) + 1; // 1-40的随机数
-        
+
         // 中间结果
         let midResult = a + b;
-        
+
         if (op2 === "+") {
           // 加法 + 加法
           c = Math.floor(Math.random() * (101 - midResult)); // 确保最终结果不超过100
@@ -815,10 +860,10 @@ const generateProblems = () => {
         // 第一个运算是减法，确保a > b
         a = Math.floor(Math.random() * 50) + 50; // 50-99的随机数
         b = Math.floor(Math.random() * a); // 确保b < a
-        
+
         // 中间结果
         let midResult = a - b;
-        
+
         if (op2 === "+") {
           // 减法 + 加法
           c = Math.floor(Math.random() * (101 - midResult)); // 确保最终结果不超过100
@@ -831,7 +876,7 @@ const generateProblems = () => {
           answer = midResult - c;
         }
       }
-      
+
       // 创建题目
       problems.push({
         index: i + 31,
@@ -845,14 +890,14 @@ const generateProblems = () => {
     // 第一部分：10道三位数和两位数的加减法
     for (let i = 0; i < 10; i++) {
       let a, b, isAddition;
-      
+
       isAddition = Math.random() < 0.5; // 50%概率加法
-      
+
       if (isAddition) {
         // 加法，确保结果不超过1000
         a = Math.floor(Math.random() * 900) + 100; // 100-999的随机数
         b = Math.floor(Math.random() * 90) + 10; // 10-99的随机数
-        
+
         // 创建题目
         problems.push({
           index: i + 1,
@@ -864,7 +909,7 @@ const generateProblems = () => {
         // 减法，确保结果不为负
         a = Math.floor(Math.random() * 900) + 100; // 100-999的随机数
         b = Math.floor(Math.random() * 90) + 10; // 10-99的随机数
-        
+
         // 创建题目
         problems.push({
           index: i + 1,
@@ -874,18 +919,18 @@ const generateProblems = () => {
         });
       }
     }
-    
+
     // 第二部分：20道三位数与三位数的加减法
     for (let i = 0; i < 20; i++) {
       let a, b, isAddition;
-      
+
       isAddition = Math.random() < 0.5; // 50%概率加法
-      
+
       if (isAddition) {
         // 加法，确保结果不超过1000
         a = Math.floor(Math.random() * 500) + 100; // 100-599的随机数
         b = Math.floor(Math.random() * (1000 - a - 100)) + 100; // 确保a+b不超过1000，且b是三位数
-        
+
         // 创建题目
         problems.push({
           index: i + 11,
@@ -897,7 +942,7 @@ const generateProblems = () => {
         // 减法，确保结果不为负
         a = Math.floor(Math.random() * 900) + 100; // 100-999的随机数
         b = Math.floor(Math.random() * (a - 100)) + 100; // 确保b不大于a，且b是三位数
-        
+
         // 创建题目
         problems.push({
           index: i + 11,
@@ -907,25 +952,25 @@ const generateProblems = () => {
         });
       }
     }
-    
+
     // 第三部分：10道三位数3个数字的加减法
     for (let i = 0; i < 10; i++) {
       let a, b, c, op1, op2, text, answer;
-      
+
       // 第一个运算符
       op1 = Math.random() < 0.5 ? "+" : "-";
-      
+
       // 第二个运算符
       op2 = Math.random() < 0.5 ? "+" : "-";
-      
+
       if (op1 === "+") {
         // 第一个运算是加法
         a = Math.floor(Math.random() * 400) + 100; // 100-499的随机数
         b = Math.floor(Math.random() * 400) + 100; // 100-499的随机数
-        
+
         // 中间结果
         let midResult = a + b;
-        
+
         if (op2 === "+") {
           // 加法 + 加法
           c = Math.floor(Math.random() * (1001 - midResult)) + 1; // 确保最终结果不超过1000
@@ -942,10 +987,10 @@ const generateProblems = () => {
         // 第一个运算是减法，确保a > b
         a = Math.floor(Math.random() * 400) + 500; // 500-899的随机数
         b = Math.floor(Math.random() * (a - 400)) + 100; // 确保b < a且b是三位数
-        
+
         // 中间结果
         let midResult = a - b;
-        
+
         if (op2 === "+") {
           // 减法 + 加法
           c = Math.floor(Math.random() * (1001 - midResult)) + 100; // 确保最终结果不超过1000且c是三位数
@@ -958,7 +1003,7 @@ const generateProblems = () => {
           answer = midResult - c;
         }
       }
-      
+
       // 创建题目
       problems.push({
         index: i + 31,
@@ -968,18 +1013,18 @@ const generateProblems = () => {
       });
     }
   }
-  
+
   // 随机打乱题目顺序
   for (let i = problems.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [problems[i], problems[j]] = [problems[j], problems[i]];
   }
-  
+
   // 重新设置题目序号
   problems.forEach((problem, index) => {
     problem.index = index + 1;
   });
-  
+
   return problems;
 };
 
@@ -1060,6 +1105,162 @@ const completeTestSession = async () => {
   }
 };
 
+// 获取测试结果
+const getTestResults = async () => {
+  if (!testSessionId.value) return;
+
+  try {
+    const response = await fetch(`/api/calculation/sessions/${testSessionId.value}/results`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      // 更新测试结果
+      testResults.completedProblems = data.stats.completedProblems;
+      testResults.correctProblems = data.stats.correctProblems;
+      testResults.totalScore = data.stats.totalScore;
+      testResults.maxPossibleScore = data.stats.maxPossibleScore;
+      testResults.scorePercentage = data.stats.scorePercentage;
+      testResults.accuracy = data.stats.accuracy;
+      testResults.averageResponseTime = data.stats.averageResponseTime;
+      
+      // 根据年级更新题型统计
+      if (gradeLevel.value === 1) {
+        if (data.stats.problemTypeStats.addition) {
+          typeStats.addition.total = data.stats.problemTypeStats.addition.total;
+          typeStats.addition.completed = data.stats.problemTypeStats.addition.completed;
+          typeStats.addition.correct = data.stats.problemTypeStats.addition.correct;
+          typeStats.addition.accuracy = data.stats.problemTypeStats.addition.accuracy;
+        }
+        
+        if (data.stats.problemTypeStats.subtraction) {
+          typeStats.subtraction.total = data.stats.problemTypeStats.subtraction.total;
+          typeStats.subtraction.completed = data.stats.problemTypeStats.subtraction.completed;
+          typeStats.subtraction.correct = data.stats.problemTypeStats.subtraction.correct;
+          typeStats.subtraction.accuracy = data.stats.problemTypeStats.subtraction.accuracy;
+        }
+      } else if (gradeLevel.value === 2) {
+        if (data.stats.problemTypeStats.twoNumbers) {
+          typeStats.twoNumbers.total = data.stats.problemTypeStats.twoNumbers.total;
+          typeStats.twoNumbers.completed = data.stats.problemTypeStats.twoNumbers.completed;
+          typeStats.twoNumbers.correct = data.stats.problemTypeStats.twoNumbers.correct;
+          typeStats.twoNumbers.accuracy = data.stats.problemTypeStats.twoNumbers.accuracy;
+        }
+        
+        if (data.stats.problemTypeStats.threeNumbers) {
+          typeStats.threeNumbers.total = data.stats.problemTypeStats.threeNumbers.total;
+          typeStats.threeNumbers.completed = data.stats.problemTypeStats.threeNumbers.completed;
+          typeStats.threeNumbers.correct = data.stats.problemTypeStats.threeNumbers.correct;
+          typeStats.threeNumbers.accuracy = data.stats.problemTypeStats.threeNumbers.accuracy;
+        }
+      } else if (gradeLevel.value === 3) {
+        if (data.stats.problemTypeStats.twoDigitOperations) {
+          typeStats.type1.total = data.stats.problemTypeStats.twoDigitOperations.total;
+          typeStats.type1.completed = data.stats.problemTypeStats.twoDigitOperations.completed;
+          typeStats.type1.correct = data.stats.problemTypeStats.twoDigitOperations.correct;
+          typeStats.type1.accuracy = data.stats.problemTypeStats.twoDigitOperations.accuracy;
+        }
+        
+        if (data.stats.problemTypeStats.threeDigitOperations) {
+          typeStats.type2.total = data.stats.problemTypeStats.threeDigitOperations.total;
+          typeStats.type2.completed = data.stats.problemTypeStats.threeDigitOperations.completed;
+          typeStats.type2.correct = data.stats.problemTypeStats.threeDigitOperations.correct;
+          typeStats.type2.accuracy = data.stats.problemTypeStats.threeDigitOperations.accuracy;
+        }
+        
+        if (data.stats.problemTypeStats.threeDigitThreeNumbers) {
+          typeStats.type3.total = data.stats.problemTypeStats.threeDigitThreeNumbers.total;
+          typeStats.type3.completed = data.stats.problemTypeStats.threeDigitThreeNumbers.completed;
+          typeStats.type3.correct = data.stats.problemTypeStats.threeDigitThreeNumbers.correct;
+          typeStats.type3.accuracy = data.stats.problemTypeStats.threeDigitThreeNumbers.accuracy;
+        }
+      }
+      
+      console.log('测试结果获取成功');
+    } else {
+      console.error('获取测试结果失败:', await response.text());
+    }
+  } catch (error) {
+    console.error('获取测试结果请求失败:', error);
+  }
+};
+// 进入下一阶段
+const nextPhase = () => {
+  if (phase.value === 'welcome') {
+    startTest();
+  }
+};
+
+// 开始测试
+const startTest = async () => {
+  // 获取用户信息
+  await getUserInfo();
+
+  // 生成题目
+  problems.value = generateProblems();
+
+  // 创建测试会话
+  await createTestSession();
+
+  // 准备测试
+  phase.value = 'test';
+  currentIndex.value = 0;
+  userAnswer.value = '';
+  problemStartTime.value = Date.now();
+
+  // 启动计时器
+  startTimer();
+
+  // 聚焦答案输入框
+  nextTick(() => {
+    if (answerInput.value) {
+      answerInput.value.focus();
+    }
+  });
+};
+
+// 提交答案
+const submitAnswer = async () => {
+  if (isProcessing.value || userAnswer.value === '') return;
+  
+  isProcessing.value = true;
+  
+  // 计算反应时间
+  const endTime = Date.now();
+  responseTime.value = endTime - problemStartTime.value;
+  
+  // 获取当前题目
+  const problem = problems.value[currentIndex.value];
+  
+  // 将用户答案转换为数字
+  const numericAnswer = parseInt(userAnswer.value);
+  
+  // 保存答题结果
+  await saveProblem(problem, numericAnswer, responseTime.value);
+  
+  // 更新进度
+  await updateTestSession(currentIndex.value + 1);
+  
+  // 准备下一题
+  isProcessing.value = false;
+  userAnswer.value = '';
+  
+  if (currentIndex.value < problems.value.length - 1 && remainingTime.value > 0) {
+    currentIndex.value++;
+    problemStartTime.value = Date.now();
+    
+    // 聚焦答案输入框
+    nextTick(() => {
+      if (answerInput.value) {
+        answerInput.value.focus();
+      }
+    });
+  } else {
+    // 测试结束
+    endTest();
+  }
+};
+
 // 保存题目答案
 const saveProblem = async (problem, userAnswer, responseTime) => {
   if (!testSessionId.value || !userId.value) {
@@ -1092,171 +1293,27 @@ const saveProblem = async (problem, userAnswer, responseTime) => {
   }
 };
 
-// 获取测试结果
-const getTestResults = async () => {
-  if (!testSessionId.value) return;
-
-  try {
-    const response = await fetch(`/api/calculation/sessions/${testSessionId.value}/results`);
-    
-    if (response.ok) {
-      const data = await response.json();
-      
-      // 更新测试结果
-      testResults.completedProblems = data.stats.totalProblems;
-      testResults.correctProblems = data.stats.correctProblems;
-      testResults.accuracy = data.stats.accuracy;
-      testResults.averageResponseTime = data.stats.averageResponseTime;
-      
-      // 根据年级更新题型统计
-      if (gradeLevel.value === 1) {
-        if (data.stats.problemTypeStats.addition) {
-          typeStats.addition.completed = data.stats.problemTypeStats.addition.total;
-          typeStats.addition.correct = data.stats.problemTypeStats.addition.correct;
-          typeStats.addition.accuracy = data.stats.problemTypeStats.addition.accuracy;
-        }
-        
-        if (data.stats.problemTypeStats.subtraction) {
-          typeStats.subtraction.completed = data.stats.problemTypeStats.subtraction.total;
-          typeStats.subtraction.correct = data.stats.problemTypeStats.subtraction.correct;
-          typeStats.subtraction.accuracy = data.stats.problemTypeStats.subtraction.accuracy;
-        }
-      } else if (gradeLevel.value === 2) {
-        if (data.stats.problemTypeStats.twoNumbers) {
-          typeStats.twoNumbers.completed = data.stats.problemTypeStats.twoNumbers.total;
-          typeStats.twoNumbers.correct = data.stats.problemTypeStats.twoNumbers.correct;
-          typeStats.twoNumbers.accuracy = data.stats.problemTypeStats.twoNumbers.accuracy;
-        }
-        
-        if (data.stats.problemTypeStats.threeNumbers) {
-          typeStats.threeNumbers.completed = data.stats.problemTypeStats.threeNumbers.total;
-          typeStats.threeNumbers.correct = data.stats.problemTypeStats.threeNumbers.correct;
-          typeStats.threeNumbers.accuracy = data.stats.problemTypeStats.threeNumbers.accuracy;
-        }
-      } else if (gradeLevel.value === 3) {
-        if (data.stats.problemTypeStats.twoDigitOperations) {
-          typeStats.type1.completed = data.stats.problemTypeStats.twoDigitOperations.total;
-          typeStats.type1.correct = data.stats.problemTypeStats.twoDigitOperations.correct;
-          typeStats.type1.accuracy = data.stats.problemTypeStats.twoDigitOperations.accuracy;
-        }
-        
-        if (data.stats.problemTypeStats.threeDigitOperations) {
-          typeStats.type2.completed = data.stats.problemTypeStats.threeDigitOperations.total;
-          typeStats.type2.correct = data.stats.problemTypeStats.threeDigitOperations.correct;
-          typeStats.type2.accuracy = data.stats.problemTypeStats.threeDigitOperations.accuracy;
-        }
-        
-        if (data.stats.problemTypeStats.threeDigitThreeNumbers) {
-          typeStats.type3.completed = data.stats.problemTypeStats.threeDigitThreeNumbers.total;
-          typeStats.type3.correct = data.stats.problemTypeStats.threeDigitThreeNumbers.correct;
-          typeStats.type3.accuracy = data.stats.problemTypeStats.threeDigitThreeNumbers.accuracy;
-        }
-      }
-      
-      console.log('测试结果获取成功');
-    } else {
-      console.error('获取测试结果失败:', await response.text());
-    }
-  } catch (error) {
-    console.error('获取测试结果请求失败:', error);
-  }
-};
-
-// 进入下一阶段
-const nextPhase = () => {
-  if (phase.value === 'welcome') {
-    startTest();
-  }
-};
-
-// 开始测试
-const startTest = async () => {
-  // 获取用户信息
-  await getUserInfo();
-  
-  // 生成题目
-  problems.value = generateProblems();
-  
-  // 创建测试会话
-  await createTestSession();
-  
-  // 准备测试
-  phase.value = 'test';
-  currentIndex.value = 0;
-  userAnswer.value = '';
-  problemStartTime.value = Date.now();
-  
-  // 启动计时器
-  startTimer();
-  
-  // 聚焦答案输入框
-  nextTick(() => {
-    if (answerInput.value) {
-      answerInput.value.focus();
-    }
-  });
-};
-
-// 提交答案
-const submitAnswer = async () => {
-  if (isProcessing.value || userAnswer.value === '') return;
-  
-  isProcessing.value = true;
-  
-  // 计算反应时间
-  const endTime = Date.now();
-  responseTime.value = endTime - problemStartTime.value;
-  
-  // 获取当前题目
-  const problem = problems.value[currentIndex.value];
-  
-  // 保存答题结果
-  await saveProblem(problem, parseInt(userAnswer.value), responseTime.value);
-  
-  // 更新进度
-  await updateTestSession(currentIndex.value + 1);
-  
-  // 准备下一题
-  isProcessing.value = false;
-  userAnswer.value = '';
-  
-  if (currentIndex.value < problems.value.length - 1 && remainingTime.value > 0) {
-    currentIndex.value++;
-    problemStartTime.value = Date.now();
-    
-    // 聚焦答案输入框
-    nextTick(() => {
-      if (answerInput.value) {
-        answerInput.value.focus();
-      }
-    });
-  } else {
-    // 测试结束
-    endTest();
-  }
-};
-
 // 结束测试
 const endTest = async () => {
   if (testEnded.value) return;
-  
+
   testEnded.value = true;
   clearInterval(timerInterval.value);
-  
+
   // 显示加载中提示
   const loading = ElLoading.service({
     lock: true,
     text: '正在处理结果...',
     background: 'rgba(0, 0, 0, 0.7)'
   });
-  
+
   try {
     // 完成测试会话
     await completeTestSession();
-    
+
     // 获取测试结果
     await getTestResults();
-    
+
     // 显示结果页面
     phase.value = 'result';
   } catch (error) {
@@ -1273,7 +1330,7 @@ const goToSelection = () => {
   router.push('/selection');
 };
 
-// 重新测试
+// 重置测试
 const restartTest = () => {
   // 重置状态
   phase.value = 'welcome';
@@ -1288,21 +1345,24 @@ const restartTest = () => {
   Object.assign(testResults, {
     completedProblems: 0,
     correctProblems: 0,
+    totalScore: 0,
+    maxPossibleScore: totalProblems.value,
+    scorePercentage: 0,
     accuracy: 0,
     averageResponseTime: 0
   });
   
   // 重置题型统计
   if (gradeLevel.value === 1) {
-    Object.assign(typeStats.addition, { completed: 0, correct: 0, accuracy: 0 });
-    Object.assign(typeStats.subtraction, { completed: 0, correct: 0, accuracy: 0 });
+    Object.assign(typeStats.addition, { total: 0, completed: 0, correct: 0, accuracy: 0 });
+    Object.assign(typeStats.subtraction, { total: 0, completed: 0, correct: 0, accuracy: 0 });
   } else if (gradeLevel.value === 2) {
-    Object.assign(typeStats.twoNumbers, { completed: 0, correct: 0, accuracy: 0 });
-    Object.assign(typeStats.threeNumbers, { completed: 0, correct: 0, accuracy: 0 });
+    Object.assign(typeStats.twoNumbers, { total: 0, completed: 0, correct: 0, accuracy: 0 });
+    Object.assign(typeStats.threeNumbers, { total: 0, completed: 0, correct: 0, accuracy: 0 });
   } else if (gradeLevel.value === 3) {
-    Object.assign(typeStats.type1, { completed: 0, correct: 0, accuracy: 0 });
-    Object.assign(typeStats.type2, { completed: 0, correct: 0, accuracy: 0 });
-    Object.assign(typeStats.type3, { completed: 0, correct: 0, accuracy: 0 });
+    Object.assign(typeStats.type1, { total: 0, completed: 0, correct: 0, accuracy: 0 });
+    Object.assign(typeStats.type2, { total: 0, completed: 0, correct: 0, accuracy: 0 });
+    Object.assign(typeStats.type3, { total: 0, completed: 0, correct: 0, accuracy: 0 });
   }
 };
 
@@ -1311,11 +1371,11 @@ const jumpToProblem = () => {
   if (phase.value !== 'test' || jumpToIndex.value < 1 || jumpToIndex.value > problems.value.length) {
     return;
   }
-  
+
   currentIndex.value = jumpToIndex.value - 1;
   userAnswer.value = '';
   problemStartTime.value = Date.now();
-  
+
   // 聚焦答案输入框
   nextTick(() => {
     if (answerInput.value) {
@@ -1337,7 +1397,7 @@ const keyHandler = (e) => {
 onMounted(() => {
   // 添加键盘事件监听
   window.addEventListener('keydown', keyHandler);
-  
+
   // 获取用户信息和初始化年级
   getUserInfo();
 });

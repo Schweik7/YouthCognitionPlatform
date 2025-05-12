@@ -8,7 +8,7 @@ from apps.users.models import User
 class CalculationTestSession(BaseModel, table=True):
     """计算流畅性测试会话模型，记录单次测试的整体情况"""
 
-    __tablename__ = "calc_test_sessions" # type: ignore
+    __tablename__ = "calc_test_sessions"
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     start_time: datetime = Field(default_factory=datetime.now)
@@ -19,6 +19,8 @@ class CalculationTestSession(BaseModel, table=True):
     progress: int = Field(default=0)  # 进度（已完成的题目数量）
     total_questions: int = Field(default=40)  # 总题目数量
     correct_count: int = Field(default=0)  # 正确答题数量
+    total_score: int = Field(default=0)  # 总得分
+    max_score: int = Field(default=40)  # 最高可能得分
 
     # 关系
     user: Optional[User] = Relationship()
@@ -37,12 +39,19 @@ class CalculationTestSession(BaseModel, table=True):
         if self.total_questions == 0:
             return 0.0
         return (self.progress / self.total_questions) * 100.0
+    
+    @property
+    def score_percentage(self) -> float:
+        """计算得分率"""
+        if self.max_score == 0:
+            return 0.0
+        return (self.total_score / self.max_score) * 100.0
 
 
 class CalculationProblem(BaseModel, table=True):
     """计算题目记录模型，记录单个计算题的回答情况"""
 
-    __tablename__ = "calc_problems" # type: ignore
+    __tablename__ = "calc_problems"
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     test_session_id: Optional[int] = Field(
@@ -54,6 +63,7 @@ class CalculationProblem(BaseModel, table=True):
     user_answer: Optional[int] = None  # 用户答案
     is_correct: Optional[bool] = None  # 是否正确
     response_time: int = Field(default=0)  # 回答时间（毫秒）
+    score: int = Field(default=0)  # 得分: 1分(正确), 0分(错误或未答)
 
     # 关系
     user: Optional[User] = Relationship()
@@ -87,6 +97,7 @@ class TestSessionUpdate(SQLModel):
     is_completed: Optional[bool] = None
     progress: Optional[int] = None
     correct_count: Optional[int] = None
+    total_score: Optional[int] = None
     end_time: Optional[datetime] = None
 
 
@@ -103,8 +114,11 @@ class TestSessionResponse(SQLModel):
     progress: int
     total_questions: int
     correct_count: int
+    total_score: int
+    max_score: int
     accuracy: float
     completion_rate: float
+    score_percentage: float
 
 
 class ResultResponse(SQLModel):

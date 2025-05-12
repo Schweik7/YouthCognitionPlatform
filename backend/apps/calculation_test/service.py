@@ -27,6 +27,7 @@ def create_test_session(
         user_id=test_session_data.user_id,
         grade_level=test_session_data.grade_level,
         total_questions=test_session_data.total_questions,
+        max_score=test_session_data.total_questions,  # 最高可能得分等于总题目数
         start_time=datetime.now(),
     )
 
@@ -79,9 +80,7 @@ def list_user_test_sessions(session: Session, user_id: int) -> List[CalculationT
     return list(session.exec(query).all())
 
 
-def complete_test_session(
-    session: Session, test_session_id: int
-) -> Optional[CalculationTestSession]:
+def complete_test_session(session: Session, test_session_id: int) -> Optional[CalculationTestSession]:
     """完成测试会话"""
     test_session = session.get(CalculationTestSession, test_session_id)
     if not test_session:
@@ -94,6 +93,14 @@ def complete_test_session(
     # 计算总用时（秒）
     delta = test_session.end_time - test_session.start_time
     test_session.total_time_seconds = int(delta.total_seconds())
+
+    # 计算总分（每道正确题得1分）
+    query = select(CalculationProblem).where(
+        CalculationProblem.test_session_id == test_session_id,
+        CalculationProblem.is_correct == True
+    )
+    correct_problems = session.exec(query).all()
+    test_session.total_score = len(correct_problems)
 
     session.add(test_session)
     session.commit()
@@ -118,6 +125,9 @@ def save_problem(
 
     # 验证用户答案是否正确
     is_correct = problem_data.user_answer == problem_data.correct_answer
+    
+    # 计算得分: 正确为1分，错误或未答为0分
+    score = 1 if is_correct else 0
 
     # 创建计算题目记录
     problem = CalculationProblem(
@@ -129,6 +139,7 @@ def save_problem(
         user_answer=problem_data.user_answer,
         is_correct=is_correct,
         response_time=problem_data.response_time,
+        score=score,
     )
 
     session.add(problem)
@@ -137,6 +148,7 @@ def save_problem(
     test_session.progress += 1
     if is_correct:
         test_session.correct_count += 1
+        test_session.total_score += score  # 更新总分
 
     session.add(test_session)
     session.commit()
@@ -156,7 +168,7 @@ def get_session_problems(session: Session, test_session_id: int) -> List[Calcula
     return list(session.exec(query).all())
 
 
-def get_test_session_results(session: Session, test_session_id: int) -> Dict[str, Any] | None:
+def get_test_session_results(session: Session, test_session_id: int) -> Dict[str, Any]:
     """获取单次测试会话的结果"""
     # 获取测试会话
     test_session = session.get(CalculationTestSession, test_session_id)
@@ -169,68 +181,59 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
     # 获取所有计算题目记录
     problems = get_session_problems(session, test_session_id)
 
-    # 计算各类题型的正确率
-    # 一年级: 加法题和减法题
-    # 二年级: 两数加减法和三数加减法
-    # 三年级: 两位数加减法、三位数加减法和三位数三数加减法
-
     # 初始化统计数据
     stats = {
         "totalProblems": len(problems),
-        "correctProblems": sum(1 for p in problems if p.is_correct),
+        "completedProblems": test_session.progress,
+        "correctProblems": test_session.correct_count,
+        "totalScore": test_session.total_score,
+        "maxPossibleScore": test_session.max_score,
+        "scorePercentage": test_session.score_percentage,
         "accuracy": test_session.accuracy,
         "completionRate": test_session.completion_rate,
         "totalTimeSeconds": test_session.total_time_seconds,
         "averageResponseTime": sum(p.response_time for p in problems) / max(len(problems), 1),
-        "problemTypeStats": {},
+        "problemTypeStats": {}
     }
-
+    
     # 根据年级分析题型
     if test_session.grade_level == 1:
         # 一年级: 加法题和减法题
         addition_problems = [p for p in problems if "+" in p.problem_text]
         subtraction_problems = [p for p in problems if "-" in p.problem_text]
-
+        
         stats["problemTypeStats"] = {
             "addition": {
                 "total": len(addition_problems),
+                "completed": sum(1 for p in addition_problems if p.user_answer is not None),
                 "correct": sum(1 for p in addition_problems if p.is_correct),
-                "accuracy": sum(1 for p in addition_problems if p.is_correct)
-                / max(len(addition_problems), 1)
-                * 100,
+                "accuracy": sum(1 for p in addition_problems if p.is_correct) / max(len(addition_problems), 1) * 100
             },
             "subtraction": {
                 "total": len(subtraction_problems),
+                "completed": sum(1 for p in subtraction_problems if p.user_answer is not None),
                 "correct": sum(1 for p in subtraction_problems if p.is_correct),
-                "accuracy": sum(1 for p in subtraction_problems if p.is_correct)
-                / max(len(subtraction_problems), 1)
-                * 100,
-            },
+                "accuracy": sum(1 for p in subtraction_problems if p.is_correct) / max(len(subtraction_problems), 1) * 100
+            }
         }
     elif test_session.grade_level == 2:
         # 二年级: 两数加减法和三数加减法
-        two_num_problems = [
-            p for p in problems if p.problem_text.count("+") + p.problem_text.count("-") == 1
-        ]
-        three_num_problems = [
-            p for p in problems if p.problem_text.count("+") + p.problem_text.count("-") == 2
-        ]
-
+        two_num_problems = [p for p in problems if p.problem_text.count("+") + p.problem_text.count("-") == 1]
+        three_num_problems = [p for p in problems if p.problem_text.count("+") + p.problem_text.count("-") == 2]
+        
         stats["problemTypeStats"] = {
             "twoNumbers": {
                 "total": len(two_num_problems),
+                "completed": sum(1 for p in two_num_problems if p.user_answer is not None),
                 "correct": sum(1 for p in two_num_problems if p.is_correct),
-                "accuracy": sum(1 for p in two_num_problems if p.is_correct)
-                / max(len(two_num_problems), 1)
-                * 100,
+                "accuracy": sum(1 for p in two_num_problems if p.is_correct) / max(len(two_num_problems), 1) * 100
             },
             "threeNumbers": {
                 "total": len(three_num_problems),
+                "completed": sum(1 for p in three_num_problems if p.user_answer is not None),
                 "correct": sum(1 for p in three_num_problems if p.is_correct),
-                "accuracy": sum(1 for p in three_num_problems if p.is_correct)
-                / max(len(three_num_problems), 1)
-                * 100,
-            },
+                "accuracy": sum(1 for p in three_num_problems if p.is_correct) / max(len(three_num_problems), 1) * 100
+            }
         }
     elif test_session.grade_level == 3:
         # 三年级: 分类统计
@@ -238,27 +241,27 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
         stats["problemTypeStats"] = {
             "twoDigitOperations": {
                 "total": sum(1 for p in problems if p.problem_index <= 10),
+                "completed": sum(1 for p in problems if p.problem_index <= 10 and p.user_answer is not None),
                 "correct": sum(1 for p in problems if p.problem_index <= 10 and p.is_correct),
-                "accuracy": sum(1 for p in problems if p.problem_index <= 10 and p.is_correct)
-                / max(sum(1 for p in problems if p.problem_index <= 10), 1)
-                * 100,
+                "accuracy": sum(1 for p in problems if p.problem_index <= 10 and p.is_correct) / 
+                            max(sum(1 for p in problems if p.problem_index <= 10), 1) * 100
             },
             "threeDigitOperations": {
                 "total": sum(1 for p in problems if 10 < p.problem_index <= 30),
+                "completed": sum(1 for p in problems if 10 < p.problem_index <= 30 and p.user_answer is not None),
                 "correct": sum(1 for p in problems if 10 < p.problem_index <= 30 and p.is_correct),
-                "accuracy": sum(1 for p in problems if 10 < p.problem_index <= 30 and p.is_correct)
-                / max(sum(1 for p in problems if 10 < p.problem_index <= 30), 1)
-                * 100,
+                "accuracy": sum(1 for p in problems if 10 < p.problem_index <= 30 and p.is_correct) / 
+                            max(sum(1 for p in problems if 10 < p.problem_index <= 30), 1) * 100
             },
             "threeDigitThreeNumbers": {
                 "total": sum(1 for p in problems if p.problem_index > 30),
+                "completed": sum(1 for p in problems if p.problem_index > 30 and p.user_answer is not None),
                 "correct": sum(1 for p in problems if p.problem_index > 30 and p.is_correct),
-                "accuracy": sum(1 for p in problems if p.problem_index > 30 and p.is_correct)
-                / max(sum(1 for p in problems if p.problem_index > 30), 1)
-                * 100,
-            },
+                "accuracy": sum(1 for p in problems if p.problem_index > 30 and p.is_correct) / 
+                            max(sum(1 for p in problems if p.problem_index > 30), 1) * 100
+            }
         }
-
+    
     # 构建结果
     results = {
         "user": user,
