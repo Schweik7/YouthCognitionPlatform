@@ -49,7 +49,9 @@ app.include_router(users_router, prefix=f"{settings.API_PREFIX}/users")
 # 测试系统路由
 app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}/reading-fluency")
 app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
-app.include_router(calculation_router, prefix=f"{settings.API_PREFIX}/calculation")  # 新增计算流畅性测试路由
+app.include_router(
+    calculation_router, prefix=f"{settings.API_PREFIX}/calculation"
+)  # 新增计算流畅性测试路由
 
 # 未来可以注册其他测试系统的路由
 

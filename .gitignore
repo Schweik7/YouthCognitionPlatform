@@ -11,6 +11,13 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+*.mp3
+*.m4a
+*.zip
+*.json
+*.csv
+
+ise-demo/example/**
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
