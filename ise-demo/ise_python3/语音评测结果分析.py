@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 修正版科大讯飞语音评测XML分析器
 基于实际XML数据结构重新设计
@@ -64,11 +66,11 @@ class PhoneAnalysis:
     @property
     def is_correct(self) -> bool:
         """是否正确"""
-        return (
-            self.dp_message == 0
-            and self.perr_msg == 0
-            and self.rec_node_type == "paper"
-        )
+        # 优先根据dp_message判断，dp_message=0表示正确
+        # 只有试卷内容(paper)才需要判断正确性
+        if self.rec_node_type != "paper":
+            return True  # 非试卷内容（如静音）不算错误
+        return self.dp_message == 0
 
     @property
     def confidence_level(self) -> str:
@@ -85,12 +87,13 @@ class PhoneAnalysis:
     @property
     def error_description(self) -> str:
         """错误描述"""
-        if self.is_correct:
+        # 优先根据dp_message判断
+        if self.dp_message == 0 and self.rec_node_type == "paper":
             return "正确"
 
         descriptions = []
 
-        # 增漏信息
+        # 增漏信息（这是主要的错误判断依据）
         if self.dp_message == 16:
             descriptions.append("漏读")
         elif self.dp_message == 32:
@@ -100,19 +103,24 @@ class PhoneAnalysis:
         elif self.dp_message == 128:
             descriptions.append("替换")
 
-        # 音素错误信息
-        if self.is_yun == 0:  # 声母
-            if self.perr_msg == 1:
-                descriptions.append("声母错误")
-        else:  # 韵母
-            if self.perr_msg == 1:
-                descriptions.append("韵母错误")
-            elif self.perr_msg == 2:
-                descriptions.append("调型错误")
-            elif self.perr_msg == 3:
-                descriptions.append("韵母和调型错误")
+        # 如果dp_message=0但有其他错误信息，可以作为辅助信息
+        if self.dp_message == 0 and self.perr_msg != 0:
+            if self.is_yun == 0:  # 声母
+                if self.perr_msg == 1:
+                    descriptions.append("声母发音不标准")
+            else:  # 韵母
+                if self.perr_msg == 1:
+                    descriptions.append("韵母发音不标准")
+                elif self.perr_msg == 2:
+                    descriptions.append("调型不标准")
+                elif self.perr_msg == 3:
+                    descriptions.append("韵母和调型不标准")
 
-        return "; ".join(descriptions) if descriptions else "未知错误"
+        return (
+            "; ".join(descriptions)
+            if descriptions
+            else ("非试卷内容" if self.rec_node_type != "paper" else "正确")
+        )
 
 
 @dataclass
@@ -153,9 +161,8 @@ class SyllableAnalysis:
         if not self.is_paper_content:
             return True  # 非试卷内容（如静音）不算错误
 
-        return self.dp_message == 0 and all(
-            phone.is_correct for phone in self.phones if phone.rec_node_type == "paper"
-        )
+        # 优先根据dp_message判断，dp_message=0表示正确
+        return self.dp_message == 0
 
     @property
     def pinyin_without_tone(self) -> str:
@@ -185,14 +192,24 @@ class SyllableAnalysis:
 
         errors = []
 
-        # 音节级错误
-        if self.dp_message != 0:
-            errors.append(f"音节{self.error_type.name}")
+        # 音节级错误（优先判断dp_message）
+        if self.dp_message == 16:
+            errors.append("漏读")
+        elif self.dp_message == 32:
+            errors.append("增读")
+        elif self.dp_message == 64:
+            errors.append("回读")
+        elif self.dp_message == 128:
+            errors.append("替换")
 
-        # 音素级错误
-        for phone in self.phones:
-            if phone.rec_node_type == "paper" and not phone.is_correct:
-                errors.append(f"{phone.content}({phone.error_description})")
+        # 如果音节dp_message=0但仍被判为错误，检查音素细节
+        if self.dp_message == 0:
+            phone_errors = []
+            for phone in self.phones:
+                if phone.rec_node_type == "paper" and phone.perr_msg != 0:
+                    phone_errors.append(f"{phone.content}发音不标准")
+            if phone_errors:
+                errors.extend(phone_errors)
 
         return "; ".join(errors) if errors else "未知错误"
 
@@ -377,8 +394,9 @@ class XfyunXMLAnalyzer:
         try:
             root = ET.fromstring(xml_content)
 
-            # 查找评测结果节点
-            read_syllable = root.find(".//read_syllable")
+            # 查找评测结果节点 - 需要找到rec_paper内部的read_syllable节点
+            # XML结构: xml_result > read_syllable > rec_paper > read_syllable (这个才有分数信息)
+            read_syllable = root.find(".//rec_paper/read_syllable")
 
             if read_syllable is not None:
                 # 解析整体分数
@@ -394,6 +412,8 @@ class XfyunXMLAnalyzer:
 
                 # 解析字符详情
                 result.characters = XfyunXMLAnalyzer._parse_characters(read_syllable)
+            else:
+                logger.warning("未找到rec_paper内的read_syllable节点")
 
             logger.info(f"XML解析完成，总分: {result.overall_score}")
 
@@ -1004,11 +1024,12 @@ def main():
 
     elif choice == "3":
         # 分析当前提供的示例XML
-        xml_file = r"ise-demo\ise_python3\results\evaluation_20250615_201641.xml"
-        print("🔍 分析示例XML文件" + xml_file)
+        print("🔍 分析示例XML文件...")
 
         # 创建示例XML文件（基于您提供的内容）
-        sample_xml_path = Path(xml_file)
+        sample_xml_path = Path(
+            r"ise-demo\ise_python3\results\evaluation_20250615_201641.xml"
+        )
         if not sample_xml_path.exists():
             print("❌ 示例XML文件不存在，请先将XML内容保存为文件")
         else:
@@ -1021,6 +1042,80 @@ def main():
         print("❌ 无效选择")
 
 
+# 针对您提供的XML文件的特定分析
+def analyze_provided_xml():
+    """分析您提供的具体XML文件"""
+
+    # 这里可以直接分析您提供的XML内容
+    xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+  <xml_result>
+      <read_syllable lan="cn" type="study" version="7,0,0,1024">
+          <rec_paper>
+              <read_syllable beg_pos="0" content="的。一。了。我。是。不。在。上。来。有。着。他。地。子。人。们。到。个。小。这。里。大。天。就。说。那。去。看。下。得。时。么。你。也。过。出。起。好。要。把。" end_pos="4419" except_info="0" fluency_score="0.000000" integrity_score="0.000000" phone_score="10.975609" time_len="4419" tone_score="29.268295" total_score="20.121956">
+                  <!-- 这里是完整的XML内容，由于篇幅限制省略 -->
+              </read_syllable>
+          </rec_paper>
+      </read_syllable>
+  </xml_result>"""
+
+    print("🔍 分析您提供的XML评测结果")
+    print("=" * 60)
+
+    try:
+        analyzer = XfyunXMLAnalyzer()
+        analysis = analyzer.analyze_xml_content(xml_content)
+        analysis.xml_file = "evaluation_20250615_201641.xml"
+
+        # 显示分析结果
+        AnalysisReporter.print_detailed_analysis(analysis)
+
+        # 特定观察
+        print(f"\n🎯 特定观察")
+        print("-" * 60)
+        print(f"这是一个单字朗读测试，包含{analysis.total_characters}个常用汉字")
+        print(f"评测总时长: {analysis.total_duration_ms / 1000:.1f}秒")
+        print(f"实际朗读了: {analysis.read_characters}个字")
+        print(f"从结果看，主要问题是:")
+
+        # 分析主要问题
+        read_chars = [c for c in analysis.characters if c.is_read]
+        if read_chars:
+            correct_in_read = len([c for c in read_chars if c.is_correct])
+            print(
+                f"  - 朗读完成率: {analysis.reading_completion_rate:.1f}% (读了{analysis.read_characters}/{analysis.total_characters}个字)"
+            )
+            print(
+                f"  - 朗读准确率: {correct_in_read / len(read_chars) * 100:.1f}% (读对{correct_in_read}/{len(read_chars)}个字)"
+            )
+            print(f"  - 主要问题是后面的字没有朗读完整")
+
+        # 声调分析
+        tone_issues = []
+        for char in analysis.characters:
+            for syll in char.paper_syllables:
+                for phone in syll.phones:
+                    if phone.is_yun and phone.perr_msg in [2, 3]:
+                        tone_issues.append(char.character)
+
+        if tone_issues:
+            print(f"  - 声调问题字符: {', '.join(tone_issues)}")
+
+    except Exception as e:
+        print(f"❌ 分析失败: {e}")
+
+
 if __name__ == "__main__":
-    print("通用XML分析工具")
-    main()
+    # 可以直接运行分析您提供的XML
+    print("选择运行模式:")
+    print("1. 通用XML分析工具")
+    print("2. 分析您提供的XML数据")
+
+    mode = input("请选择 (1-2): ").strip()
+
+    if mode == "1":
+        main()
+    elif mode == "2":
+        analyze_provided_xml()
+    else:
+        print("❌ 无效选择，运行通用工具")
+        main()

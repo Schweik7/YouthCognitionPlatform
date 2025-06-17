@@ -292,7 +292,7 @@
                       <word beg_pos="4419" content="下" end_pos="4419" symbol="xia4" time_len="0">
                           <syll beg_pos="4419" content="下" dp_message="16" end_pos="4419" rec_node_type="paper" symbol="xia4" time_len="0">
                               <phone content="x" dp_message="16" is_yun="0" perr_msg="16" rec_node_type="paper"></phone>
-                              <phone content="ia" dp_message="16" is_yun="1" mono_tone="TONE4" perr_msg="16" rec_node_type="paper"></phone>
+                              <phone content="ia" dp_message="16" is_yun="1" mono_tone="TONE4" perr_msg="16" rec_node_type="paper"></phone> 
                           </syll>
                       </word>
                   </sentence>
