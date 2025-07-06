@@ -10,6 +10,7 @@ from .models import (
     TestSessionCreate,
     TestSessionUpdate,
     ProblemData,
+    BatchProblemData,
 )
 
 
@@ -261,6 +262,48 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
                             max(sum(1 for p in problems if p.problem_index > 30), 1) * 100
             }
         }
+    elif test_session.grade_level == 4:
+        # 四年级: 两位数加减法、两位数乘法、分数加减法、三位数乘两位数
+        stats["problemTypeStats"] = {
+            "twoDigitAddSub": {
+                "total": sum(1 for p in problems if p.problem_index <= 10),
+                "completed": sum(1 for p in problems if p.problem_index <= 10 and p.user_answer is not None),
+                "correct": sum(1 for p in problems if p.problem_index <= 10 and p.is_correct),
+                "accuracy": sum(1 for p in problems if p.problem_index <= 10 and p.is_correct) / 
+                            max(sum(1 for p in problems if p.problem_index <= 10), 1) * 100
+            },
+            "twoDigitMult": {
+                "total": sum(1 for p in problems if 10 < p.problem_index <= 20),
+                "completed": sum(1 for p in problems if 10 < p.problem_index <= 20 and p.user_answer is not None),
+                "correct": sum(1 for p in problems if 10 < p.problem_index <= 20 and p.is_correct),
+                "accuracy": sum(1 for p in problems if 10 < p.problem_index <= 20 and p.is_correct) / 
+                            max(sum(1 for p in problems if 10 < p.problem_index <= 20), 1) * 100
+            },
+            "fractionAddSub": {
+                "total": sum(1 for p in problems if 20 < p.problem_index <= 30),
+                "completed": sum(1 for p in problems if 20 < p.problem_index <= 30 and p.user_answer is not None),
+                "correct": sum(1 for p in problems if 20 < p.problem_index <= 30 and p.is_correct),
+                "accuracy": sum(1 for p in problems if 20 < p.problem_index <= 30 and p.is_correct) / 
+                            max(sum(1 for p in problems if 20 < p.problem_index <= 30), 1) * 100
+            },
+            "threeDigitMult": {
+                "total": sum(1 for p in problems if p.problem_index > 30),
+                "completed": sum(1 for p in problems if p.problem_index > 30 and p.user_answer is not None),
+                "correct": sum(1 for p in problems if p.problem_index > 30 and p.is_correct),
+                "accuracy": sum(1 for p in problems if p.problem_index > 30 and p.is_correct) / 
+                            max(sum(1 for p in problems if p.problem_index > 30), 1) * 100
+            }
+        }
+    elif test_session.grade_level == 5:
+        # 五年级: 小数运算
+        stats["problemTypeStats"] = {
+            "decimal": {
+                "total": len(problems),
+                "completed": sum(1 for p in problems if p.user_answer is not None),
+                "correct": sum(1 for p in problems if p.is_correct),
+                "accuracy": sum(1 for p in problems if p.is_correct) / max(len(problems), 1) * 100
+            }
+        }
     
     # 构建结果
     results = {
@@ -271,3 +314,84 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
     }
 
     return results
+
+
+def save_batch_problems(
+    session: Session, test_session_id: int, batch_data: BatchProblemData
+) -> List[CalculationProblem]:
+    """批量保存计算题目记录"""
+    # 检查会话是否存在
+    test_session = session.get(CalculationTestSession, test_session_id)
+    if not test_session:
+        raise ValueError(f"测试会话不存在: ID={test_session_id}")
+
+    # 检查用户是否存在
+    user = session.get(User, batch_data.user_id)
+    if not user:
+        raise ValueError(f"用户不存在: ID={batch_data.user_id}")
+
+    saved_problems = []
+    total_correct = 0
+    total_score = 0
+
+    # 处理每个题目
+    for problem_data in batch_data.problems:
+        # 验证用户答案是否正确
+        user_answer = problem_data.get('userAnswer')
+        correct_answer = problem_data.get('correctAnswer')
+        
+        # 处理分数答案
+        if problem_data.get('hasFraction') and problem_data.get('fractionAnswer'):
+            fraction_answer = problem_data.get('fractionAnswer')
+            if (fraction_answer.get('whole') is not None or 
+                fraction_answer.get('numerator') is not None or 
+                fraction_answer.get('denominator') is not None):
+                # 计算分数的小数值
+                whole = fraction_answer.get('whole', 0) or 0
+                numerator = fraction_answer.get('numerator', 0) or 0
+                denominator = fraction_answer.get('denominator', 1) or 1
+                if denominator != 0:
+                    user_answer = whole + numerator / denominator
+        
+        is_correct = False
+        if user_answer is not None and correct_answer is not None:
+            # 对于小数比较，允许小的误差
+            is_correct = abs(float(user_answer) - float(correct_answer)) < 0.01
+        
+        # 计算得分: 正确为1分，错误或未答为0分
+        score = 1 if is_correct else 0
+        
+        if is_correct:
+            total_correct += 1
+            total_score += score
+
+        # 创建计算题目记录
+        problem = CalculationProblem(
+            user_id=batch_data.user_id,
+            test_session_id=test_session_id,
+            problem_index=problem_data.get('problemIndex'),
+            problem_text=problem_data.get('problemText'),
+            correct_answer=correct_answer,
+            user_answer=user_answer if user_answer is not None else 0,
+            is_correct=is_correct,
+            response_time=0,  # 批量提交时没有单独的响应时间
+            score=score,
+        )
+
+        session.add(problem)
+        saved_problems.append(problem)
+
+    # 更新测试会话进度和正确数量
+    test_session.progress = len(batch_data.problems)
+    test_session.correct_count = total_correct
+    test_session.total_score = total_score
+
+    session.add(test_session)
+    session.commit()
+
+    # 刷新所有问题对象
+    for problem in saved_problems:
+        session.refresh(problem)
+
+    logger.info(f"批量保存了 {len(saved_problems)} 道题目，正确 {total_correct} 道")
+    return saved_problems

@@ -7,6 +7,7 @@ from .models import (
     CalculationProblem,
     CalculationTestSession,
     ProblemData,
+    BatchProblemData,
     TestSessionCreate,
     TestSessionUpdate,
     TestSessionResponse,
@@ -19,6 +20,7 @@ from .service import (
     list_user_test_sessions,
     complete_test_session,
     save_problem,
+    save_batch_problems,
     get_session_problems,
     get_test_session_results,
 )
@@ -110,3 +112,19 @@ async def get_session_results_route(test_session_id: int, session: Session = Dep
     if not results:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
     return results
+
+
+@router.post("/sessions/{test_session_id}/problems-batch", status_code=status.HTTP_201_CREATED)
+async def save_batch_problems_route(
+    test_session_id: int, batch_data: BatchProblemData, session: Session = Depends(get_session)
+):
+    """批量保存计算题目记录"""
+    try:
+        results = save_batch_problems(session, test_session_id, batch_data)
+        return {"message": "批量数据保存成功", "saved_count": len(results)}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存批量题目数据失败: {str(e)}"
+        )

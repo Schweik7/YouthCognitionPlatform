@@ -1,12 +1,12 @@
 [project]
-name = "jsPsych-demo"
+name = "YouthCognitionPlatform"
 version = "0.1.0"
 description = "认知能力评估平台"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Schweik7", email = "schweik7@qq.com"},
+    {name = "Schweik7", email = "Schweik7@qq.com"},
 ]
 dependencies = [
     "fastapi>=0.104.0",
@@ -15,15 +15,16 @@ dependencies = [
     "python-multipart>=0.0.6",
     "pymysql>=1.1.0",
     "pydantic>=2.4.2",
-    "cryptography>=41.0.5",  # 用于 PyMySQL 加密
-    "python-jose[cryptography]>=3.3.0",  # JWT 认证
-    "passlib[bcrypt]>=1.7.4",  # 密码哈希
-    "aiofiles>=23.2.1",  # 异步文件处理
-    "pandas>=2.1.1",  # 数据处理
-    "pytest>=7.4.2",  # 测试框架
-    "pydantic-settings>=2.8.0",  # 配置管理
-    "python-dotenv>=1.0.0",  # 环境变量管理
-    "loguru>=0.7.0",  # 日志记录
+    "cryptography>=41.0.5", # 用于 PyMySQL 加密
+    "python-jose[cryptography]>=3.3.0", # JWT 认证
+    "passlib[bcrypt]>=1.7.4", # 密码哈希
+    "aiofiles>=23.2.1", # 异步文件处理
+    "pandas>=2.1.1", # 数据处理
+    "pytest>=7.4.2", # 测试框架
+    "pydantic-settings>=2.8.0", # 配置管理
+    "python-dotenv>=1.0.0", # 环境变量管理
+    "loguru>=0.7.0", # 日志记录
+    "requests>=2.32.4",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +39,8 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]  # 如果你的代码在 backend 目录下
 
 [tool.ruff]
 line-length = 100

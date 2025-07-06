@@ -59,8 +59,8 @@ class CalculationProblem(BaseModel, table=True):
     )
     problem_index: int = Field(index=True)  # 题目序号（从1开始）
     problem_text: str = Field()  # 题目文本，如 "1 + 3 = "
-    correct_answer: int = Field()  # 正确答案
-    user_answer: Optional[int] = None  # 用户答案
+    correct_answer: float = Field()  # 正确答案（支持小数）
+    user_answer: Optional[float] = None  # 用户答案（支持小数）
     is_correct: Optional[bool] = None  # 是否正确
     response_time: int = Field(default=0)  # 回答时间（毫秒）
     score: int = Field(default=0)  # 得分: 1分(正确), 0分(错误或未答)
@@ -78,9 +78,17 @@ class ProblemData(SQLModel):
     test_session_id: int
     problem_index: int
     problem_text: str
-    correct_answer: int
-    user_answer: int
+    correct_answer: float
+    user_answer: float
     response_time: int
+
+
+class BatchProblemData(SQLModel):
+    """批量计算题目数据传输对象"""
+
+    user_id: int
+    test_session_id: int
+    problems: List[Dict[str, Any]]  # 包含所有题目的答案数据
 
 
 class TestSessionCreate(SQLModel):
