@@ -189,8 +189,112 @@
       </el-col>
     </el-row>
 
-    <!-- 四年级及以上题型统计 -->
-    <el-row v-else-if="gradeLevel >= 4" :gutter="20">
+    <!-- 四年级题型统计 -->
+    <el-row v-else-if="gradeLevel === 4" :gutter="20">
+      <el-col :span="6">
+        <el-card class="type-card">
+          <template #header>
+            <div class="type-header">两位数加减法</div>
+          </template>
+          <div class="type-stats-content">
+            <div class="type-stat-item">
+              <span>总数量:</span>
+              <span>{{ typeStats.twoDigitAddSub?.total || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>已完成:</span>
+              <span>{{ typeStats.twoDigitAddSub?.completed || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确数量:</span>
+              <span>{{ typeStats.twoDigitAddSub?.correct || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确率:</span>
+              <span>{{ formatPercentage(typeStats.twoDigitAddSub?.accuracy || 0) }}%</span>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="type-card">
+          <template #header>
+            <div class="type-header">两位数乘法</div>
+          </template>
+          <div class="type-stats-content">
+            <div class="type-stat-item">
+              <span>总数量:</span>
+              <span>{{ typeStats.twoDigitMult?.total || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>已完成:</span>
+              <span>{{ typeStats.twoDigitMult?.completed || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确数量:</span>
+              <span>{{ typeStats.twoDigitMult?.correct || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确率:</span>
+              <span>{{ formatPercentage(typeStats.twoDigitMult?.accuracy || 0) }}%</span>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="type-card">
+          <template #header>
+            <div class="type-header">分数加减法</div>
+          </template>
+          <div class="type-stats-content">
+            <div class="type-stat-item">
+              <span>总数量:</span>
+              <span>{{ typeStats.fractionAddSub?.total || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>已完成:</span>
+              <span>{{ typeStats.fractionAddSub?.completed || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确数量:</span>
+              <span>{{ typeStats.fractionAddSub?.correct || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确率:</span>
+              <span>{{ formatPercentage(typeStats.fractionAddSub?.accuracy || 0) }}%</span>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="type-card">
+          <template #header>
+            <div class="type-header">三位数乘法</div>
+          </template>
+          <div class="type-stats-content">
+            <div class="type-stat-item">
+              <span>总数量:</span>
+              <span>{{ typeStats.threeDigitMult?.total || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>已完成:</span>
+              <span>{{ typeStats.threeDigitMult?.completed || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确数量:</span>
+              <span>{{ typeStats.threeDigitMult?.correct || 0 }}</span>
+            </div>
+            <div class="type-stat-item">
+              <span>正确率:</span>
+              <span>{{ formatPercentage(typeStats.threeDigitMult?.accuracy || 0) }}%</span>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 五年级及以上题型统计 -->
+    <el-row v-else-if="gradeLevel >= 5" :gutter="20">
       <el-col :span="8">
         <el-card class="type-card">
           <template #header>

@@ -95,10 +95,18 @@ export function useCalculationProblems() {
       denominator2 = Math.floor(Math.random() * 6) + 2
     }
     
-    const numerator1 = Math.floor(Math.random() * denominator1) + 1  // 1 到 denominator1
-    const numerator2 = Math.floor(Math.random() * denominator2) + 1  // 1 到 denominator2
-    
     const isAddition = Math.random() < 0.5
+    let numerator1, numerator2
+    
+    if (isAddition) {
+      // 加法时避免分子和分母相同（避免1这样的整数）
+      numerator1 = Math.floor(Math.random() * (denominator1 - 1)) + 1  // 1 到 denominator1-1
+      numerator2 = Math.floor(Math.random() * (denominator2 - 1)) + 1  // 1 到 denominator2-1
+    } else {
+      // 减法时可以允许分子和分母相同
+      numerator1 = Math.floor(Math.random() * denominator1) + 1  // 1 到 denominator1
+      numerator2 = Math.floor(Math.random() * denominator2) + 1  // 1 到 denominator2
+    }
     let result
     
     if (isAddition) {
@@ -118,7 +126,8 @@ export function useCalculationProblems() {
         return {
           text: `${numerator2}/${denominator2} - ${numerator1}/${denominator1} = `,
           answer: calculateFinalAnswer(result.numerator, result.denominator),
-          fractionAnswer: mixed
+          fractionAnswer: mixed,
+          stringAnswer: formatFractionAnswer(mixed.whole, mixed.numerator, mixed.denominator)
         }
       }
     }
@@ -130,7 +139,8 @@ export function useCalculationProblems() {
     return {
       text: `${numerator1}/${denominator1} ${isAddition ? '+' : '-'} ${numerator2}/${denominator2} = `,
       answer: calculateFinalAnswer(result.numerator, result.denominator),
-      fractionAnswer: mixed
+      fractionAnswer: mixed,
+      stringAnswer: formatFractionAnswer(mixed.whole, mixed.numerator, mixed.denominator)
     }
   }
   
@@ -160,6 +170,21 @@ export function useCalculationProblems() {
     }
     
     return mixed
+  }
+
+  const formatFractionAnswer = (whole, numerator, denominator) => {
+    /**
+     * 将分数格式化为标准字符串：a+b/c
+     */
+    if (whole === 0 && numerator === 0) {
+      return "0"
+    } else if (whole === 0) {
+      return `${numerator}/${denominator}`
+    } else if (numerator === 0) {
+      return `${whole}`
+    } else {
+      return `${whole}+${numerator}/${denominator}`
+    }
   }
 
   const generateFractionIntegerAddSub = () => {
@@ -215,7 +240,8 @@ export function useCalculationProblems() {
     return {
       text: operationText,
       answer: calculateFinalAnswer(result.numerator, result.denominator),
-      fractionAnswer: mixed
+      fractionAnswer: mixed,
+      stringAnswer: formatFractionAnswer(mixed.whole, mixed.numerator, mixed.denominator)
     }
   }
 
@@ -417,21 +443,15 @@ export function useCalculationProblems() {
       })
     }
 
-    // 第三部分：10道分数加减法（8道分数+分数，2道分数+整数）
+    // 第三部分：10道分数加减法（全部为分数+分数，避免整数+分数的简单情况）
     for (let i = 0; i < 10; i++) {
-      let fractionProblem
-      if (i < 8) {
-        // 两个分数相加减
-        fractionProblem = generateFractionAddSub()
-      } else {
-        // 分数和整数相加减
-        fractionProblem = generateFractionIntegerAddSub()
-      }
+      // 只生成两个分数相加减
+      let fractionProblem = generateFractionAddSub()
       
       problems.push({
         index: i + 21,
         text: fractionProblem.text,
-        answer: fractionProblem.answer,
+        answer: fractionProblem.stringAnswer || fractionProblem.answer, // 优先使用字符串格式
         type: "fractionAddSub",
         hasFraction: true,
         fractionAnswer: fractionProblem.fractionAnswer
@@ -750,10 +770,40 @@ export function useCalculationProblems() {
   }
 
   const shuffleProblems = (problems) => {
-    for (let i = problems.length - 1; i > 0; i--) {
+    // 分离分数题和常规题
+    const fractionProblems = problems.filter(p => p.hasFraction)
+    const regularProblems = problems.filter(p => !p.hasFraction)
+    
+    // 分别打乱
+    for (let i = fractionProblems.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
-      ;[problems[i], problems[j]] = [problems[j], problems[i]]
+      ;[fractionProblems[i], fractionProblems[j]] = [fractionProblems[j], fractionProblems[i]]
     }
+    
+    for (let i = regularProblems.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[regularProblems[i], regularProblems[j]] = [regularProblems[j], regularProblems[i]]
+    }
+    
+    // 重新组合：确保分数题成对出现（每两个为一组）
+    const reorganized = []
+    let regIndex = 0
+    let fracIndex = 0
+    
+    while (regIndex < regularProblems.length || fracIndex < fractionProblems.length) {
+      // 添加两道常规题
+      for (let i = 0; i < 2 && regIndex < regularProblems.length; i++) {
+        reorganized.push(regularProblems[regIndex++])
+      }
+      
+      // 添加两道分数题
+      for (let i = 0; i < 2 && fracIndex < fractionProblems.length; i++) {
+        reorganized.push(fractionProblems[fracIndex++])
+      }
+    }
+    
+    // 更新原数组
+    problems.splice(0, problems.length, ...reorganized)
     
     // 重新设置题目序号
     problems.forEach((problem, index) => {

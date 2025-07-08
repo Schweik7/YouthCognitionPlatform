@@ -59,8 +59,9 @@ class CalculationProblem(BaseModel, table=True):
     )
     problem_index: int = Field(index=True)  # 题目序号（从1开始）
     problem_text: str = Field()  # 题目文本，如 "1 + 3 = "
-    correct_answer: float = Field()  # 正确答案（支持小数）
-    user_answer: Optional[float] = None  # 用户答案（支持小数）
+    problem_type: Optional[str] = Field(default=None, index=True)  # 题目类型，如 "addition", "multiplication", "fraction" 等
+    correct_answer: str = Field()  # 正确答案（支持分数格式：a+b/c）
+    user_answer: Optional[str] = None  # 用户答案（支持分数格式：a+b/c）
     is_correct: Optional[bool] = None  # 是否正确
     response_time: int = Field(default=0)  # 回答时间（毫秒）
     score: int = Field(default=0)  # 得分: 1分(正确), 0分(错误或未答)
@@ -78,8 +79,9 @@ class ProblemData(SQLModel):
     test_session_id: int
     problem_index: int
     problem_text: str
-    correct_answer: float
-    user_answer: float
+    problem_type: Optional[str] = None
+    correct_answer: str
+    user_answer: str
     response_time: int
 
 

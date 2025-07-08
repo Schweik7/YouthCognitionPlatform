@@ -2,6 +2,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from sqlmodel import Session, select
 import statistics
+import re
+from fractions import Fraction
 
 from logger_config import logger
 from apps.users.models import User
@@ -13,6 +15,77 @@ from .models import (
     ProblemData,
     BatchProblemData,
 )
+
+
+def format_user_answer(problem_data: Dict[str, Any]) -> str:
+    """格式化用户答案为标准格式"""
+    user_answer = problem_data.get('userAnswer')
+    
+    # 如果用户没有回答，直接返回None
+    if user_answer is None:
+        return None
+    
+    # 处理分数答案
+    if problem_data.get('hasFraction') and problem_data.get('fractionAnswer'):
+        fraction_answer = problem_data.get('fractionAnswer')
+        whole = fraction_answer.get('whole', 0) or 0
+        numerator = fraction_answer.get('numerator', 0) or 0 
+        denominator = fraction_answer.get('denominator', 1) or 1
+        
+        # 格式化为 a+b/c 格式
+        if whole == 0 and numerator == 0:
+            return "0"
+        elif whole == 0:
+            return f"{numerator}/{denominator}"
+        elif numerator == 0:
+            return str(whole)
+        else:
+            return f"{whole}+{numerator}/{denominator}"
+    
+    # 普通数字答案
+    return str(user_answer)
+
+
+def parse_answer(answer_str: str) -> float:
+    """解析答案字符串为数值"""
+    if not answer_str or answer_str == "0":
+        return 0.0
+    
+    # 处理带分数格式 a+b/c
+    if '+' in answer_str and '/' in answer_str:
+        parts = answer_str.split('+')
+        if len(parts) == 2:
+            whole = float(parts[0])
+            fraction_part = parts[1]
+            if '/' in fraction_part:
+                num, den = fraction_part.split('/')
+                return whole + float(num) / float(den)
+    
+    # 处理纯分数格式 b/c
+    elif '/' in answer_str:
+        num, den = answer_str.split('/')
+        return float(num) / float(den)
+    
+    # 处理普通数字
+    try:
+        return float(answer_str)
+    except ValueError:
+        return 0.0
+
+
+def compare_answers(user_answer_str: str, correct_answer_str: str) -> bool:
+    """比较用户答案和正确答案"""
+    if not user_answer_str or not correct_answer_str:
+        return False
+    
+    try:
+        user_value = parse_answer(str(user_answer_str))
+        correct_value = parse_answer(str(correct_answer_str))
+        
+        # 允许小的数值误差
+        return abs(user_value - correct_value) < 0.01
+    except Exception:
+        return False
 
 
 def create_test_session(
@@ -115,34 +188,41 @@ def save_problem(
     session: Session, test_session_id: int, problem_data: ProblemData
 ) -> CalculationProblem:
     """保存计算题目记录"""
-    # 检查会话是否存在
-    test_session = session.get(CalculationTestSession, test_session_id)
-    if not test_session:
-        raise ValueError(f"测试会话不存在: ID={test_session_id}")
+    try:
+        # 检查会话是否存在
+        test_session = session.get(CalculationTestSession, test_session_id)
+        if not test_session:
+            logger.error(f"测试会话不存在: ID={test_session_id}")
+            raise ValueError(f"测试会话不存在: ID={test_session_id}")
 
-    # 检查用户是否存在
-    user = session.get(User, problem_data.user_id)
-    if not user:
-        raise ValueError(f"用户不存在: ID={problem_data.user_id}")
+        # 检查用户是否存在
+        user = session.get(User, problem_data.user_id)
+        if not user:
+            logger.error(f"用户不存在: ID={problem_data.user_id}")
+            raise ValueError(f"用户不存在: ID={problem_data.user_id}")
 
-    # 验证用户答案是否正确
-    is_correct = problem_data.user_answer == problem_data.correct_answer
-    
-    # 计算得分: 正确为1分，错误或未答为0分
-    score = 1 if is_correct else 0
+        # 验证用户答案是否正确
+        is_correct = compare_answers(problem_data.user_answer, problem_data.correct_answer)
+        
+        # 计算得分: 正确为1分，错误或未答为0分
+        score = 1 if is_correct else 0
 
-    # 创建计算题目记录
-    problem = CalculationProblem(
-        user_id=problem_data.user_id,
-        test_session_id=test_session_id,
-        problem_index=problem_data.problem_index,
-        problem_text=problem_data.problem_text,
-        correct_answer=problem_data.correct_answer,
-        user_answer=problem_data.user_answer,
-        is_correct=is_correct,
-        response_time=problem_data.response_time,
-        score=score,
-    )
+        # 创建计算题目记录
+        problem = CalculationProblem(
+            user_id=problem_data.user_id,
+            test_session_id=test_session_id,
+            problem_index=problem_data.problem_index,
+            problem_text=problem_data.problem_text,
+            problem_type=getattr(problem_data, 'problem_type', None),
+            correct_answer=str(problem_data.correct_answer),
+            user_answer=str(problem_data.user_answer) if problem_data.user_answer is not None else None,
+            is_correct=is_correct,
+            response_time=problem_data.response_time,
+            score=score,
+        )
+    except Exception as e:
+        logger.error(f"保存题目失败: {str(e)}", exc_info=True)
+        raise
 
     session.add(problem)
 
@@ -172,20 +252,29 @@ def get_session_problems(session: Session, test_session_id: int) -> List[Calcula
 
 def get_test_session_results(session: Session, test_session_id: int) -> Dict[str, Any]:
     """获取单次测试会话的结果"""
-    # 获取测试会话
-    test_session = session.get(CalculationTestSession, test_session_id)
-    if not test_session:
-        return None
+    try:
+        # 获取测试会话
+        test_session = session.get(CalculationTestSession, test_session_id)
+        if not test_session:
+            logger.error(f"测试会话不存在: ID={test_session_id}")
+            return None
 
-    # 获取用户
-    user = session.get(User, test_session.user_id) if test_session.user_id else None
+        # 获取用户
+        user = session.get(User, test_session.user_id) if test_session.user_id else None
 
-    # 获取所有计算题目记录
-    problems = get_session_problems(session, test_session_id)
+        # 获取所有计算题目记录
+        problems = get_session_problems(session, test_session_id)
+    except Exception as e:
+        logger.error(f"获取测试会话结果失败: {str(e)}", exc_info=True)
+        raise
 
     # 初始化统计数据
-    total_response_time = sum(p.response_time for p in problems if p.response_time)
-    avg_response_time = total_response_time / max(len(problems), 1)
+    valid_response_times = [p.response_time for p in problems if p.response_time and p.response_time > 0]
+    total_response_time = sum(valid_response_times)
+    avg_response_time = total_response_time / max(len(valid_response_times), 1) if valid_response_times else 0
+    
+    # 计算平均响应时间（转换为秒）
+    avg_response_time_seconds = avg_response_time / 1000 if avg_response_time > 0 else 0
     
     stats = {
         "totalProblems": len(problems),
@@ -197,7 +286,7 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
         "accuracy": test_session.accuracy,
         "completionRate": test_session.completion_rate,
         "totalTimeSeconds": test_session.total_time_seconds,
-        "averageResponseTime": avg_response_time,
+        "averageResponseTime": avg_response_time_seconds,
         "problemTypeStats": {},
         "difficultyAnalysis": {},
         "errorAnalysis": {},
@@ -270,11 +359,16 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
             }
         }
     elif test_session.grade_level == 4:
-        # 四年级: 两位数加减法、两位数乘法、分数加减法、三位数乘两位数
-        two_digit_add_sub = [p for p in problems if p.problem_index <= 10]
-        two_digit_mult = [p for p in problems if 10 < p.problem_index <= 20]
-        fraction_add_sub = [p for p in problems if 20 < p.problem_index <= 30]
-        three_digit_mult = [p for p in problems if p.problem_index > 30]
+        # 四年级: 使用题目类型进行统计
+        two_digit_add_sub = [p for p in problems if p.problem_type == "twoDigitAddSub"]
+        two_digit_mult = [p for p in problems if p.problem_type == "twoDigitMult"]
+        fraction_add_sub = [p for p in problems if p.problem_type == "fractionAddSub"]
+        three_digit_mult = [p for p in problems if p.problem_type == "threeDigitMult"]
+        
+        # 计算每种题型的平均时间（转换为秒）
+        def calc_avg_time(problem_list):
+            valid_times = [p.response_time for p in problem_list if p.response_time and p.response_time > 0]
+            return (sum(valid_times) / len(valid_times) / 1000) if valid_times else 0
         
         stats["problemTypeStats"] = {
             "twoDigitAddSub": {
@@ -282,7 +376,7 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
                 "completed": sum(1 for p in two_digit_add_sub if p.user_answer is not None),
                 "correct": sum(1 for p in two_digit_add_sub if p.is_correct),
                 "accuracy": sum(1 for p in two_digit_add_sub if p.is_correct) / max(len(two_digit_add_sub), 1) * 100,
-                "avgResponseTime": sum(p.response_time for p in two_digit_add_sub if p.response_time) / max(len(two_digit_add_sub), 1),
+                "avgResponseTime": calc_avg_time(two_digit_add_sub),
                 "errors": [p for p in two_digit_add_sub if not p.is_correct and p.user_answer is not None]
             },
             "twoDigitMult": {
@@ -290,7 +384,7 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
                 "completed": sum(1 for p in two_digit_mult if p.user_answer is not None),
                 "correct": sum(1 for p in two_digit_mult if p.is_correct),
                 "accuracy": sum(1 for p in two_digit_mult if p.is_correct) / max(len(two_digit_mult), 1) * 100,
-                "avgResponseTime": sum(p.response_time for p in two_digit_mult if p.response_time) / max(len(two_digit_mult), 1),
+                "avgResponseTime": calc_avg_time(two_digit_mult),
                 "errors": [p for p in two_digit_mult if not p.is_correct and p.user_answer is not None]
             },
             "fractionAddSub": {
@@ -298,7 +392,7 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
                 "completed": sum(1 for p in fraction_add_sub if p.user_answer is not None),
                 "correct": sum(1 for p in fraction_add_sub if p.is_correct),
                 "accuracy": sum(1 for p in fraction_add_sub if p.is_correct) / max(len(fraction_add_sub), 1) * 100,
-                "avgResponseTime": sum(p.response_time for p in fraction_add_sub if p.response_time) / max(len(fraction_add_sub), 1),
+                "avgResponseTime": calc_avg_time(fraction_add_sub),
                 "errors": [p for p in fraction_add_sub if not p.is_correct and p.user_answer is not None]
             },
             "threeDigitMult": {
@@ -306,7 +400,7 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
                 "completed": sum(1 for p in three_digit_mult if p.user_answer is not None),
                 "correct": sum(1 for p in three_digit_mult if p.is_correct),
                 "accuracy": sum(1 for p in three_digit_mult if p.is_correct) / max(len(three_digit_mult), 1) * 100,
-                "avgResponseTime": sum(p.response_time for p in three_digit_mult if p.response_time) / max(len(three_digit_mult), 1),
+                "avgResponseTime": calc_avg_time(three_digit_mult),
                 "errors": [p for p in three_digit_mult if not p.is_correct and p.user_answer is not None]
             }
         }
@@ -325,11 +419,13 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
         # 乘法运算专项分析
         mult_problems = [p for p in problems if "×" in p.problem_text]
         if mult_problems:
+            mult_valid_times = [p.response_time for p in mult_problems if p.response_time and p.response_time > 0]
+            mult_avg_time = (sum(mult_valid_times) / len(mult_valid_times) / 1000) if mult_valid_times else 0
             stats["multiplicationAnalysis"] = {
                 "total": len(mult_problems),
                 "correct": sum(1 for p in mult_problems if p.is_correct),
                 "accuracy": sum(1 for p in mult_problems if p.is_correct) / len(mult_problems) * 100,
-                "avgResponseTime": sum(p.response_time for p in mult_problems if p.response_time) / len(mult_problems)
+                "avgResponseTime": mult_avg_time
             }
     elif test_session.grade_level == 5:
         # 五年级: 小数运算
@@ -350,18 +446,23 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
         second_third = problems[total_problems//3:2*total_problems//3]
         last_third = problems[2*total_problems//3:]
         
+        # 计算各段的平均响应时间（转换为秒）
+        def calc_avg_section_time(section):
+            valid_times = [p.response_time for p in section if p.response_time and p.response_time > 0]
+            return (sum(valid_times) / len(valid_times) / 1000) if valid_times else 0
+        
         stats["difficultyAnalysis"] = {
             "firstThird": {
                 "accuracy": sum(1 for p in first_third if p.is_correct) / max(len(first_third), 1) * 100,
-                "avgResponseTime": sum(p.response_time for p in first_third if p.response_time) / max(len(first_third), 1)
+                "avgResponseTime": calc_avg_section_time(first_third)
             },
             "secondThird": {
                 "accuracy": sum(1 for p in second_third if p.is_correct) / max(len(second_third), 1) * 100,
-                "avgResponseTime": sum(p.response_time for p in second_third if p.response_time) / max(len(second_third), 1)
+                "avgResponseTime": calc_avg_section_time(second_third)
             },
             "lastThird": {
                 "accuracy": sum(1 for p in last_third if p.is_correct) / max(len(last_third), 1) * 100,
-                "avgResponseTime": sum(p.response_time for p in last_third if p.response_time) / max(len(last_third), 1)
+                "avgResponseTime": calc_avg_section_time(last_third)
             }
         }
         
@@ -374,14 +475,15 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
             "commonMistakes": get_common_mistakes(error_problems)
         }
         
-        # 速度分析
+        # 速度分析（转换为秒）
         response_times = [p.response_time for p in problems if p.response_time and p.response_time > 0]
         if response_times:
+            response_times_seconds = [t / 1000 for t in response_times]  # 转换为秒
             stats["speedAnalysis"] = {
-                "fastest": min(response_times),
-                "slowest": max(response_times),
-                "median": sorted(response_times)[len(response_times)//2],
-                "consistencyScore": calculate_consistency_score(response_times)
+                "fastest": min(response_times_seconds),
+                "slowest": max(response_times_seconds),
+                "median": sorted(response_times_seconds)[len(response_times_seconds)//2],
+                "consistencyScore": calculate_consistency_score(response_times_seconds)
             }
     
     # 构建结果
@@ -399,15 +501,21 @@ def save_batch_problems(
     session: Session, test_session_id: int, batch_data: BatchProblemData
 ) -> List[CalculationProblem]:
     """批量保存计算题目记录"""
-    # 检查会话是否存在
-    test_session = session.get(CalculationTestSession, test_session_id)
-    if not test_session:
-        raise ValueError(f"测试会话不存在: ID={test_session_id}")
+    try:
+        # 检查会话是否存在
+        test_session = session.get(CalculationTestSession, test_session_id)
+        if not test_session:
+            logger.error(f"测试会话不存在: ID={test_session_id}")
+            raise ValueError(f"测试会话不存在: ID={test_session_id}")
 
-    # 检查用户是否存在
-    user = session.get(User, batch_data.user_id)
-    if not user:
-        raise ValueError(f"用户不存在: ID={batch_data.user_id}")
+        # 检查用户是否存在
+        user = session.get(User, batch_data.user_id)
+        if not user:
+            logger.error(f"用户不存在: ID={batch_data.user_id}")
+            raise ValueError(f"用户不存在: ID={batch_data.user_id}")
+    except Exception as e:
+        logger.error(f"批量保存题目前置检查失败: {str(e)}", exc_info=True)
+        raise
 
     saved_problems = []
     total_correct = 0
@@ -415,27 +523,14 @@ def save_batch_problems(
 
     # 处理每个题目
     for problem_data in batch_data.problems:
-        # 验证用户答案是否正确
-        user_answer = problem_data.get('userAnswer')
+        # 格式化答案
+        formatted_user_answer = format_user_answer(problem_data)
         correct_answer = problem_data.get('correctAnswer')
         
-        # 处理分数答案
-        if problem_data.get('hasFraction') and problem_data.get('fractionAnswer'):
-            fraction_answer = problem_data.get('fractionAnswer')
-            if (fraction_answer.get('whole') is not None or 
-                fraction_answer.get('numerator') is not None or 
-                fraction_answer.get('denominator') is not None):
-                # 计算分数的小数值
-                whole = fraction_answer.get('whole', 0) or 0
-                numerator = fraction_answer.get('numerator', 0) or 0
-                denominator = fraction_answer.get('denominator', 1) or 1
-                if denominator != 0:
-                    user_answer = whole + numerator / denominator
-        
+        # 验证用户答案是否正确
         is_correct = False
-        if user_answer is not None and correct_answer is not None:
-            # 对于小数比较，允许小的误差
-            is_correct = abs(float(user_answer) - float(correct_answer)) < 0.01
+        if formatted_user_answer is not None and correct_answer is not None:
+            is_correct = compare_answers(formatted_user_answer, str(correct_answer))
         
         # 计算得分: 正确为1分，错误或未答为0分
         score = 1 if is_correct else 0
@@ -450,10 +545,11 @@ def save_batch_problems(
             test_session_id=test_session_id,
             problem_index=problem_data.get('problemIndex'),
             problem_text=problem_data.get('problemText'),
-            correct_answer=correct_answer,
-            user_answer=user_answer if user_answer is not None else 0,
+            problem_type=problem_data.get('type'),
+            correct_answer=str(correct_answer),
+            user_answer=formatted_user_answer,
             is_correct=is_correct,
-            response_time=0,  # 批量提交时没有单独的响应时间
+            response_time=problem_data.get('responseTime', 0),  # 支持从前端传入响应时间
             score=score,
         )
 
@@ -488,15 +584,22 @@ def analyze_fraction_errors(fraction_problems: List[CalculationProblem]) -> Dict
     
     for problem in fraction_problems:
         if not problem.is_correct and problem.user_answer is not None:
-            # 简单的错误分类逻辑
-            error_diff = abs(float(problem.user_answer) - float(problem.correct_answer))
-            if error_diff > 1.0:
-                error_types["calculation_error"] += 1
-            elif 0.1 < error_diff <= 1.0:
-                error_types["common_denominator_error"] += 1
-            elif 0.01 < error_diff <= 0.1:
-                error_types["simplification_error"] += 1
-            else:
+            try:
+                # 使用 parse_answer 函数解析带分数格式
+                user_value = parse_answer(problem.user_answer)
+                correct_value = parse_answer(problem.correct_answer)
+                error_diff = abs(user_value - correct_value)
+                
+                if error_diff > 1.0:
+                    error_types["calculation_error"] += 1
+                elif 0.1 < error_diff <= 1.0:
+                    error_types["common_denominator_error"] += 1
+                elif 0.01 < error_diff <= 0.1:
+                    error_types["simplification_error"] += 1
+                else:
+                    error_types["other_error"] += 1
+            except Exception:
+                # 解析失败时归类为其他错误
                 error_types["other_error"] += 1
     
     return error_types
@@ -520,11 +623,18 @@ def get_common_mistakes(error_problems: List[CalculationProblem]) -> List[Dict[s
     mistakes = []
     
     for problem in error_problems[:5]:  # 只返回前5个错误作为示例
+        try:
+            user_value = parse_answer(problem.user_answer) if problem.user_answer else 0
+            correct_value = parse_answer(problem.correct_answer) if problem.correct_answer else 0
+            error_magnitude = abs(user_value - correct_value)
+        except:
+            error_magnitude = 0
+            
         mistake = {
             "question": problem.problem_text,
             "correct_answer": problem.correct_answer,
             "user_answer": problem.user_answer,
-            "error_magnitude": abs(float(problem.user_answer) - float(problem.correct_answer)) if problem.user_answer else 0
+            "error_magnitude": error_magnitude
         }
         mistakes.append(mistake)
     

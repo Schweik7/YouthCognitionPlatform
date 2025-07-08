@@ -124,7 +124,12 @@ const typeStats = reactive({
   type1: { total: 0, completed: 0, correct: 0, accuracy: 0 },
   type2: { total: 0, completed: 0, correct: 0, accuracy: 0 },
   type3: { total: 0, completed: 0, correct: 0, accuracy: 0 },
-  // 四年级及以上
+  // 四年级
+  twoDigitAddSub: { total: 0, completed: 0, correct: 0, accuracy: 0 },
+  twoDigitMult: { total: 0, completed: 0, correct: 0, accuracy: 0 },
+  fractionAddSub: { total: 0, completed: 0, correct: 0, accuracy: 0 },
+  threeDigitMult: { total: 0, completed: 0, correct: 0, accuracy: 0 },
+  // 五年级及以上
   multiplication: { total: 0, completed: 0, correct: 0, accuracy: 0 },
   division: { total: 0, completed: 0, correct: 0, accuracy: 0 },
   mixed: { total: 0, completed: 0, correct: 0, accuracy: 0 }
@@ -385,7 +390,20 @@ const updateTypeStats = (problemTypeStats) => {
     if (problemTypeStats.threeDigitThreeNumbers) {
       Object.assign(typeStats.type3, problemTypeStats.threeDigitThreeNumbers)
     }
-  } else if (gradeLevel.value >= 4) {
+  } else if (gradeLevel.value === 4) {
+    if (problemTypeStats.twoDigitAddSub) {
+      Object.assign(typeStats.twoDigitAddSub, problemTypeStats.twoDigitAddSub)
+    }
+    if (problemTypeStats.twoDigitMult) {
+      Object.assign(typeStats.twoDigitMult, problemTypeStats.twoDigitMult)
+    }
+    if (problemTypeStats.fractionAddSub) {
+      Object.assign(typeStats.fractionAddSub, problemTypeStats.fractionAddSub)
+    }
+    if (problemTypeStats.threeDigitMult) {
+      Object.assign(typeStats.threeDigitMult, problemTypeStats.threeDigitMult)
+    }
+  } else if (gradeLevel.value >= 5) {
     if (problemTypeStats.multiplication) {
       Object.assign(typeStats.multiplication, problemTypeStats.multiplication)
     }

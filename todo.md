@@ -43,10 +43,8 @@ b.如果是五年级，题目不涉及分数，主要是小数运算。一进去
 （19）26.3×1.07=（39）2.5×0.6-1.8×0.5=
 （20）2.5×13+0.9=（40）7.1×1.5-5.4×0.3=
 
-现在请你针对四年级再进行完善。1.出题方面，分数题的加减实现通分计算再化简为带分数的逻辑；2.任何题都不能出现负数结果的题目；3.实现后台的分析功能进一步实现；4.可以随意修改项目文件，但尽量不要试图运行项目
-非常棒！接下来请你优化UI和后台分析。1.UI上，让分数的框更方正或者瘦
-  高，现在是矮宽不好看；2.不需要能够加一减一的数字input小箭头组建；3.后台分
-  析现在只有分数，但是没有题型数据，也没有平均时间
+现在请你针对四年级再进行完善。
+backend/apps/calculation_test/service.py下的analyze_fraction_errors，user_answer和correct_answer都是字符串表示带分数，比如'1+2/3'，请修正此处逻辑，现在提示ValueError: could not convert string to float: '1+2/3'
 
 非常棒！接下来
 [ ] 中学阅读流畅性
@@ -58,7 +56,57 @@ b.如果是五年级，题目不涉及分数，主要是小数运算。一进去
 测验内容：在3min倒计时内，让学生按照题号顺序进行计算，可以笔算在旁边空白处列草稿，但不能使用计算器。
 主试记录：倒计时结束后对做了部分的结果进行判分。
 计分方式：正确作答计1分，漏答（未答）、答错计0分。总分即位最终得分。
-
+四年级的results"difficultyAnalysis": {
+            "firstThird": {
+                "accuracy": 30.76923076923077,
+                "avgResponseTime": 41.31075
+            },
+            "secondThird": {
+                "accuracy": 30.76923076923077,
+                "avgResponseTime": 11.963
+            },
+            "lastThird": {
+                "accuracy": 0.0,
+                "avgResponseTime": 0
+            }
+        },
+        "errorAnalysis": {
+            "totalErrors": 0,
+            "errorRate": 0.0,
+            "errorsByType": {
+                "addition_errors": 0,
+                "subtraction_errors": 0,
+                "multiplication_errors": 0,
+                "fraction_errors": 0,
+                "large_number_errors": 0
+            },
+            "commonMistakes": []
+        },
+        "speedAnalysis": {
+            "fastest": 3.819,
+            "slowest": 50.185,
+            "median": 29.769,
+            "consistencyScore": 34.4
+        },
+        "fractionAnalysis": {
+            "total": 10,
+            "correct": 4,
+            "accuracy": 40.0,
+            "commonErrors": {
+                "common_denominator_error": 4,
+                "simplification_error": 0,
+                "mixed_number_error": 0,
+                "calculation_error": 2,
+                "other_error": 0
+            }
+        },
+        "multiplicationAnalysis": {
+            "total": 20,
+            "correct": 0,
+            "accuracy": 0.0,
+            "avgResponseTime": 0
+        }
+    }
 
 
 [ ] 现在主要需要找一找API，能够识别字与读音的

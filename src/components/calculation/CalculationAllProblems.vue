@@ -33,103 +33,111 @@
         class="problem-item"
         :class="{ 'completed': answers[index] !== null && answers[index] !== undefined }"
       >
-        <!-- 题目文本 -->
-        <div class="problem-text">
-          {{ problem.text }}
-        </div>
+        <div class="problem-content">
+          <!-- 题目文本 -->
+          <div class="problem-text" v-html="formatProblemText(problem.text, index)"></div>
 
-        <!-- 答案区域 -->
-        <div class="answer-area">
-          <!-- 五年级小数题目的特殊答案框 -->
-          <div v-if="gradeLevel === 5" class="answer-box-decimal">
-            <div class="decimal-input-container">
-              <!-- 整数部分 -->
-              <input 
-                v-model="decimalAnswers[index].integer"
-                type="text"
-                class="answer-input decimal-integer"
-                :class="{ 'filled': decimalAnswers[index].integer !== '' }"
-                placeholder="0"
-                @input="handleDecimalChange(index)"
-              />
-              
-              <!-- 小数点 -->
-              <span class="decimal-point">.</span>
-              
-              <!-- 小数部分容器 -->
-              <div class="decimal-part">
-                <!-- 小数位数字 -->
-                <div class="decimal-digits">
-                  <span 
-                    v-for="(digit, digitIndex) in decimalAnswers[index].decimals" 
-                    :key="digitIndex"
-                    class="decimal-digit"
-                    :class="{ 'has-dot': digit.hasDot }"
-                    @click="toggleDot(index, digitIndex)"
-                  >
-                    <input 
-                      v-model="digit.value"
-                      type="text"
-                      class="digit-input"
-                      maxlength="1"
-                      @input="handleDigitInput(index, digitIndex, $event)"
-                      @keydown="handleDigitKeydown(index, digitIndex, $event)"
-                    />
-                    <div v-if="digit.hasDot" class="repeating-dot"></div>
-                  </span>
+          <!-- 答案区域 -->
+          <div class="answer-area">
+            <!-- 五年级小数题目的特殊答案框 -->
+            <div v-if="gradeLevel === 5" class="answer-box-decimal">
+              <div class="decimal-input-container">
+                <!-- 整数部分 -->
+                <input 
+                  v-model="decimalAnswers[index].integer"
+                  type="text"
+                  class="answer-input decimal-integer"
+                  :class="{ 'filled': decimalAnswers[index].integer !== '' }"
+                  placeholder="0"
+                  @input="handleDecimalChange(index)"
+                />
+                
+                <!-- 小数点 -->
+                <span class="decimal-point">.</span>
+                
+                <!-- 小数部分容器 -->
+                <div class="decimal-part">
+                  <!-- 小数位数字 -->
+                  <div class="decimal-digits">
+                    <span 
+                      v-for="(digit, digitIndex) in decimalAnswers[index].decimals" 
+                      :key="digitIndex"
+                      class="decimal-digit"
+                      :class="{ 'has-dot': digit.hasDot }"
+                      @click="toggleDot(index, digitIndex)"
+                    >
+                      <input 
+                        v-model="digit.value"
+                        type="text"
+                        class="digit-input"
+                        maxlength="1"
+                        @input="handleDigitInput(index, digitIndex, $event)"
+                        @keydown="handleDigitKeydown(index, digitIndex, $event)"
+                      />
+                      <div v-if="digit.hasDot" class="repeating-dot"></div>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- 普通题目的答案框 (非五年级) -->
-          <div v-else-if="!problem.hasFraction" class="answer-box-simple">
-            <input 
-              v-model.number="answers[index]"
-              type="number"
-              class="answer-input"
-              :class="{ 'filled': answers[index] !== null && answers[index] !== undefined }"
-              placeholder=""
-              @input="handleAnswerChange(index, $event)"
-            />
-          </div>
-
-          <!-- 分数题目的答案框 (整数 + 分数) -->
-          <div v-else class="answer-box-fraction">
-            <!-- 整数部分 -->
-            <div class="whole-number-box">
+            <!-- 普通题目的答案框 (非五年级) -->
+            <div v-else-if="!problem.hasFraction" class="answer-box-simple">
               <input 
-                v-model.number="fractionAnswers[index].whole"
-                type="number"
-                class="answer-input fraction-input"
-                :class="{ 'filled': fractionAnswers[index].whole !== null && fractionAnswers[index].whole !== undefined }"
+                v-model.number="answers[index]"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                class="answer-input"
+                :class="{ 'filled': answers[index] !== null && answers[index] !== undefined }"
                 placeholder=""
-                @input="handleFractionChange(index)"
+                @input="handleAnswerChange(index, $event)"
               />
             </div>
-            
-            <!-- 分数部分 -->
-            <div class="fraction-box">
-              <div class="numerator-box">
+
+            <!-- 分数题目的答案框 (整数 + 分数) -->
+            <div v-else class="answer-box-fraction">
+              <!-- 整数部分 -->
+              <div class="whole-number-box">
                 <input 
-                  v-model.number="fractionAnswers[index].numerator"
-                  type="number"
+                  v-model.number="fractionAnswers[index].whole"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
                   class="answer-input fraction-input"
-                  :class="{ 'filled': fractionAnswers[index].numerator !== null && fractionAnswers[index].numerator !== undefined }"
+                  :class="{ 'filled': fractionAnswers[index].whole !== null && fractionAnswers[index].whole !== undefined }"
                   placeholder=""
                   @input="handleFractionChange(index)"
                 />
               </div>
-              <div class="fraction-line"></div>
-              <div class="denominator-box">
-                <input 
-                  v-model.number="fractionAnswers[index].denominator"
-                  type="number"
-                  class="answer-input fraction-input"
-                  :class="{ 'filled': fractionAnswers[index].denominator !== null && fractionAnswers[index].denominator !== undefined }"
-                  placeholder=""
-                  @input="handleFractionChange(index)"
-                />
+              
+              <!-- 分数部分 -->
+              <div class="fraction-box">
+                <div class="numerator-box">
+                  <input 
+                    v-model.number="fractionAnswers[index].numerator"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    class="answer-input fraction-input"
+                    :class="{ 'filled': fractionAnswers[index].numerator !== null && fractionAnswers[index].numerator !== undefined }"
+                    placeholder=""
+                    @input="handleFractionChange(index)"
+                  />
+                </div>
+                <div class="fraction-line"></div>
+                <div class="denominator-box">
+                  <input 
+                    v-model.number="fractionAnswers[index].denominator"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    class="answer-input fraction-input"
+                    :class="{ 'filled': fractionAnswers[index].denominator !== null && fractionAnswers[index].denominator !== undefined }"
+                    placeholder=""
+                    @input="handleFractionChange(index)"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -202,6 +210,10 @@ const fractionAnswers = reactive({})
 // 五年级小数答案对象
 const decimalAnswers = reactive({})
 
+// 反应时间记录
+const responseTimes = ref(new Array(props.problems.length).fill(0))
+const problemStartTimes = ref(new Array(props.problems.length).fill(0))
+
 // 处理状态
 const isProcessing = ref(false)
 
@@ -252,6 +264,11 @@ const completedCount = computed(() => {
 const handleAnswerChange = (index, event) => {
   const value = event.target.value
   answers.value[index] = value === '' ? null : parseFloat(value)
+  
+  // 记录开始时间（如果还没有记录）
+  if (problemStartTimes.value[index] === 0) {
+    problemStartTimes.value[index] = Date.now()
+  }
 }
 
 // 处理分数答案变化
@@ -275,6 +292,11 @@ const handleFractionChange = (index) => {
     
     // 更新答案数组
     answers.value[index] = decimalAnswer
+    
+    // 记录开始时间（如果还没有记录）
+    if (problemStartTimes.value[index] === 0) {
+      problemStartTimes.value[index] = Date.now()
+    }
   }
 }
 
@@ -294,6 +316,11 @@ const handleDecimalChange = (index) => {
     // 转换为数字
     const numericAnswer = parseFloat(answerString) || 0
     answers.value[index] = numericAnswer
+    
+    // 记录开始时间（如果还没有记录）
+    if (problemStartTimes.value[index] === 0) {
+      problemStartTimes.value[index] = Date.now()
+    }
   }
 }
 
@@ -350,6 +377,68 @@ const toggleDot = (index, digitIndex) => {
   decimalAnswers[index].decimals[digitIndex].hasDot = !decimalAnswers[index].decimals[digitIndex].hasDot
 }
 
+// 格式化分数答案为字符串格式
+const formatFractionAnswer = (fraction) => {
+  if (!fraction) return null
+  
+  const whole = fraction.whole || 0
+  const numerator = fraction.numerator || 0
+  const denominator = fraction.denominator || 1
+  
+  // 检查是否真的没有输入任何值（所有字段都是null或undefined）
+  if ((fraction.whole === null || fraction.whole === undefined) && 
+      (fraction.numerator === null || fraction.numerator === undefined) && 
+      (fraction.denominator === null || fraction.denominator === undefined)) {
+    return null
+  }
+  
+  if (whole === 0 && numerator === 0) {
+    return "0"
+  } else if (whole === 0) {
+    return `${numerator}/${denominator}`
+  } else if (numerator === 0) {
+    return `${whole}`
+  } else {
+    return `${whole}+${numerator}/${denominator}`
+  }
+}
+
+// 计算反应时间
+const calculateResponseTime = (index) => {
+  if (problemStartTimes.value[index] === 0) {
+    return 0
+  }
+  return Date.now() - problemStartTimes.value[index]
+}
+
+// 格式化题目文本，将分数显示为更美观的形式
+const formatProblemText = (text, index) => {
+  // 处理分数形式，支持 "a/b" 格式
+  let formattedText = text.replace(/(\d+)\/(\d+)/g, (match, numerator, denominator) => {
+    return `<span class="fraction-display">
+      <span class="fraction-numerator">${numerator}</span>
+      <div class="fraction-line"></div>
+      <span class="fraction-denominator">${denominator}</span>
+    </span>`
+  })
+  
+  // 替换减号为更长的减号符号，并包装在span中
+  formattedText = formattedText.replace(/\s-\s/g, '<span class="math-symbol">−</span>')
+  
+  // 替换乘号为更清晰的符号
+  formattedText = formattedText.replace(/\s×\s/g, '<span class="math-symbol">×</span>')
+  formattedText = formattedText.replace(/\s\*\s/g, '<span class="math-symbol">×</span>')
+  
+  // 替换加号
+  formattedText = formattedText.replace(/\s\+\s/g, '<span class="math-symbol">+</span>')
+  
+  // 清理多余的空格
+  formattedText = formattedText.replace(/\s+/g, ' ')
+  
+  // 移除等号，因为我们会在CSS中添加
+  return formattedText.replace(/\s*=\s*$/, '')
+}
+
 // 提交所有答案
 const submitAllAnswers = async () => {
   if (isProcessing.value) return
@@ -357,15 +446,26 @@ const submitAllAnswers = async () => {
   isProcessing.value = true
   
   // 构建答案数据
-  const answerData = props.problems.map((problem, index) => ({
-    problemIndex: problem.index,
-    problemText: problem.text,
-    correctAnswer: problem.answer,
-    userAnswer: answers.value[index],
-    type: problem.type,
-    hasFraction: problem.hasFraction || false,
-    fractionAnswer: problem.hasFraction ? fractionAnswers[index] : null
-  }))
+  const answerData = props.problems.map((problem, index) => {
+    let userAnswer = answers.value[index]
+    let responseTime = calculateResponseTime(index)
+    
+    // 对于分数题，使用字符串格式
+    if (problem.hasFraction && fractionAnswers[index]) {
+      userAnswer = formatFractionAnswer(fractionAnswers[index])
+    }
+    
+    return {
+      problemIndex: problem.index,
+      problemText: problem.text,
+      correctAnswer: problem.answer,
+      userAnswer: userAnswer,
+      responseTime: responseTime,
+      type: problem.type,
+      hasFraction: problem.hasFraction || false,
+      fractionAnswer: problem.hasFraction ? fractionAnswers[index] : null
+    }
+  })
   
   emit('submit-all-answers', answerData)
   
@@ -379,6 +479,8 @@ initializeDecimalAnswers()
 // 监听题目变化，重新初始化
 watch(() => props.problems, () => {
   answers.value = new Array(props.problems.length).fill(null)
+  responseTimes.value = new Array(props.problems.length).fill(0)
+  problemStartTimes.value = new Array(props.problems.length).fill(0)
   initializeFractionAnswers()
   initializeDecimalAnswers()
 }, { deep: true })
@@ -430,18 +532,29 @@ watch(() => props.problems, () => {
 
 .problems-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 40px;
 }
 
 .problem-item {
   background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  padding: 18px 20px;
   transition: all 0.3s ease;
   border: 2px solid transparent;
+  margin-bottom: 4px;
+}
+
+.problem-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  min-height: 70px;
+  padding: 8px 0;
+  width: 100%;
+  gap: 0;
 }
 
 .problem-item.completed {
@@ -450,33 +563,53 @@ watch(() => props.problems, () => {
 }
 
 .problem-text {
-  font-size: 18px;
-  font-weight: bold;
-  margin-bottom: 15px;
-  text-align: center;
+  font-size: 22px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  line-height: 1.3;
+  font-family: 'Arial', 'Microsoft YaHei', '微软雅黑', sans-serif;
+  letter-spacing: 1px;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.problem-text::after {
+  content: ' = ';
+  margin: 0 0 0 8px;
+  font-size: 22px;
+  font-weight: 500;
 }
 
 .answer-area {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
+  min-height: 70px;
+  padding-left: 12px;
 }
 
 .answer-box-simple {
-  width: 100%;
-  max-width: 120px;
+  width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70px;
 }
 
 .answer-input {
   width: 100%;
-  height: 45px;
-  font-size: 18px;
+  height: 50px;
+  font-size: 20px;
   text-align: center;
   border: 2px dashed #ddd;
   border-radius: 6px;
   background-color: #fafafa;
   outline: none;
   transition: all 0.3s ease;
+  font-weight: 500;
+  letter-spacing: 1px;
 }
 
 .answer-input:focus {
@@ -493,11 +626,13 @@ watch(() => props.problems, () => {
 .answer-box-fraction {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  min-height: 70px;
 }
 
 .whole-number-box {
-  width: 60px;
+  width: 50px;
+  height: 50px;
 }
 
 .fraction-box {
@@ -510,17 +645,40 @@ watch(() => props.problems, () => {
 .numerator-box,
 .denominator-box {
   width: 50px;
-  height: 35px;
+  height: 45px;
 }
 
 .fraction-input {
   width: 100%;
   height: 100%;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 1px;
 }
 
-.fraction-line {
-  width: 60px;
+/* 隐藏数字输入框的箭头 */
+.fraction-input::-webkit-outer-spin-button,
+.fraction-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fraction-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.answer-input::-webkit-outer-spin-button,
+.answer-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.answer-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.fraction-box .fraction-line {
+  width: 55px;
   height: 2px;
   background-color: #333;
   margin: 2px 0;
@@ -644,6 +802,58 @@ watch(() => props.problems, () => {
   }
 }
 
+/* 分数显示样式 */
+:deep(.fraction-display) {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 8px;
+  vertical-align: middle;
+  position: relative;
+  font-size: 20px;
+  min-width: 30px;
+  background: white;
+}
+
+:deep(.fraction-numerator) {
+  display: block;
+  text-align: center;
+  line-height: 1.2;
+  font-size: 22px;
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+:deep(.fraction-display .fraction-line) {
+  display: block;
+  width: 25px;
+  height: 2px;
+  background-color: #333 !important;
+  margin: 3px auto;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+:deep(.fraction-denominator) {
+  display: block;
+  text-align: center;
+  line-height: 1.2;
+  font-size: 22px;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* 数学符号样式 */
+:deep(.math-symbol) {
+  font-family: 'Times New Roman', 'Arial Unicode MS', sans-serif;
+  font-size: 22px;
+  font-weight: 500;
+  display: inline-block;
+  margin: 0 6px;
+  padding: 0;
+}
+
 .submit-section {
   display: flex;
   justify-content: center;
@@ -708,6 +918,24 @@ watch(() => props.problems, () => {
   
   .problem-item {
     padding: 15px;
+  }
+  
+  .problem-content {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .problem-text {
+    justify-content: center;
+    text-align: center;
+    padding-right: 0;
+  }
+  
+  .answer-area {
+    justify-content: center;
+    padding-left: 0;
   }
 }
 </style>
