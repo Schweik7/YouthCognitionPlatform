@@ -23,6 +23,7 @@ from .service import (
     save_batch_problems,
     get_session_problems,
     get_test_session_results,
+    get_grade_performance_analysis,
 )
 
 # 创建路由
@@ -128,3 +129,104 @@ async def save_batch_problems_route(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存批量题目数据失败: {str(e)}"
         )
+
+
+@router.get("/users/{user_id}/grades/{grade_level}/analysis", response_model=Dict[str, Any])
+async def get_grade_analysis_route(
+    user_id: int, grade_level: int, session: Session = Depends(get_session)
+):
+    """获取用户在特定年级的所有测试表现分析"""
+    try:
+        analysis = get_grade_performance_analysis(session, user_id, grade_level)
+        return analysis
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"获取性能分析失败: {str(e)}"
+        )
+
+
+@router.get("/sessions/{test_session_id}/detailed-analysis", response_model=Dict[str, Any])
+async def get_detailed_analysis_route(
+    test_session_id: int, session: Session = Depends(get_session)
+):
+    """获取测试会话的详细分析报告"""
+    try:
+        # 获取基本结果
+        results = get_test_session_results(session, test_session_id)
+        if not results:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
+        
+        # 添加详细分析
+        stats = results["stats"]
+        detailed_analysis = {
+            "basicStats": {
+                "totalProblems": stats["totalProblems"],
+                "correctProblems": stats["correctProblems"],
+                "accuracy": stats["accuracy"],
+                "completionRate": stats["completionRate"]
+            },
+            "typeAnalysis": stats.get("problemTypeStats", {}),
+            "difficultyAnalysis": stats.get("difficultyAnalysis", {}),
+            "errorAnalysis": stats.get("errorAnalysis", {}),
+            "speedAnalysis": stats.get("speedAnalysis", {}),
+            "specialAnalysis": {
+                "fractionAnalysis": stats.get("fractionAnalysis", {}),
+                "multiplicationAnalysis": stats.get("multiplicationAnalysis", {})
+            },
+            "recommendations": generate_recommendations(results)
+        }
+        
+        return detailed_analysis
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取详细分析失败: {str(e)}"
+        )
+
+
+def generate_recommendations(results: Dict[str, Any]) -> List[str]:
+    """根据测试结果生成学习建议"""
+    recommendations = []
+    stats = results.get("stats", {})
+    session_data = results.get("session", {})
+    
+    accuracy = stats.get("accuracy", 0)
+    grade_level = getattr(session_data, "grade_level", 4)
+    
+    # 根据正确率给出建议
+    if accuracy < 60:
+        recommendations.append("建议加强基础计算练习，特别是加减法运算")
+    elif accuracy < 80:
+        recommendations.append("基础计算能力尚可，建议多做练习提高熟练度")
+    else:
+        recommendations.append("计算能力较强，可以尝试更高难度的题目")
+    
+    # 根据题型表现给出建议
+    problem_types = stats.get("problemTypeStats", {})
+    for type_name, type_stats in problem_types.items():
+        type_accuracy = type_stats.get("accuracy", 0)
+        if type_accuracy < 70:
+            if type_name == "fractionAddSub":
+                recommendations.append("分数加减法较弱，建议加强通分和化简练习")
+            elif "Mult" in type_name:
+                recommendations.append("乘法运算需要加强，建议背诵乘法口诀表")
+            elif "AddSub" in type_name:
+                recommendations.append("加减法运算需要练习，注意计算准确性")
+    
+    # 根据速度分析给出建议
+    avg_time = stats.get("averageResponseTime", 0)
+    if avg_time > 30:  # 假设30秒以上较慢
+        recommendations.append("答题速度较慢，建议多做速算练习提高计算速度")
+    
+    # 根据一致性给出建议
+    consistency = stats.get("speedAnalysis", {}).get("consistencyScore", 100)
+    if consistency < 70:
+        recommendations.append("答题速度波动较大，建议加强专注力训练")
+    
+    if not recommendations:
+        recommendations.append("表现优秀，继续保持！")
+    
+    return recommendations

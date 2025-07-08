@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from sqlmodel import Session, select
+import statistics
 
 from logger_config import logger
 from apps.users.models import User
@@ -183,6 +184,9 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
     problems = get_session_problems(session, test_session_id)
 
     # 初始化统计数据
+    total_response_time = sum(p.response_time for p in problems if p.response_time)
+    avg_response_time = total_response_time / max(len(problems), 1)
+    
     stats = {
         "totalProblems": len(problems),
         "completedProblems": test_session.progress,
@@ -193,8 +197,11 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
         "accuracy": test_session.accuracy,
         "completionRate": test_session.completion_rate,
         "totalTimeSeconds": test_session.total_time_seconds,
-        "averageResponseTime": sum(p.response_time for p in problems) / max(len(problems), 1),
-        "problemTypeStats": {}
+        "averageResponseTime": avg_response_time,
+        "problemTypeStats": {},
+        "difficultyAnalysis": {},
+        "errorAnalysis": {},
+        "speedAnalysis": {}
     }
     
     # 根据年级分析题型
@@ -264,36 +271,66 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
         }
     elif test_session.grade_level == 4:
         # 四年级: 两位数加减法、两位数乘法、分数加减法、三位数乘两位数
+        two_digit_add_sub = [p for p in problems if p.problem_index <= 10]
+        two_digit_mult = [p for p in problems if 10 < p.problem_index <= 20]
+        fraction_add_sub = [p for p in problems if 20 < p.problem_index <= 30]
+        three_digit_mult = [p for p in problems if p.problem_index > 30]
+        
         stats["problemTypeStats"] = {
             "twoDigitAddSub": {
-                "total": sum(1 for p in problems if p.problem_index <= 10),
-                "completed": sum(1 for p in problems if p.problem_index <= 10 and p.user_answer is not None),
-                "correct": sum(1 for p in problems if p.problem_index <= 10 and p.is_correct),
-                "accuracy": sum(1 for p in problems if p.problem_index <= 10 and p.is_correct) / 
-                            max(sum(1 for p in problems if p.problem_index <= 10), 1) * 100
+                "total": len(two_digit_add_sub),
+                "completed": sum(1 for p in two_digit_add_sub if p.user_answer is not None),
+                "correct": sum(1 for p in two_digit_add_sub if p.is_correct),
+                "accuracy": sum(1 for p in two_digit_add_sub if p.is_correct) / max(len(two_digit_add_sub), 1) * 100,
+                "avgResponseTime": sum(p.response_time for p in two_digit_add_sub if p.response_time) / max(len(two_digit_add_sub), 1),
+                "errors": [p for p in two_digit_add_sub if not p.is_correct and p.user_answer is not None]
             },
             "twoDigitMult": {
-                "total": sum(1 for p in problems if 10 < p.problem_index <= 20),
-                "completed": sum(1 for p in problems if 10 < p.problem_index <= 20 and p.user_answer is not None),
-                "correct": sum(1 for p in problems if 10 < p.problem_index <= 20 and p.is_correct),
-                "accuracy": sum(1 for p in problems if 10 < p.problem_index <= 20 and p.is_correct) / 
-                            max(sum(1 for p in problems if 10 < p.problem_index <= 20), 1) * 100
+                "total": len(two_digit_mult),
+                "completed": sum(1 for p in two_digit_mult if p.user_answer is not None),
+                "correct": sum(1 for p in two_digit_mult if p.is_correct),
+                "accuracy": sum(1 for p in two_digit_mult if p.is_correct) / max(len(two_digit_mult), 1) * 100,
+                "avgResponseTime": sum(p.response_time for p in two_digit_mult if p.response_time) / max(len(two_digit_mult), 1),
+                "errors": [p for p in two_digit_mult if not p.is_correct and p.user_answer is not None]
             },
             "fractionAddSub": {
-                "total": sum(1 for p in problems if 20 < p.problem_index <= 30),
-                "completed": sum(1 for p in problems if 20 < p.problem_index <= 30 and p.user_answer is not None),
-                "correct": sum(1 for p in problems if 20 < p.problem_index <= 30 and p.is_correct),
-                "accuracy": sum(1 for p in problems if 20 < p.problem_index <= 30 and p.is_correct) / 
-                            max(sum(1 for p in problems if 20 < p.problem_index <= 30), 1) * 100
+                "total": len(fraction_add_sub),
+                "completed": sum(1 for p in fraction_add_sub if p.user_answer is not None),
+                "correct": sum(1 for p in fraction_add_sub if p.is_correct),
+                "accuracy": sum(1 for p in fraction_add_sub if p.is_correct) / max(len(fraction_add_sub), 1) * 100,
+                "avgResponseTime": sum(p.response_time for p in fraction_add_sub if p.response_time) / max(len(fraction_add_sub), 1),
+                "errors": [p for p in fraction_add_sub if not p.is_correct and p.user_answer is not None]
             },
             "threeDigitMult": {
-                "total": sum(1 for p in problems if p.problem_index > 30),
-                "completed": sum(1 for p in problems if p.problem_index > 30 and p.user_answer is not None),
-                "correct": sum(1 for p in problems if p.problem_index > 30 and p.is_correct),
-                "accuracy": sum(1 for p in problems if p.problem_index > 30 and p.is_correct) / 
-                            max(sum(1 for p in problems if p.problem_index > 30), 1) * 100
+                "total": len(three_digit_mult),
+                "completed": sum(1 for p in three_digit_mult if p.user_answer is not None),
+                "correct": sum(1 for p in three_digit_mult if p.is_correct),
+                "accuracy": sum(1 for p in three_digit_mult if p.is_correct) / max(len(three_digit_mult), 1) * 100,
+                "avgResponseTime": sum(p.response_time for p in three_digit_mult if p.response_time) / max(len(three_digit_mult), 1),
+                "errors": [p for p in three_digit_mult if not p.is_correct and p.user_answer is not None]
             }
         }
+        
+        # 四年级特殊分析
+        # 分数运算专项分析
+        fraction_problems = [p for p in problems if "/" in p.problem_text]
+        if fraction_problems:
+            stats["fractionAnalysis"] = {
+                "total": len(fraction_problems),
+                "correct": sum(1 for p in fraction_problems if p.is_correct),
+                "accuracy": sum(1 for p in fraction_problems if p.is_correct) / len(fraction_problems) * 100,
+                "commonErrors": analyze_fraction_errors(fraction_problems)
+            }
+        
+        # 乘法运算专项分析
+        mult_problems = [p for p in problems if "×" in p.problem_text]
+        if mult_problems:
+            stats["multiplicationAnalysis"] = {
+                "total": len(mult_problems),
+                "correct": sum(1 for p in mult_problems if p.is_correct),
+                "accuracy": sum(1 for p in mult_problems if p.is_correct) / len(mult_problems) * 100,
+                "avgResponseTime": sum(p.response_time for p in mult_problems if p.response_time) / len(mult_problems)
+            }
     elif test_session.grade_level == 5:
         # 五年级: 小数运算
         stats["problemTypeStats"] = {
@@ -304,6 +341,48 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
                 "accuracy": sum(1 for p in problems if p.is_correct) / max(len(problems), 1) * 100
             }
         }
+    
+    # 添加难度分析
+    if problems:
+        # 按题目位置分析难度（前、中、后）
+        total_problems = len(problems)
+        first_third = problems[:total_problems//3]
+        second_third = problems[total_problems//3:2*total_problems//3]
+        last_third = problems[2*total_problems//3:]
+        
+        stats["difficultyAnalysis"] = {
+            "firstThird": {
+                "accuracy": sum(1 for p in first_third if p.is_correct) / max(len(first_third), 1) * 100,
+                "avgResponseTime": sum(p.response_time for p in first_third if p.response_time) / max(len(first_third), 1)
+            },
+            "secondThird": {
+                "accuracy": sum(1 for p in second_third if p.is_correct) / max(len(second_third), 1) * 100,
+                "avgResponseTime": sum(p.response_time for p in second_third if p.response_time) / max(len(second_third), 1)
+            },
+            "lastThird": {
+                "accuracy": sum(1 for p in last_third if p.is_correct) / max(len(last_third), 1) * 100,
+                "avgResponseTime": sum(p.response_time for p in last_third if p.response_time) / max(len(last_third), 1)
+            }
+        }
+        
+        # 错误分析
+        error_problems = [p for p in problems if not p.is_correct and p.user_answer is not None]
+        stats["errorAnalysis"] = {
+            "totalErrors": len(error_problems),
+            "errorRate": len(error_problems) / max(len(problems), 1) * 100,
+            "errorsByType": analyze_error_patterns(error_problems),
+            "commonMistakes": get_common_mistakes(error_problems)
+        }
+        
+        # 速度分析
+        response_times = [p.response_time for p in problems if p.response_time and p.response_time > 0]
+        if response_times:
+            stats["speedAnalysis"] = {
+                "fastest": min(response_times),
+                "slowest": max(response_times),
+                "median": sorted(response_times)[len(response_times)//2],
+                "consistencyScore": calculate_consistency_score(response_times)
+            }
     
     # 构建结果
     results = {
@@ -395,3 +474,121 @@ def save_batch_problems(
 
     logger.info(f"批量保存了 {len(saved_problems)} 道题目，正确 {total_correct} 道")
     return saved_problems
+
+
+def analyze_fraction_errors(fraction_problems: List[CalculationProblem]) -> Dict[str, int]:
+    """分析分数运算错误类型"""
+    error_types = {
+        "common_denominator_error": 0,  # 通分错误
+        "simplification_error": 0,      # 化简错误
+        "mixed_number_error": 0,        # 带分数转换错误
+        "calculation_error": 0,         # 基本计算错误
+        "other_error": 0                # 其他错误
+    }
+    
+    for problem in fraction_problems:
+        if not problem.is_correct and problem.user_answer is not None:
+            # 简单的错误分类逻辑
+            error_diff = abs(float(problem.user_answer) - float(problem.correct_answer))
+            if error_diff > 1.0:
+                error_types["calculation_error"] += 1
+            elif 0.1 < error_diff <= 1.0:
+                error_types["common_denominator_error"] += 1
+            elif 0.01 < error_diff <= 0.1:
+                error_types["simplification_error"] += 1
+            else:
+                error_types["other_error"] += 1
+    
+    return error_types
+
+
+def analyze_error_patterns(error_problems: List[CalculationProblem]) -> Dict[str, int]:
+    """分析错误模式"""
+    error_patterns = {
+        "addition_errors": sum(1 for p in error_problems if "+" in p.problem_text),
+        "subtraction_errors": sum(1 for p in error_problems if "-" in p.problem_text and "+" not in p.problem_text),
+        "multiplication_errors": sum(1 for p in error_problems if "×" in p.problem_text),
+        "fraction_errors": sum(1 for p in error_problems if "/" in p.problem_text),
+        "large_number_errors": sum(1 for p in error_problems if any(char.isdigit() and int(char) > 5 for char in p.problem_text.replace(" ", "")))
+    }
+    
+    return error_patterns
+
+
+def get_common_mistakes(error_problems: List[CalculationProblem]) -> List[Dict[str, Any]]:
+    """获取常见错误示例"""
+    mistakes = []
+    
+    for problem in error_problems[:5]:  # 只返回前5个错误作为示例
+        mistake = {
+            "question": problem.problem_text,
+            "correct_answer": problem.correct_answer,
+            "user_answer": problem.user_answer,
+            "error_magnitude": abs(float(problem.user_answer) - float(problem.correct_answer)) if problem.user_answer else 0
+        }
+        mistakes.append(mistake)
+    
+    return mistakes
+
+
+def calculate_consistency_score(response_times: List[float]) -> float:
+    """计算答题一致性分数（越高越一致）"""
+    if len(response_times) < 2:
+        return 100.0
+    
+    import statistics
+    mean_time = statistics.mean(response_times)
+    std_dev = statistics.stdev(response_times)
+    
+    # 使用变异系数计算一致性，值越小越一致
+    if mean_time > 0:
+        cv = std_dev / mean_time
+        # 转换为百分制分数，100表示完全一致
+        consistency_score = max(0, 100 - cv * 100)
+        return round(consistency_score, 1)
+    
+    return 100.0
+
+
+def get_grade_performance_analysis(session: Session, user_id: int, grade_level: int) -> Dict[str, Any]:
+    """获取用户在特定年级的所有测试表现分析"""
+    # 获取用户在该年级的所有测试会话
+    query = select(CalculationTestSession).where(
+        CalculationTestSession.user_id == user_id,
+        CalculationTestSession.grade_level == grade_level,
+        CalculationTestSession.is_completed == True
+    ).order_by(CalculationTestSession.start_time)
+    
+    sessions = list(session.exec(query).all())
+    
+    if not sessions:
+        return {"message": "没有找到已完成的测试记录"}
+    
+    # 计算趋势分析
+    scores = [s.total_score for s in sessions]
+    accuracies = [s.accuracy for s in sessions]
+    times = [s.total_time_seconds for s in sessions if s.total_time_seconds]
+    
+    analysis = {
+        "totalAttempts": len(sessions),
+        "latestScore": scores[-1] if scores else 0,
+        "bestScore": max(scores) if scores else 0,
+        "averageScore": sum(scores) / len(scores) if scores else 0,
+        "scoreImprovement": scores[-1] - scores[0] if len(scores) > 1 else 0,
+        "latestAccuracy": accuracies[-1] if accuracies else 0,
+        "bestAccuracy": max(accuracies) if accuracies else 0,
+        "averageAccuracy": sum(accuracies) / len(accuracies) if accuracies else 0,
+        "averageTime": sum(times) / len(times) if times else 0,
+        "progressTrend": "improving" if len(scores) > 1 and scores[-1] > scores[0] else "stable",
+        "sessions": [
+            {
+                "sessionId": s.id,
+                "date": s.start_time.strftime("%Y-%m-%d %H:%M"),
+                "score": s.total_score,
+                "accuracy": s.accuracy,
+                "timeSeconds": s.total_time_seconds
+            } for s in sessions
+        ]
+    }
+    
+    return analysis

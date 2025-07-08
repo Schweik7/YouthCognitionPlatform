@@ -90,8 +90,9 @@ if __name__ == "__main__":
     # 直接运行此文件时启动服务器
     try:
         logger.info(f"启动服务器 - 端口: {settings.PORT}")
-        uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True)
+        uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True,log_level="debug")
     except KeyboardInterrupt:
         logger.info("用户中断，应用正在关闭...")
     except Exception as e:
         logger.error(f"应用启动失败: {e}")
+        raise

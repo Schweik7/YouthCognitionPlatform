@@ -39,8 +39,13 @@ export function useCalculationProblems() {
     return a
   }
 
+  const lcm = (a, b) => {
+    return (a * b) / gcd(a, b)
+  }
+
   const simplifyFraction = (numerator, denominator) => {
-    const divisor = gcd(numerator, denominator)
+    if (numerator === 0) return { numerator: 0, denominator: 1 }
+    const divisor = gcd(Math.abs(numerator), Math.abs(denominator))
     return {
       numerator: numerator / divisor,
       denominator: denominator / divisor
@@ -48,6 +53,9 @@ export function useCalculationProblems() {
   }
 
   const toMixedNumber = (numerator, denominator) => {
+    if (numerator === 0) {
+      return { whole: 0, numerator: 0, denominator: 1 }
+    }
     const whole = Math.floor(numerator / denominator)
     const remainder = numerator % denominator
     return {
@@ -57,68 +65,156 @@ export function useCalculationProblems() {
     }
   }
 
+  const addFractions = (n1, d1, n2, d2) => {
+    const commonDenominator = lcm(d1, d2)
+    const newN1 = n1 * (commonDenominator / d1)
+    const newN2 = n2 * (commonDenominator / d2)
+    return {
+      numerator: newN1 + newN2,
+      denominator: commonDenominator
+    }
+  }
+
+  const subtractFractions = (n1, d1, n2, d2) => {
+    const commonDenominator = lcm(d1, d2)
+    const newN1 = n1 * (commonDenominator / d1)
+    const newN2 = n2 * (commonDenominator / d2)
+    return {
+      numerator: newN1 - newN2,
+      denominator: commonDenominator
+    }
+  }
+
   const generateFractionAddSub = () => {
-    // 生成两个分数相加减，使用通分
-    const denominator = Math.floor(Math.random() * 6) + 2  // 2-7
-    const numerator1 = Math.floor(Math.random() * denominator) + 1  // 1 到 denominator-1
-    const numerator2 = Math.floor(Math.random() * denominator) + 1  // 1 到 denominator-1
+    // 生成两个不同分母的分数相加减，需要通分
+    const denominator1 = Math.floor(Math.random() * 6) + 2  // 2-7
+    let denominator2 = Math.floor(Math.random() * 6) + 2  // 2-7
+    
+    // 确保分母不同，增加通分的复杂性
+    while (denominator1 === denominator2) {
+      denominator2 = Math.floor(Math.random() * 6) + 2
+    }
+    
+    const numerator1 = Math.floor(Math.random() * denominator1) + 1  // 1 到 denominator1
+    const numerator2 = Math.floor(Math.random() * denominator2) + 1  // 1 到 denominator2
     
     const isAddition = Math.random() < 0.5
-    let resultNumerator
+    let result
     
     if (isAddition) {
-      resultNumerator = numerator1 + numerator2
+      result = addFractions(numerator1, denominator1, numerator2, denominator2)
     } else {
       // 确保结果不为负数
-      if (numerator1 >= numerator2) {
-        resultNumerator = numerator1 - numerator2
+      const frac1Value = numerator1 / denominator1
+      const frac2Value = numerator2 / denominator2
+      
+      if (frac1Value >= frac2Value) {
+        result = subtractFractions(numerator1, denominator1, numerator2, denominator2)
       } else {
-        resultNumerator = numerator2 - numerator1
+        result = subtractFractions(numerator2, denominator2, numerator1, denominator1)
+        // 交换分数顺序，确保结果为正
+        const simplified = simplifyFraction(result.numerator, result.denominator)
+        const mixed = toMixedNumber(simplified.numerator, simplified.denominator)
+        return {
+          text: `${numerator2}/${denominator2} - ${numerator1}/${denominator1} = `,
+          answer: calculateFinalAnswer(result.numerator, result.denominator),
+          fractionAnswer: mixed
+        }
       }
     }
     
-    // 约分
-    const simplified = simplifyFraction(resultNumerator, denominator)
-    
-    // 转换为带分数
+    // 化简分数
+    const simplified = simplifyFraction(result.numerator, result.denominator)
     const mixed = toMixedNumber(simplified.numerator, simplified.denominator)
     
     return {
-      text: `${numerator1}/${denominator} ${isAddition ? '+' : '-'} ${numerator2}/${denominator} = `,
-      answer: mixed.whole + mixed.numerator / mixed.denominator,
+      text: `${numerator1}/${denominator1} ${isAddition ? '+' : '-'} ${numerator2}/${denominator2} = `,
+      answer: calculateFinalAnswer(result.numerator, result.denominator),
       fractionAnswer: mixed
     }
+  }
+  
+  const calculateFinalAnswer = (numerator, denominator) => {
+    if (numerator === 0) return 0
+    const simplified = simplifyFraction(numerator, denominator)
+    const mixed = toMixedNumber(simplified.numerator, simplified.denominator)
+    
+    // 如果分子为0，返回整数部分
+    if (mixed.numerator === 0) {
+      return mixed.whole
+    }
+    
+    return mixed.whole + (mixed.numerator / mixed.denominator)
+  }
+  
+  const convertToMixedNumber = (numerator, denominator) => {
+    if (numerator === 0) {
+      return { whole: 0, numerator: 0, denominator: 1 }
+    }
+    const simplified = simplifyFraction(numerator, denominator)
+    const mixed = toMixedNumber(simplified.numerator, simplified.denominator)
+    
+    // 如果化简后分子为0，返回纯整数
+    if (mixed.numerator === 0) {
+      return { whole: mixed.whole, numerator: 0, denominator: 1 }
+    }
+    
+    return mixed
   }
 
   const generateFractionIntegerAddSub = () => {
     // 生成分数与整数相加减
     const denominator = Math.floor(Math.random() * 6) + 2  // 2-7
-    const numerator = Math.floor(Math.random() * denominator) + 1  // 1 到 denominator-1
-    const integer = Math.floor(Math.random() * 5) + 1  // 1-5
+    const numerator = Math.floor(Math.random() * denominator) + 1  // 1 到 denominator
+    const integer = Math.floor(Math.random() * 4) + 1  // 1-4
     
     const isAddition = Math.random() < 0.5
-    let resultNumerator
+    let result
+    let operationText
     
     if (isAddition) {
-      resultNumerator = numerator + integer * denominator
+      // 分数 + 整数：n/d + i = (n + i*d)/d
+      result = {
+        numerator: numerator + integer * denominator,
+        denominator: denominator
+      }
+      operationText = `${numerator}/${denominator} + ${integer} = `
     } else {
       // 确保结果不为负数
-      if (integer * denominator >= numerator) {
-        resultNumerator = integer * denominator - numerator
+      const fractionValue = numerator / denominator
+      if (integer > fractionValue) {
+        // 整数 - 分数：i - n/d = (i*d - n)/d
+        result = {
+          numerator: integer * denominator - numerator,
+          denominator: denominator
+        }
+        operationText = `${integer} - ${numerator}/${denominator} = `
       } else {
-        resultNumerator = numerator + integer * denominator  // 改为加法避免负数
+        // 分数 - 整数：n/d - i = (n - i*d)/d
+        // 如果结果为负，改为加法
+        if (numerator < integer * denominator) {
+          result = {
+            numerator: numerator + integer * denominator,
+            denominator: denominator
+          }
+          operationText = `${numerator}/${denominator} + ${integer} = `
+        } else {
+          result = {
+            numerator: numerator - integer * denominator,
+            denominator: denominator
+          }
+          operationText = `${numerator}/${denominator} - ${integer} = `
+        }
       }
     }
     
-    // 约分
-    const simplified = simplifyFraction(resultNumerator, denominator)
-    
-    // 转换为带分数
+    // 化简分数
+    const simplified = simplifyFraction(result.numerator, result.denominator)
     const mixed = toMixedNumber(simplified.numerator, simplified.denominator)
     
     return {
-      text: `${numerator}/${denominator} ${isAddition ? '+' : '-'} ${integer} = `,
-      answer: mixed.whole + mixed.numerator / mixed.denominator,
+      text: operationText,
+      answer: calculateFinalAnswer(result.numerator, result.denominator),
       fractionAnswer: mixed
     }
   }
@@ -181,8 +277,8 @@ export function useCalculationProblems() {
           hasFraction: false
         })
       } else {
-        a = Math.floor(Math.random() * 90) + 10
-        b = Math.floor(Math.random() * (a + 1))
+        a = Math.floor(Math.random() * 90) + 10  // 10-99
+        b = Math.floor(Math.random() * a) + 1    // 1-a，确保 a >= b
         problems.push({
           index: i + 1,
           text: `${a} - ${b} = `,
@@ -222,8 +318,12 @@ export function useCalculationProblems() {
           hasFraction: false
         })
       } else {
-        a = Math.floor(Math.random() * 900) + 100
-        b = Math.floor(Math.random() * 90) + 10
+        a = Math.floor(Math.random() * 900) + 100  // 100-999
+        b = Math.floor(Math.random() * 90) + 10   // 10-99
+        // 确保 a > b，如果不满足则调整
+        if (a <= b) {
+          a = b + Math.floor(Math.random() * 100) + 1
+        }
         problems.push({
           index: i + 1,
           text: `${a} - ${b} = `,
