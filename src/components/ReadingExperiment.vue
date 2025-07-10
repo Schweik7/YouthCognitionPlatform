@@ -1,5 +1,7 @@
 <template>
-  <div class="experiment-container">
+  <div class="experiment-page">
+    <TopNavBar />
+    <div class="experiment-container">
     <!-- 调试面板 -->
     <div v-if="debugMode" class="debug-panel">
       <h3>调试模式</h3>
@@ -129,12 +131,14 @@
         <p>感谢你的参与！</p>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { ElMessage } from 'element-plus';
+import TopNavBar from './TopNavBar.vue';
 
 // 状态变量
 const phase = ref('welcome'); // 实验阶段: welcome, practice-intro, practice, formal-intro, formal, end
@@ -735,11 +739,16 @@ watch(remainingTime, (newVal) => {
 
 <style>
 /* 全局样式 */
+.experiment-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+
 .experiment-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 60px);
   padding: 20px;
 }
 

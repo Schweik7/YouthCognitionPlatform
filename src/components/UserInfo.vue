@@ -3,7 +3,7 @@
         <el-card class="form-card">
             <template #header>
                 <div class="card-header">
-                    <h1>学习力测验平台</h1>
+                    <h1>中小学生学习困难筛查线上平台</h1>
                     <p>请填写您的基本信息</p>
                 </div>
             </template>
