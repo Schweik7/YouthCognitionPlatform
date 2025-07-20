@@ -46,6 +46,7 @@
         :format-percentage="formatPercentage"
         :format-response-time="formatResponseTime"
         :format-time="formatTime"
+        :show-type-analysis="showTypeAnalysis"
         @go-to-selection="goToSelection"
         @restart-test="restartTest"
       />
@@ -82,6 +83,7 @@ const currentIndex = ref(0) // 当前题目索引
 const totalProblems = ref(40) // 总题目数
 const testEnded = ref(false) // 测试是否结束
 const jumpToIndex = ref(1) // 调试模式：跳转题号
+const showTypeAnalysis = ref(true) // 控制是否显示题型成绩分析
 const problemStartTime = ref(0) // 当前题目开始时间
 const testComponent = ref(null) // 测试组件引用
 
@@ -418,29 +420,39 @@ const updateTypeStats = (problemTypeStats) => {
 
 // 开始测试
 const startTest = async () => {
-  // 获取用户信息
-  await initializeUserInfo()
+  try {
+    // 获取用户信息
+    await initializeUserInfo()
 
-  // 生成题目
-  problems.value = generateProblems(gradeLevel.value)
-
-  // 创建测试会话
-  await createTestSession()
-
-  // 准备测试
-  phase.value = 'test'
-  currentIndex.value = 0
-  problemStartTime.value = Date.now()
-
-  // 启动计时器
-  startTimer(() => endTest())
-
-  // 聚焦答案输入框
-  nextTick(() => {
-    if (testComponent.value?.focusInput) {
-      testComponent.value.focusInput()
+    // 生成题目
+    const generatedProblems = await generateProblems(gradeLevel.value)
+    if (!generatedProblems || generatedProblems.length === 0) {
+      ElMessage.error('获取题目失败，请重试')
+      return
     }
-  })
+    problems.value = generatedProblems
+
+    // 创建测试会话
+    await createTestSession()
+
+    // 准备测试
+    phase.value = 'test'
+    currentIndex.value = 0
+    problemStartTime.value = Date.now()
+
+    // 启动计时器
+    startTimer(() => endTest())
+
+    // 聚焦答案输入框
+    nextTick(() => {
+      if (testComponent.value?.focusInput) {
+        testComponent.value.focusInput()
+      }
+    })
+  } catch (error) {
+    console.error('开始测试失败:', error)
+    ElMessage.error('开始测试失败，请重试')
+  }
 }
 
 // 处理提交答案
