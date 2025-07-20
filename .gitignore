@@ -16,7 +16,7 @@ lerna-debug.log*
 *.zip
 *.json
 *.csv
-
+combined_code.txt
 ise-demo/example/**
 
 # Diagnostic reports (https://nodejs.org/api/report.html)

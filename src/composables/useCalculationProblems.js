@@ -1,32 +1,33 @@
 export function useCalculationProblems() {
   
-  const generateProblems = (gradeLevel) => {
-    const problems = []
-
-    if (gradeLevel === 1) {
-      // 一年级：0-10的加减法，加法减法各20题
-      generateGrade1Problems(problems)
-    } else if (gradeLevel === 2) {
-      // 二年级：两位数的加减法
-      generateGrade2Problems(problems)
-    } else if (gradeLevel === 3) {
-      // 三年级：三位数运算
-      generateGrade3Problems(problems)
-    } else if (gradeLevel === 4) {
-      // 四年级：乘除法运算
-      generateGrade4Problems(problems)
-    } else if (gradeLevel === 5) {
-      // 五年级：多位数乘除法、小数运算
-      generateGrade5Problems(problems)
-    } else if (gradeLevel === 6) {
-      // 六年级：分数运算、比例运算
-      generateGrade6Problems(problems)
+  const generateProblems = async (gradeLevel) => {
+    try {
+      // 使用新的API获取固定题目
+      const response = await fetch(`/api/calculation/grades/${gradeLevel}/problems`)
+      
+      if (!response.ok) {
+        console.error('获取题目失败:', await response.text())
+        return []
+      }
+      
+      const fixedProblems = await response.json()
+      
+      // 转换为前端格式
+      const problems = fixedProblems.map((problem, index) => ({
+        index: index + 1,
+        text: problem.problem,
+        answer: problem.answer,
+        type: problem.type,
+        hasFraction: ['分数', 'fraction'].some(keyword => problem.type.includes(keyword))
+      }))
+      
+      console.log(`已加载年级 ${gradeLevel} 的 ${problems.length} 道固定题目`)
+      return problems
+      
+    } catch (error) {
+      console.error('获取题目失败:', error)
+      return []
     }
-
-    // 随机打乱题目顺序
-    shuffleProblems(problems)
-    
-    return problems
   }
 
   // 分数运算辅助函数

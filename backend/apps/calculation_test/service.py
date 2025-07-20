@@ -3,6 +3,8 @@ from datetime import datetime
 from sqlmodel import Session, select
 import statistics
 import re
+import json
+import os
 from fractions import Fraction
 
 from logger_config import logger
@@ -702,3 +704,32 @@ def get_grade_performance_analysis(session: Session, user_id: int, grade_level: 
     }
     
     return analysis
+
+
+def get_fixed_problems_for_grade(grade_level: int) -> List[Dict[str, Any]]:
+    """获取指定年级的固定题目"""
+    try:
+        # 构建文件路径
+        if grade_level >= 7:
+            filename = f"grade-7+-answers.json"
+        else:
+            filename = f"grade-{grade_level}-answers.json"
+        
+        # 获取文件绝对路径（相对于项目根目录）
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        file_path = os.path.join(base_path, "src", "components", "calculation", filename)
+        
+        # 读取JSON文件
+        if not os.path.exists(file_path):
+            logger.error(f"题目文件不存在: {file_path}")
+            return []
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            problems = json.load(f)
+        
+        logger.info(f"成功加载年级 {grade_level} 的 {len(problems)} 道题目")
+        return problems
+        
+    except Exception as e:
+        logger.error(f"读取年级 {grade_level} 题目失败: {str(e)}", exc_info=True)
+        return []
