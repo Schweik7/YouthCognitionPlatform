@@ -34,10 +34,13 @@ router = APIRouter(tags=["阅读流畅性测试"])
 
 
 @router.get("/trials")
-async def get_trials_route(level: str = Query("elementary", description="测试级别: elementary 或 junior_high")):
-    """获取试题数据"""
+async def get_trials_route(
+    level: str = Query(None, description="测试级别: elementary 或 junior_high"), 
+    grade: int = Query(None, description="用户年级，用于自动确定测试级别")
+):
+    """获取试题数据 - 支持按级别或年级获取"""
     try:
-        return get_trials(level)
+        return get_trials(level=level, grade=grade)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取试题数据失败: {str(e)}"

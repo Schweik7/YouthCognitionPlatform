@@ -533,11 +533,31 @@ const startTimer = () => {
 // 获取试验数据
 const fetchTrials = async () => {
   try {
-    const response = await fetch(`/api/reading-fluency/trials?level=${selectedLevel.value}`);
+    // 获取用户信息并根据年级自动确定级别
+    const userInfoStr = localStorage.getItem('userInfo');
+    let apiUrl = `/api/reading-fluency/trials?level=${selectedLevel.value}`;
+    
+    if (userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        if (userInfo.grade) {
+          // 使用年级参数让后端自动确定级别
+          apiUrl = `/api/reading-fluency/trials?grade=${userInfo.grade}`;
+        }
+      } catch (error) {
+        console.warn('解析用户信息失败，使用默认级别');
+      }
+    }
+    
+    const response = await fetch(apiUrl);
     if (response.ok) {
       const data = await response.json();
       
-      if (selectedLevel.value === 'junior_high') {
+      // 从响应中获取实际的级别
+      const actualLevel = data.level || selectedLevel.value;
+      selectedLevel.value = actualLevel;
+      
+      if (actualLevel === 'junior_high') {
         // 初中及以上级别，使用新格式
         formalTrials.value = data.questions.map((question) => ({
           id: question.id,
@@ -874,7 +894,36 @@ onMounted(async () => {
 
   // 确保初始滚动位置在页面顶部
   window.scrollTo(0, 0);
+  
+  // 检查用户信息，如果有用户信息则自动开始实验
+  const userInfoStr = localStorage.getItem('userInfo');
+  if (userInfoStr) {
+    try {
+      const userInfo = JSON.parse(userInfoStr);
+      if (userInfo.grade) {
+        // 跳过级别选择，直接开始实验
+        await autoStartExperiment();
+      }
+    } catch (error) {
+      console.warn('解析用户信息失败，显示级别选择');
+    }
+  }
 });
+
+// 自动开始实验（基于用户年级）
+const autoStartExperiment = async () => {
+  try {
+    // 获取题目数据
+    await fetchTrials();
+    
+    // 直接进入欢迎页面
+    phase.value = 'welcome';
+  } catch (error) {
+    console.error('自动开始实验失败:', error);
+    // 如果失败，回退到级别选择
+    phase.value = 'level-selection';
+  }
+};
 
 onUnmounted(() => {
   // 清理资源

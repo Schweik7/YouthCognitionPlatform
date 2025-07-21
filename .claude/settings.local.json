@@ -11,7 +11,8 @@
       "Bash(curl:*)",
       "Bash(http_proxy=\"\" https_proxy=\"\" curl -s \"http://localhost:3000/api/health\")",
       "Bash(env:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(mysql:*)"
     ],
     "deny": []
   }

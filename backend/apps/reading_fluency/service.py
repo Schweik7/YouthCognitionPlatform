@@ -124,19 +124,30 @@ def read_csv_trials(file_path: Path) -> List[str]:
 def read_csv_questions(file_path: Path) -> List[Question]:
     """从CSV文件读取题目（支持图片和选择题）"""
     if not file_path.exists():
-        logger.warning(f"文件不存在 {file_path}")
         return []
 
     try:
         questions = []
         df = pd.read_csv(file_path, encoding="utf-8")
         
-        for _, row in df.iterrows():
-            if pd.notna(row['text']):
+        for index, row in df.iterrows():
+            try:
+                # 跳过空行或无效行
+                if pd.isna(row.get('id')) or pd.isna(row.get('text')):
+                    continue
+                
+                # 尝试转换id为整数，如果失败则跳过该行
+                try:
+                    question_id = int(row['id'])
+                except (ValueError, TypeError):
+                    continue
+                
                 # 处理选项
                 options = None
                 if pd.notna(row.get('options', '')):
-                    options = str(row['options']).split('|')
+                    options_str = str(row['options']).strip()
+                    if options_str:
+                        options = options_str.split('|')
                 
                 # 处理正确答案
                 correct_answer_str = str(row['correct_answer']).strip()
@@ -146,7 +157,7 @@ def read_csv_questions(file_path: Path) -> List[Question]:
                     correct_answer = correct_answer_str
                 
                 question = Question(
-                    id=int(row['id']),
+                    id=question_id,
                     question_type=str(row['question_type']),
                     text=str(row['text']),
                     image_path=str(row['image_path']) if pd.notna(row['image_path']) else None,
@@ -155,27 +166,40 @@ def read_csv_questions(file_path: Path) -> List[Question]:
                     level=QuestionLevel.JUNIOR_HIGH
                 )
                 questions.append(question)
+            except Exception:
+                continue
 
         return questions
-    except Exception as e:
-        logger.error(f"解析问题CSV文件失败: {file_path}, 错误: {str(e)}")
+    except Exception:
         return []
 
 
-def get_trials(level: str = "elementary") -> Dict[str, Any]:
-    """获取试题数据根据级别"""
+def get_level_from_grade(grade: int) -> str:
+    """根据年级确定测试级别"""
+    if grade <= 6:  # 1-6年级为小学
+        return "elementary"
+    else:  # 7年级及以上为初中及以上
+        return "junior_high"
+
+def get_trials(level: str = None, grade: int = None) -> Dict[str, Any]:
+    """获取试题数据根据级别或年级"""
     global _practice_trials, _formal_trials, _junior_high_trials
+    
+    # 如果提供了年级但没有级别，自动确定级别
+    if level is None and grade is not None:
+        level = get_level_from_grade(grade)
+    elif level is None:
+        level = "elementary"  # 默认为小学级别
 
     if level == "elementary":
         # 小学级别 - 返回旧格式
         if _practice_trials is not None and _formal_trials is not None:
-            return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials}
+            return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials, "level": "elementary"}
 
         _practice_trials = read_csv_trials(practice_trial_path)
         _formal_trials = read_csv_trials(formal_trial_path)
 
-        logger.info(f"成功加载 {len(_practice_trials)} 个练习题和 {len(_formal_trials)} 个正式题")
-        return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials}
+        return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials, "level": "elementary"}
     
     elif level == "junior_high":
         # 初中及以上级别 - 返回新格式
@@ -184,7 +208,6 @@ def get_trials(level: str = "elementary") -> Dict[str, Any]:
 
         _junior_high_trials = read_csv_questions(junior_high_trial_path)
 
-        logger.info(f"成功加载 {len(_junior_high_trials)} 个初中及以上题目")
         return {"questions": [q.dict() for q in _junior_high_trials], "level": "junior_high"}
     
     else:
