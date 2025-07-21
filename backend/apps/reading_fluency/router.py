@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 from typing import List, Dict, Any
+from fastapi import Query
 
 from database import get_session
 from .models import (
@@ -32,11 +33,11 @@ from .service import (
 router = APIRouter(tags=["阅读流畅性测试"])
 
 
-@router.get("/trials", response_model=Dict[str, List[str]])
-async def get_trials_route():
+@router.get("/trials")
+async def get_trials_route(level: str = Query("elementary", description="测试级别: elementary 或 junior_high")):
     """获取试题数据"""
     try:
-        return get_trials()
+        return get_trials(level)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取试题数据失败: {str(e)}"

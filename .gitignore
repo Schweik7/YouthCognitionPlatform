@@ -14,8 +14,8 @@ lerna-debug.log*
 *.mp3
 *.m4a
 *.zip
-*.json
-*.csv
+# *.json
+# *.csv
 combined_code.txt
 ise-demo/example/**
 

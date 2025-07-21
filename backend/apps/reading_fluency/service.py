@@ -18,6 +18,8 @@ from .models import (
     TestSessionUpdate,
     TestSessionResponse,
     Answer,
+    Question,
+    QuestionLevel,
 )
 
 
@@ -25,10 +27,12 @@ from .models import (
 data_dir = Path(settings.DATA_DIR)
 practice_trial_path = data_dir / "教学阶段.csv"
 formal_trial_path = data_dir / "正式阶段.csv"
+junior_high_trial_path = data_dir / "初中及以上阅读.csv"
 _standard_answers: Dict[int, bool] = {}
 # 缓存数据
 _practice_trials = None
 _formal_trials = None
+_junior_high_trials = None
 
 
 def load_standard_answers() -> Dict[int, bool]:
@@ -64,16 +68,33 @@ answers = load_standard_answers()
 
 
 # 判断用户答案是否正确
-def check_answer(trial_id: int, user_answer: bool) -> bool:
+def check_answer(trial_id: int, user_answer: str, level: str = "elementary") -> bool:
     """检查用户答案是否正确"""
-    # logger.debug(
-    #     f"检查试题ID {trial_id} 的答案: 用户答案 {user_answer}, 标准答案 {answers[trial_id]}"
-    # )
-    if trial_id not in answers:
-        logger.warning(f"试题ID {trial_id} 没有对应的标准答案")
+    if level == "junior_high":
+        # 初中及以上级别，从 CSV 文件中查找答案
+        global _junior_high_trials
+        if _junior_high_trials is None:
+            _junior_high_trials = read_csv_questions(junior_high_trial_path)
+        
+        for question in _junior_high_trials:
+            if question.id == trial_id:
+                if question.question_type == '判断':
+                    # 判断题：用户答案是"true"/"false"，正确答案是bool
+                    user_bool = user_answer.lower() == "true"
+                    return user_bool == question.correct_answer
+                else:
+                    # 选择题：直接比较字符串
+                    return user_answer.upper() == str(question.correct_answer).upper()
+        
+        logger.warning(f"初中级别试题ID {trial_id} 没有对应的标准答案")
         return False
-
-    return user_answer == answers[trial_id]
+    else:
+        # 小学级别，使用原有逻辑（将字符串转为bool）
+        if trial_id not in answers:
+            logger.warning(f"试题ID {trial_id} 没有对应的标准答案")
+            return False
+        user_bool = user_answer.lower() == "true"
+        return user_bool == answers[trial_id]
 
 
 def read_csv_trials(file_path: Path) -> List[str]:
@@ -100,21 +121,74 @@ def read_csv_trials(file_path: Path) -> List[str]:
         return []
 
 
-def get_trials() -> Dict[str, List[str]]:
-    """获取所有试题数据"""
-    global _practice_trials, _formal_trials
+def read_csv_questions(file_path: Path) -> List[Question]:
+    """从CSV文件读取题目（支持图片和选择题）"""
+    if not file_path.exists():
+        logger.warning(f"文件不存在 {file_path}")
+        return []
 
-    # 如果已缓存则直接返回
-    if _practice_trials is not None and _formal_trials is not None:
+    try:
+        questions = []
+        df = pd.read_csv(file_path, encoding="utf-8")
+        
+        for _, row in df.iterrows():
+            if pd.notna(row['text']):
+                # 处理选项
+                options = None
+                if pd.notna(row.get('options', '')):
+                    options = str(row['options']).split('|')
+                
+                # 处理正确答案
+                correct_answer_str = str(row['correct_answer']).strip()
+                if row['question_type'] == '判断':
+                    correct_answer = correct_answer_str.upper() == 'TRUE'
+                else:  # 选择题
+                    correct_answer = correct_answer_str
+                
+                question = Question(
+                    id=int(row['id']),
+                    question_type=str(row['question_type']),
+                    text=str(row['text']),
+                    image_path=str(row['image_path']) if pd.notna(row['image_path']) else None,
+                    options=options,
+                    correct_answer=correct_answer,
+                    level=QuestionLevel.JUNIOR_HIGH
+                )
+                questions.append(question)
+
+        return questions
+    except Exception as e:
+        logger.error(f"解析问题CSV文件失败: {file_path}, 错误: {str(e)}")
+        return []
+
+
+def get_trials(level: str = "elementary") -> Dict[str, Any]:
+    """获取试题数据根据级别"""
+    global _practice_trials, _formal_trials, _junior_high_trials
+
+    if level == "elementary":
+        # 小学级别 - 返回旧格式
+        if _practice_trials is not None and _formal_trials is not None:
+            return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials}
+
+        _practice_trials = read_csv_trials(practice_trial_path)
+        _formal_trials = read_csv_trials(formal_trial_path)
+
+        logger.info(f"成功加载 {len(_practice_trials)} 个练习题和 {len(_formal_trials)} 个正式题")
         return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials}
+    
+    elif level == "junior_high":
+        # 初中及以上级别 - 返回新格式
+        if _junior_high_trials is not None:
+            return {"questions": [q.dict() for q in _junior_high_trials], "level": "junior_high"}
 
-    # 读取试题数据
-    _practice_trials = read_csv_trials(practice_trial_path)
-    _formal_trials = read_csv_trials(formal_trial_path)
+        _junior_high_trials = read_csv_questions(junior_high_trial_path)
 
-    logger.info(f"成功加载 {len(_practice_trials)} 个练习题和 {len(_formal_trials)} 个正式题")
-
-    return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials}
+        logger.info(f"成功加载 {len(_junior_high_trials)} 个初中及以上题目")
+        return {"questions": [q.dict() for q in _junior_high_trials], "level": "junior_high"}
+    
+    else:
+        raise ValueError(f"不支持的级别: {level}")
 
 
 def find_or_create_user(
@@ -148,8 +222,15 @@ def save_trial_direct(session: Session, trial_data: TrialData) -> Trial:
     if not user:
         raise ValueError(f"用户不存在: ID={trial_data.user_id}")
 
+    # 获取测试级别
+    level = "elementary"  # 默认值
+    if trial_data.test_session_id:
+        test_session = session.get(TestSession, trial_data.test_session_id)
+        if test_session:
+            level = test_session.level
+
     # 判断用户答案是否正确
-    is_correct = check_answer(trial_data.trial_id, trial_data.user_answer)
+    is_correct = check_answer(trial_data.trial_id, trial_data.user_answer, level)
 
     # 创建试验记录
     trial = Trial(
@@ -232,6 +313,7 @@ def create_test_session(session: Session, test_session_data: TestSessionCreate) 
     test_session = TestSession(
         user_id=test_session_data.user_id,
         total_questions=test_session_data.total_questions,
+        level=test_session_data.level.value,
         start_time=datetime.now(),
     )
 
@@ -239,7 +321,7 @@ def create_test_session(session: Session, test_session_data: TestSessionCreate) 
     session.commit()
     session.refresh(test_session)
 
-    logger.info(f"为用户 {user.name} 创建测试会话，ID: {test_session.id}")
+    logger.info(f"为用户 {user.name} 创建测试会话，ID: {test_session.id}, 级别: {test_session_data.level}")
     return test_session
 
 
@@ -326,7 +408,7 @@ def save_trial_with_session(session: Session, test_session_id: int, trial_data: 
         raise ValueError(f"测试会话不存在: ID={test_session_id}")
 
     # 判断用户答案是否正确
-    is_correct = check_answer(trial_data.trial_id, trial_data.user_answer)
+    is_correct = check_answer(trial_data.trial_id, trial_data.user_answer, test_session.level)
 
     # 创建试验记录
     trial = Trial(

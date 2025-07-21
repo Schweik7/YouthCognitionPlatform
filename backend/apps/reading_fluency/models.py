@@ -1,14 +1,32 @@
 from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+from enum import Enum
 from database import BaseModel
 from apps.users.models import User
+
+
+class QuestionLevel(str, Enum):
+    """测试级别枚举"""
+    ELEMENTARY = "elementary"  # 小学
+    JUNIOR_HIGH = "junior_high"  # 初中及以上
 
 
 class Answer(SQLModel, table=False):
     """标准答案模型（非数据库表，用于内存中）"""
     trial_id: int  # 试题编号
     correct_answer: bool  # 正确答案
+
+
+class Question(SQLModel, table=False):
+    """题目模型（非数据库表，用于内存中）"""
+    id: int  # 题目编号
+    question_type: str  # 题目类型：判断或选择
+    text: str  # 题目文本
+    image_path: Optional[str] = None  # 图片路径
+    options: Optional[List[str]] = None  # 选择题选项
+    correct_answer: Any  # 正确答案（判断题为bool，选择题为字符串）
+    level: QuestionLevel  # 测试级别
 
 
 class TestSession(BaseModel, table=True):
@@ -24,6 +42,7 @@ class TestSession(BaseModel, table=True):
     progress: int = Field(default=0)  # 进度（已完成的试题数量）
     total_questions: int = Field(default=0)  # 总题目数量
     correct_count: int = Field(default=0)  # 正确答题数量
+    level: str = Field(default="elementary")  # 测试级别
 
     # 关系
     user: Optional[User] = Relationship()
@@ -54,7 +73,7 @@ class Trial(BaseModel, table=True):
         default=None, foreign_key="rf_test_sessions.id", index=True
     )
     trial_id: int = Field(index=True)  # 试题编号
-    user_answer: bool = Field(default=False)  # 用户回答
+    user_answer: str = Field(default="")  # 用户回答（判断题为"true"/"false"，选择题为"A"/"B"/"C"/"D"）
     is_correct: Optional[bool] = None  # 是否正确
     response_time: int = Field(default=0)  # 回答时间（毫秒）
 
@@ -70,7 +89,7 @@ class TrialData(SQLModel):
     user_id: int
     test_session_id: Optional[int] = None
     trial_id: int
-    user_answer: bool
+    user_answer: str  # 改为字符串类型
     response_time: int
 
 
@@ -82,7 +101,7 @@ class UserTrialData(SQLModel):
     grade: int
     class_number: int
     trial_id: int
-    user_answer: bool
+    user_answer: str  # 改为字符串类型
     response_time: int
     timestamp: Optional[datetime] = None  # 可选的时间戳字段
 
@@ -92,6 +111,7 @@ class TestSessionCreate(SQLModel):
 
     user_id: int
     total_questions: int = 0
+    level: QuestionLevel = QuestionLevel.ELEMENTARY
 
 
 class TestSessionUpdate(SQLModel):
@@ -117,6 +137,7 @@ class TestSessionResponse(SQLModel):
     correct_count: int
     accuracy: float
     completion_rate: float
+    level: str
 
 
 class ResultResponse(SQLModel):

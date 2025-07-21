@@ -1,5 +1,19 @@
 <template>
   <div class="experiment-container">
+    <!-- 级别选择面板 -->
+    <div v-if="phase === 'level-selection'" class="level-selection">
+      <h2>阅读流畅性测试</h2>
+      <p>请选择适合的测试级别：</p>
+      <div class="level-buttons">
+        <el-button type="primary" size="large" @click="selectLevel('elementary')">
+          小学级别
+        </el-button>
+        <el-button type="primary" size="large" @click="selectLevel('junior_high')">
+          初中及以上级别
+        </el-button>
+      </div>
+    </div>
+
     <!-- 调试面板 -->
     <div v-if="debugMode" class="debug-panel">
       <h3>调试模式</h3>
@@ -15,25 +29,45 @@
     <div class="content-area">
       <!-- 指导语阶段 -->
       <div v-if="phase === 'welcome'" class="instruction">
-        <h2>阅读流畅性实验</h2>
-        <p>同学们，我们现在来玩的这个游戏是让你阅读句子，并判断句子是否正确。</p>
-        <p>请你快速认真地读完句子（默读），如果你觉得句子是正确的，你就在句子后面的括号内打个"√"；如果你觉得句子是错误的，那就在句子后面的括号内打个"╳"。</p>
-        <p>如果读句子时遇到不认识的字，也不要停下来，抓紧时间，继续往后做。</p>
-        <p>记住要一题一题从上往下做，做完一页后快速翻到后面再继续做。</p>
-        <p>一共有3分钟时间来阅读，题目很多，肯定做不完的。所以没有做完也没有关系，只要尽快做就好了。</p>
-        <div class="key-instruction">
-          <div>按键说明：</div>
-          <div>Q 键 = 正确（√）</div>
-          <div>W 键 = 错误（╳）</div>
+        <h2>阅读流畅性测试</h2>
+        
+        <!-- 小学级别指导语 -->
+        <div v-if="!isJuniorHighLevel">
+          <p>同学们，我们现在来玩的这个游戏是让你阅读句子，并判断句子是否正确。</p>
+          <p>请你快速认真地读完句子（默读），如果你觉得句子是正确的，你就在句子后面的括号内打个"√"；如果你觉得句子是错误的，那就在句子后面的括号内打个"╳"。</p>
+          <p>如果读句子时遇到不认识的字，也不要停下来，抓紧时间，继续往后做。</p>
+          <p>记住要一题一题从上往下做，做完一页后快速翻到后面再继续做。</p>
+          <p>一共有3分钟时间来阅读，题目很多，肯定做不完的。所以没有做完也没有关系，只要尽快做就好了。</p>
+          <div class="key-instruction">
+            <div>按键说明：</div>
+            <div>Q 键 = 正确（√）</div>
+            <div>W 键 = 错误（╳）</div>
+          </div>
+          <p style="margin-top:15px">你也可以直接点击屏幕上的"正确"或"错误"按钮来回答。</p>
         </div>
-        <p style="margin-top:15px">你也可以直接点击屏幕上的"正确"或"错误"按钮来回答。</p>
+        
+        <!-- 初中及以上级别指导语 -->
+        <div v-else>
+          <p>欢迎参加阅读理解测试！本测试包含判断题和选择题两种类型。</p>
+          <p>对于判断题，请阅读句子并判断其是否正确；对于选择题，请根据题目要求选择最合适的答案。</p>
+          <p>有些题目配有图片，请仔细观察图片内容来帮助你做出判断。</p>
+          <p>测试时间为3分钟，请尽可能多地完成题目，但不要因为时间紧张而草率作答。</p>
+          <div class="key-instruction">
+            <div>按键说明：</div>
+            <div>判断题：Q 键 = 正确，W 键 = 错误</div>
+            <div>选择题：A/B/C/D 键对应相应选项</div>
+          </div>
+          <p style="margin-top:15px">你也可以直接点击屏幕上的按钮来回答。</p>
+        </div>
+        
         <el-button type="primary" class="continue-btn" @click="nextPhase">下一步</el-button>
       </div>
 
       <!-- 练习阶段说明 -->
       <div v-else-if="phase === 'practice-intro'" class="instruction">
         <h2>练习阶段</h2>
-        <p>我们先来练习几道题，看你有没有明白，好吗？</p>
+        <p v-if="!isJuniorHighLevel">我们先来练习几道题，看你有没有明白，好吗？</p>
+        <p v-else>我们先通过几道练习题来熟悉一下答题方式。</p>
         <el-button type="primary" class="continue-btn" @click="nextPhase">开始练习</el-button>
       </div>
 
@@ -69,12 +103,12 @@
             </div>
           </div>
           <div class="answer-buttons">
-            <button class="answer-btn correct-btn" :class="{ 'selected': userAnswer === true }"
-              @click="handleAnswer(true)">
+            <button class="answer-btn correct-btn" :class="{ 'selected': userAnswer === 'true' }"
+              @click="handleAnswer('true')">
               正确 (√)
             </button>
-            <button class="answer-btn wrong-btn" :class="{ 'selected': userAnswer === false }"
-              @click="handleAnswer(false)">
+            <button class="answer-btn wrong-btn" :class="{ 'selected': userAnswer === 'false' }"
+              @click="handleAnswer('false')">
               错误 (╳)
             </button>
           </div>
@@ -83,8 +117,9 @@
 
       <!-- 正式阶段说明 -->
       <div v-else-if="phase === 'formal-intro'" class="instruction">
-        <h2>正式测验</h2>
-        <p>好的，现在我们来多做一些。都准备好了吗？</p>
+        <h2>正式测试</h2>
+        <p v-if="!isJuniorHighLevel">好的，现在我们来多做一些。都准备好了吗？</p>
+        <p v-else>练习完成！现在开始正式测试。请认真阅读每道题目，准确作答。</p>
         <p>准备好后，点击"开始"按钮，计时将立即开始！</p>
         <el-button type="primary" class="continue-btn" @click="startFormalTest">开始</el-button>
       </div>
@@ -97,19 +132,62 @@
             <span>{{ formatTime(remainingTime) }}</span>
           </div>
         </div>
-        <div class="sentence">{{ currentFormalTrial.text.split('（')[0] }}</div>
-        <div class="answer">
-          <span class="answer-label">（</span>
-          <span class="answer-mark" ref="answerMark"></span>
-          <span class="answer-label">）</span>
+        
+        <!-- 显示图片（如果有） -->
+        <div v-if="currentFormalTrial.image_path" class="question-image">
+          <img :src="getImageUrl(currentFormalTrial.image_path)" :alt="'题目图片'" @error="onImageError" />
         </div>
-        <div class="answer-buttons">
-          <button class="answer-btn correct-btn" :class="{ 'selected': userAnswer === true }" @click="handleAnswer(true)">
-            正确 (√)
-          </button>
-          <button class="answer-btn wrong-btn" :class="{ 'selected': userAnswer === false }" @click="handleAnswer(false)">
-            错误 (╳)
-          </button>
+        
+        <div class="sentence">{{ getQuestionText(currentFormalTrial) }}</div>
+        
+        <!-- 判断题界面 -->
+        <div v-if="currentFormalTrial.question_type === '判断'">
+          <div class="answer">
+            <span class="answer-label">（</span>
+            <span class="answer-mark" ref="answerMark"></span>
+            <span class="answer-label">）</span>
+          </div>
+          <div class="answer-buttons">
+            <button class="answer-btn correct-btn" :class="{ 'selected': userAnswer === 'true' }" @click="handleAnswer('true')">
+              正确 (√)
+            </button>
+            <button class="answer-btn wrong-btn" :class="{ 'selected': userAnswer === 'false' }" @click="handleAnswer('false')">
+              错误 (╳)
+            </button>
+          </div>
+        </div>
+        
+        <!-- 选择题界面 -->
+        <div v-else-if="currentFormalTrial.question_type === '选择'" class="choice-question">
+          <div class="choice-options">
+            <button 
+              v-for="(option, index) in currentFormalTrial.options" 
+              :key="index"
+              class="choice-btn"
+              :class="{ 'selected': userAnswer === getOptionLabel(index) }"
+              @click="handleAnswer(getOptionLabel(index))"
+            >
+              <span class="option-label">{{ getOptionLabel(index) }}.</span>
+              <span class="option-text">{{ option }}</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 兜底：旧版本判断题界面 -->
+        <div v-else>
+          <div class="answer">
+            <span class="answer-label">（</span>
+            <span class="answer-mark" ref="answerMark"></span>
+            <span class="answer-label">）</span>
+          </div>
+          <div class="answer-buttons">
+            <button class="answer-btn correct-btn" :class="{ 'selected': userAnswer === 'true' }" @click="handleAnswer('true')">
+              正确 (√)
+            </button>
+            <button class="answer-btn wrong-btn" :class="{ 'selected': userAnswer === 'false' }" @click="handleAnswer('false')">
+              错误 (╳)
+            </button>
+          </div>
         </div>
 
         <!-- 计时器沙漏 -->
@@ -137,7 +215,8 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 
 // 状态变量
-const phase = ref('welcome'); // 实验阶段: welcome, practice-intro, practice, formal-intro, formal, end
+const phase = ref('level-selection'); // 实验阶段: level-selection, welcome, practice-intro, practice, formal-intro, formal, end
+const selectedLevel = ref('elementary'); // 选择的级别
 const currentPracticeIndex = ref(0);
 const currentFormalIndex = ref(0);
 const userAnswer = ref(null);
@@ -188,6 +267,7 @@ const practiceTrials = [
 
 // 正式阶段试题数据
 const formalTrials = ref([]);
+const isJuniorHighLevel = computed(() => selectedLevel.value === 'junior_high');
 
 // 记录开始时间的方法（用于计算反应时间）
 let trialStartTime = 0;
@@ -295,7 +375,8 @@ const createTestSession = async () => {
       },
       body: JSON.stringify({
         user_id: userId.value,
-        total_questions: formalTrials.value.length
+        total_questions: formalTrials.value.length,
+        level: selectedLevel.value
       })
     });
     
@@ -379,7 +460,7 @@ const saveTrialWithSession = async (trialData) => {
       body: JSON.stringify({
         user_id: userId.value,
         trial_id: trialData.trial_id,
-        user_answer: trialData.user_answer,
+        user_answer: String(trialData.user_answer),  // 确保是字符串
         response_time: trialData.response_time
       })
     });
@@ -405,11 +486,22 @@ const keyHandler = (e) => {
     return;
   }
 
-  // 按键响应
-  if (e.key.toLowerCase() === 'q') {
-    handleAnswer(true);
-  } else if (e.key.toLowerCase() === 'w') {
-    handleAnswer(false);
+  const currentTrial = phase.value === 'practice' ? currentPracticeTrial.value : currentFormalTrial.value;
+  
+  // 根据题目类型处理按键
+  if (currentTrial.question_type === '选择') {
+    // 选择题：A/B/C/D 键
+    const key = e.key.toLowerCase();
+    if (['a', 'b', 'c', 'd'].includes(key)) {
+      handleAnswer(key.toUpperCase());
+    }
+  } else {
+    // 判断题：Q/W 键
+    if (e.key.toLowerCase() === 'q') {
+      handleAnswer('true');
+    } else if (e.key.toLowerCase() === 'w') {
+      handleAnswer('false');
+    }
   }
 };
 
@@ -441,16 +533,35 @@ const startTimer = () => {
 // 获取试验数据
 const fetchTrials = async () => {
   try {
-    const response = await fetch('/api/reading-fluency/trials');
+    const response = await fetch(`/api/reading-fluency/trials?level=${selectedLevel.value}`);
     if (response.ok) {
       const data = await response.json();
-      formalTrials.value = data.formalTrials.map((trial, index) => ({
-        id: index + 1,
-        text: trial,
-        startTime: 0,
-        responseTime: 0,
-        userAnswer: null
-      }));
+      
+      if (selectedLevel.value === 'junior_high') {
+        // 初中及以上级别，使用新格式
+        formalTrials.value = data.questions.map((question) => ({
+          id: question.id,
+          question_type: question.question_type,
+          text: question.text,
+          image_path: question.image_path,
+          options: question.options,
+          correct_answer: question.correct_answer,
+          startTime: 0,
+          responseTime: 0,
+          userAnswer: null
+        }));
+      } else {
+        // 小学级别，使用旧格式
+        formalTrials.value = data.formalTrials.map((trial, index) => ({
+          id: index + 1,
+          question_type: '判断',
+          text: trial,
+          startTime: 0,
+          responseTime: 0,
+          userAnswer: null
+        }));
+      }
+      
       maxTrials.value = formalTrials.value.length;
     } else {
       // 如果API请求失败，使用本地数据
@@ -490,44 +601,49 @@ const parseLocalTrials = () => {
   console.warn('使用备用试题数据，请检查API连接');
 };
 // 修改 handleAnswer 方法
-const handleAnswer = (isCorrect) => {
+const handleAnswer = (answer) => {
   if (isProcessing.value) return;
 
   isProcessing.value = true;
-  userAnswer.value = isCorrect;
+  userAnswer.value = answer;
 
   // 计算反应时间（毫秒）
   const responseTime = Date.now() - trialStartTime;
 
-  // 更新答案标记
-  const markEl = answerMark.value;
-  if (markEl) {
-    markEl.textContent = isCorrect ? '√' : '╳';
-    markEl.classList.remove('correct-mark', 'wrong-mark', 'answer-animation');
+  const currentTrial = phase.value === 'practice' ? currentPracticeTrial.value : currentFormalTrial.value;
+  
+  // 更新答案标记（仅对判断题）
+  if (currentTrial.question_type === '判断' || !currentTrial.question_type) {
+    const markEl = answerMark.value;
+    if (markEl) {
+      const isCorrect = answer === 'true';
+      markEl.textContent = isCorrect ? '√' : '╳';
+      markEl.classList.remove('correct-mark', 'wrong-mark', 'answer-animation');
 
-    if (isCorrect) {
-      markEl.classList.add('correct-mark');
-    } else {
-      markEl.classList.add('wrong-mark');
+      if (isCorrect) {
+        markEl.classList.add('correct-mark');
+      } else {
+        markEl.classList.add('wrong-mark');
+      }
+
+      // 触发动画
+      setTimeout(() => {
+        markEl.classList.add('answer-animation');
+      }, 10);
     }
-
-    // 触发动画
-    setTimeout(() => {
-      markEl.classList.add('answer-animation');
-    }, 10);
   }
 
   // 保存数据（如果在正式阶段）
   if (phase.value === 'formal') {
     const currentTrial = formalTrials.value[currentFormalIndex.value];
     if (currentTrial) {
-      currentTrial.userAnswer = isCorrect;
+      currentTrial.userAnswer = answer;
       currentTrial.responseTime = responseTime;
 
       // 保存到服务器
       saveTrialWithSession({
         trial_id: currentTrial.id,
-        user_answer: isCorrect,
+        user_answer: answer,
         response_time: responseTime
       });
       
@@ -546,7 +662,12 @@ const handleAnswer = (isCorrect) => {
 const nextPhase = () => {
   switch (phase.value) {
     case 'welcome':
-      phase.value = 'practice-intro';
+      // 初中及以上级别直接跳到正式测试
+      if (isJuniorHighLevel.value) {
+        phase.value = 'formal-intro';
+      } else {
+        phase.value = 'practice-intro';
+      }
       break;
     case 'practice-intro':
       phase.value = 'practice';
@@ -601,6 +722,45 @@ const startFormalTest = async () => {
     console.error('启动正式测试失败:', error);
     ElMessage.error('启动测试失败，请刷新页面重试');
   }
+};
+
+// 选择测试级别
+const selectLevel = async (level) => {
+  selectedLevel.value = level;
+  phase.value = 'welcome';
+  
+  // 根据选择的级别获取相应的题目
+  await fetchTrials();
+};
+
+// 获取图片URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  // 如果是相对路径，添加前缀
+  if (imagePath.startsWith('images/')) {
+    return `/${imagePath}`;
+  }
+  return imagePath;
+};
+
+// 图片加载错误处理
+const onImageError = (event) => {
+  console.warn('图片加载失败:', event.target.src);
+  event.target.style.display = 'none';
+};
+
+// 获取题目文本
+const getQuestionText = (trial) => {
+  if (isJuniorHighLevel.value) {
+    return trial.text;
+  } else {
+    return trial.text.split('（')[0];
+  }
+};
+
+// 获取选项标签
+const getOptionLabel = (index) => {
+  return String.fromCharCode(65 + index); // A, B, C, D
 };
 
 // 准备当前试题
@@ -711,9 +871,6 @@ const saveTrialData = async (trialData) => {
 onMounted(async () => {
   // 添加键盘事件监听
   window.addEventListener('keydown', keyHandler);
-
-  // 获取试验数据
-  await fetchTrials();
 
   // 确保初始滚动位置在页面顶部
   window.scrollTo(0, 0);
@@ -1026,6 +1183,108 @@ watch(remainingTime, (newVal) => {
   height: 0;
   background-color: #E6E6E6;
   clip-path: polygon(0 100%, 100% 100%, 50% 0, 0 100%);
+}
+
+/* 级别选择 */
+.level-selection {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.level-selection h2 {
+  color: #409EFF;
+  margin-bottom: 20px;
+  font-size: 28px;
+}
+
+.level-selection p {
+  margin: 20px 0;
+  font-size: 16px;
+  color: #606266;
+}
+
+.level-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 30px;
+}
+
+.level-buttons .el-button {
+  padding: 15px 30px;
+  font-size: 16px;
+  min-width: 150px;
+}
+
+/* 题目图片 */
+.question-image {
+  margin: 20px 0;
+  text-align: center;
+}
+
+.question-image img {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 选择题样式 */
+.choice-question {
+  width: 100%;
+  margin: 20px 0;
+}
+
+.choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.choice-btn {
+  display: flex;
+  align-items: flex-start;
+  padding: 15px 20px;
+  border: 2px solid #dcdfe6;
+  border-radius: 8px;
+  background-color: #fff;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: left;
+  width: 100%;
+  min-height: 60px;
+}
+
+.choice-btn:hover {
+  border-color: #409EFF;
+  background-color: #f5f7fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+
+.choice-btn.selected {
+  border-color: #409EFF;
+  background-color: #ecf5ff;
+  color: #409EFF;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.25);
+}
+
+.option-label {
+  font-weight: bold;
+  font-size: 16px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  color: #409EFF;
+}
+
+.option-text {
+  flex: 1;
+  line-height: 1.5;
+  font-size: 15px;
 }
 
 /* 实验结束 */
