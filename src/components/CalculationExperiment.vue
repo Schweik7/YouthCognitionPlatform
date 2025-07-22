@@ -94,14 +94,15 @@ const testComponent = ref(null) // 测试组件引用
 // 根据年级设置测试时间
 const getTestDuration = (grade) => {
   const durations = {
-    1: 180, // 一年级3分钟
-    2: 240, // 二年级4分钟
-    3: 300, // 三年级5分钟
-    4: 360, // 四年级6分钟
-    5: 420, // 五年级7分钟
-    6: 480  // 六年级8分钟
+    1: 600, // 一年级10分钟
+    2: 600, // 二年级10分钟
+    3: 600, // 三年级10分钟
+    4: 600, // 四年级10分钟
+    5: 600, // 五年级10分钟
+    6: 600, // 六年级10分钟
+    7: 180  // 七年级及以上3分钟
   }
-  return durations[grade] || 300
+  return durations[grade] || 600
 }
 
 const testDuration = computed(() => getTestDuration(gradeLevel.value))
@@ -170,8 +171,14 @@ const initializeUserInfo = async () => {
   try {
     const userInfo = JSON.parse(userInfoStr)
     
-    // 设置年级（支持1-6年级）
-    gradeLevel.value = userInfo.grade > 0 && userInfo.grade <= 6 ? userInfo.grade : 1
+    // 设置年级（支持1-6年级，7年级及以上使用7年级题目）
+    if (userInfo.grade > 0 && userInfo.grade <= 6) {
+      gradeLevel.value = userInfo.grade
+    } else if (userInfo.grade >= 7) {
+      gradeLevel.value = 7  // 7年级及以上使用7年级题目
+    } else {
+      gradeLevel.value = 1  // 默认1年级
+    }
     
     // 根据年级设置题目数量
     const problemCounts = {
@@ -180,7 +187,8 @@ const initializeUserInfo = async () => {
       3: 40, // 三年级
       4: 40, // 四年级
       5: 40, // 五年级
-      6: 40  // 六年级
+      6: 40, // 六年级
+      7: 50  // 七年级及以上
     }
     totalProblems.value = problemCounts[gradeLevel.value] || 40
     

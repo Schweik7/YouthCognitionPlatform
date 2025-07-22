@@ -519,7 +519,7 @@ const formatFractionAnswer = (fraction) => {
   } else if (numerator === 0) {
     return `${whole}`
   } else {
-    return `${whole}+${numerator}/${denominator}`
+    return `${whole}又${numerator}/${denominator}`
   }
 }
 
