@@ -569,6 +569,9 @@ const formatProblemText = (text, index) => {
   // 清理多余的空格
   formattedText = formattedText.replace(/\s+/g, ' ')
   
+  // 最后处理：删除带"又"字的混合分数中的"又"字
+  formattedText = formattedText.replace(/(\d+)又/g, '$1')
+  
   // 移除等号，因为我们会在CSS中添加
   return formattedText.replace(/\s*=\s*$/, '')
 }
