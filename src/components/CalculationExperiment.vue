@@ -1,5 +1,7 @@
 <template>
-  <div class="experiment-container">
+  <div class="experiment-page">
+    <TopNavBar />
+    <div class="experiment-container">
     <!-- 调试面板 -->
     <div v-if="debugMode" class="debug-panel">
       <h3>调试模式</h3>
@@ -51,6 +53,7 @@
         @restart-test="restartTest"
       />
     </div>
+    </div>
   </div>
 </template>
 
@@ -58,6 +61,7 @@
 import { ref, computed, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElLoading } from 'element-plus'
+import TopNavBar from './TopNavBar.vue'
 import { useUserInfo } from '@/composables/useUserInfo'
 import { useTimer } from '@/composables/useTimer'
 import { useDebugMode } from '@/composables/useDebugMode'
@@ -595,11 +599,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.experiment-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+
 .experiment-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 60px);
   padding: 10px;
 }
 

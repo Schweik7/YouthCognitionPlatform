@@ -1,5 +1,7 @@
 <template>
-    <div class="experiment-container">
+    <div class="experiment-page">
+        <TopNavBar />
+        <div class="experiment-container">
         <!-- 调试面板 -->
         <div v-if="debugMode" class="debug-panel">
             <h3>调试模式</h3>
@@ -132,6 +134,7 @@
                 </div>
             </div>
         </div>
+        </div>
     </div>
 </template>
 
@@ -139,6 +142,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus';
+import TopNavBar from './TopNavBar.vue';
 
 const router = useRouter();
 
@@ -661,11 +665,16 @@ watch(remainingTime, (newVal) => {
 @import url('/fonts/symbols-font.css');
 
 /* 全局样式 */
+.experiment-page {
+    min-height: 100vh;
+    background-color: #f5f7fa;
+}
+
 .experiment-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-height: 100vh;
+    min-height: calc(100vh - 60px);
     padding: 10px;
 }
 

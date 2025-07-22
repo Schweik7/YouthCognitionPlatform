@@ -1,9 +1,11 @@
 <template>
-  <div class="test-selection-container">
+  <div class="test-selection-page">
+    <TopNavBar />
+    <div class="test-selection-container">
     <el-card class="selection-card">
       <template #header>
         <div class="card-header">
-          <h1>学习力测验平台</h1>
+          <h1>中小学生学习困难筛查线上平台</h1>
           <p>请选择一个测试项目进行评估</p>
         </div>
       </template>
@@ -26,11 +28,8 @@
         </el-card>
       </div>
 
-      <div class="user-info">
-        <p><strong>用户信息:</strong> {{ userInfo.name }} | {{ userInfo.school }} | {{ userInfo.grade }}年级{{ userInfo.class_number }}班</p>
-        <el-button link @click="logout">退出登录</el-button>
-      </div>
     </el-card>
+    </div>
   </div>
 </template>
 
@@ -39,14 +38,9 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Document, View, EditPen } from '@element-plus/icons-vue';
+import TopNavBar from './TopNavBar.vue';
 
 const router = useRouter();
-const userInfo = ref({
-  name: '',
-  school: '',
-  grade: 1,
-  class_number: 1
-});
 
 // 可用测试列表
 const availableTests = ref([
@@ -74,21 +68,12 @@ const availableTests = ref([
 ]);
 
 onMounted(() => {
-  // 获取用户信息
+  // 检查登录状态
   const userInfoStr = localStorage.getItem('userInfo');
   if (!userInfoStr) {
     ElMessage.warning('未登录，请先登录');
     router.push('/');
     return;
-  }
-
-  try {
-    const info = JSON.parse(userInfoStr);
-    userInfo.value = info;
-  } catch (error) {
-    console.error('解析用户信息失败:', error);
-    ElMessage.error('用户信息无效，请重新登录');
-    router.push('/');
   }
 });
 
@@ -97,20 +82,19 @@ const selectTest = (test) => {
   router.push(test.route);
 };
 
-// 退出登录
-const logout = () => {
-  localStorage.removeItem('userInfo');
-  ElMessage.success('已退出登录');
-  router.push('/');
-};
 </script>
 
 <style scoped>
+.test-selection-page {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+
 .test-selection-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 60px);
   padding: 20px;
 }
 
@@ -185,11 +169,4 @@ const logout = () => {
   margin: 0;
 }
 
-.user-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 20px;
-  border-top: 1px solid #ebeef5;
-}
 </style>

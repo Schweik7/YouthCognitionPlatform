@@ -14,7 +14,8 @@
       "Bash(git push:*)",
       "Bash(mysql:*)",
       "Bash(rm:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }
