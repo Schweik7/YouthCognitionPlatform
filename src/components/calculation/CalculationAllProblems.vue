@@ -533,6 +533,9 @@ const calculateResponseTime = (index) => {
 
 // 格式化题目文本，将分数显示为更美观的形式
 const formatProblemText = (text, index) => {
+  // 检测是否包含分数
+  const hasFraction = /\d+\/\d+/.test(text)
+  
   // 处理分数形式，支持 "a/b" 格式
   let formattedText = text.replace(/(\d+)\/(\d+)/g, (match, numerator, denominator) => {
     return `<span class="fraction-display">
@@ -542,15 +545,26 @@ const formatProblemText = (text, index) => {
     </span>`
   })
   
-  // 替换减号为更长的减号符号，并包装在span中
-  formattedText = formattedText.replace(/\s-\s/g, '<span class="math-symbol">−</span>')
+  // 如果包含分数，在数字与运算符之间添加空格
+  if (hasFraction) {
+    // 在数字后面的运算符前添加空格（如果没有空格的话）
+    formattedText = formattedText.replace(/(\d+)([+\-×÷])/g, '$1 $2')
+    // 在运算符后面的数字前添加空格（如果没有空格的话）
+    formattedText = formattedText.replace(/([+\-×÷])(\d+)/g, '$1 $2')
+    // 在括号和运算符之间添加空格
+    formattedText = formattedText.replace(/(\))([+\-×÷])/g, '$1 $2')
+    formattedText = formattedText.replace(/([+\-×÷])(\()/g, '$1 $2')
+    // 在括号内部添加空格：左括号后面和右括号前面
+    formattedText = formattedText.replace(/(\()(\d+)/g, '$1 $2')
+    formattedText = formattedText.replace(/(\d+)(\))/g, '$1 $2')
+  }
   
-  // 替换乘号为更清晰的符号
-  formattedText = formattedText.replace(/\s×\s/g, '<span class="math-symbol">×</span>')
-  formattedText = formattedText.replace(/\s\*\s/g, '<span class="math-symbol">×</span>')
+  // 替换减号为更长的减号符号（不使用 math-symbol 类）
+  formattedText = formattedText.replace(/\s-\s/g, ' − ')
   
-  // 替换加号
-  formattedText = formattedText.replace(/\s\+\s/g, '<span class="math-symbol">+</span>')
+  // 替换乘号为更清晰的符号（不使用 math-symbol 类）
+  formattedText = formattedText.replace(/\s×\s/g, ' × ')
+  formattedText = formattedText.replace(/\s\*\s/g, ' × ')
   
   // 清理多余的空格
   formattedText = formattedText.replace(/\s+/g, ' ')
