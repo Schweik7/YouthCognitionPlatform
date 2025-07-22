@@ -128,49 +128,60 @@ def read_csv_questions(file_path: Path) -> List[Question]:
 
     try:
         questions = []
-        df = pd.read_csv(file_path, encoding="utf-8")
+        # 使用自定义逻辑读取CSV，处理格式不一致的问题
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
         
-        for index, row in df.iterrows():
+        # 跳过标题行
+        for line_num, line in enumerate(lines[1:], 2):
+            line = line.strip()
+            if not line:
+                continue
+                
             try:
-                # 跳过空行或无效行
-                if pd.isna(row.get('id')) or pd.isna(row.get('text')):
-                    continue
+                # 分割字段
+                parts = line.split(',')
                 
-                # 尝试转换id为整数，如果失败则跳过该行
-                try:
-                    question_id = int(row['id'])
-                except (ValueError, TypeError):
-                    continue
+                # 判断题格式: id,question_type,text,,,,correct_answer (7个字段)
+                # 选择题格式: id,question_type,text,image_path,options,correct_answer (6个字段)
                 
-                # 处理选项
-                options = None
-                if pd.notna(row.get('options', '')):
-                    options_str = str(row['options']).strip()
-                    if options_str:
-                        options = options_str.split('|')
-                
-                # 处理正确答案
-                correct_answer_str = str(row['correct_answer']).strip()
-                if row['question_type'] == '判断':
-                    correct_answer = correct_answer_str.upper() == 'TRUE'
-                else:  # 选择题
-                    correct_answer = correct_answer_str
-                
-                question = Question(
-                    id=question_id,
-                    question_type=str(row['question_type']),
-                    text=str(row['text']),
-                    image_path=str(row['image_path']) if pd.notna(row['image_path']) else None,
-                    options=options,
-                    correct_answer=correct_answer,
-                    level=QuestionLevel.JUNIOR_HIGH
-                )
-                questions.append(question)
-            except Exception:
+                if len(parts) >= 6:
+                    question_id = int(parts[0])
+                    question_type = parts[1]
+                    text = parts[2]
+                    
+                    if question_type == '判断':
+                        # 判断题: 1,判断,太阳从西边升起。,,,,FALSE
+                        image_path = None
+                        options = None
+                        correct_answer_str = parts[6] if len(parts) > 6 else parts[5]
+                        correct_answer = correct_answer_str.upper() == 'TRUE'
+                    else:
+                        # 选择题: 16,选择,看图选择正确的描述：,images/reading/question16.jpg,"A.小熊在吃蜂蜜|B.豹子抓到了小羊|C.过独木桥很危险|D.老人钓到了鱼",C
+                        image_path = parts[3] if parts[3] else None
+                        options_str = parts[4] if len(parts) > 4 and parts[4] else None
+                        options = options_str.split('|') if options_str else None
+                        correct_answer = parts[5] if len(parts) > 5 else None
+                    
+                    question = Question(
+                        id=question_id,
+                        question_type=question_type,
+                        text=text,
+                        image_path=image_path,
+                        options=options,
+                        correct_answer=correct_answer,
+                        level=QuestionLevel.JUNIOR_HIGH
+                    )
+                    questions.append(question)
+                    
+            except Exception as e:
+                logger.warning(f"解析第{line_num}行失败: {line}, 错误: {str(e)}")
                 continue
 
+        logger.info(f"成功加载 {len(questions)} 个初中级别题目")
         return questions
-    except Exception:
+    except Exception as e:
+        logger.error(f"加载初中级别题目失败: {str(e)}")
         return []
 
 

@@ -55,7 +55,7 @@
           <div class="key-instruction">
             <div>按键说明：</div>
             <div>判断题：Q 键 = 正确，W 键 = 错误</div>
-            <div>选择题：A/B/C/D 键对应相应选项</div>
+            <div>选择题：1/2/3/4 键对应相应选项</div>
           </div>
           <p style="margin-top:15px">你也可以直接点击屏幕上的按钮来回答。</p>
         </div>
@@ -168,7 +168,7 @@
               @click="handleAnswer(getOptionLabel(index))"
             >
               <span class="option-label">{{ getOptionLabel(index) }}.</span>
-              <span class="option-text">{{ option }}</span>
+              <span class="option-text">{{ cleanOptionText(option) }}</span>
             </button>
           </div>
         </div>
@@ -490,10 +490,11 @@ const keyHandler = (e) => {
   
   // 根据题目类型处理按键
   if (currentTrial.question_type === '选择') {
-    // 选择题：A/B/C/D 键
-    const key = e.key.toLowerCase();
-    if (['a', 'b', 'c', 'd'].includes(key)) {
-      handleAnswer(key.toUpperCase());
+    // 选择题：1/2/3/4 键对应A/B/C/D
+    const key = e.key;
+    if (['1', '2', '3', '4'].includes(key)) {
+      const optionLabel = getKeyOptionMapping(key);
+      handleAnswer(optionLabel);
     }
   } else {
     // 判断题：Q/W 键
@@ -778,9 +779,25 @@ const getQuestionText = (trial) => {
   }
 };
 
-// 获取选项标签
+// 获取选项标签（显示用ABCD）
 const getOptionLabel = (index) => {
   return String.fromCharCode(65 + index); // A, B, C, D
+};
+
+// 获取键盘按键对应的选项（1234对应ABCD）
+const getKeyOptionMapping = (key) => {
+  const keyToOption = {'1': 'A', '2': 'B', '3': 'C', '4': 'D'};
+  return keyToOption[key];
+};
+
+// 处理选项文本，清理格式问题
+const cleanOptionText = (optionText) => {
+  if (!optionText) return '';
+  return optionText
+    .replace(/^["'`]/, '') // 移除开头的引号
+    .replace(/["'`]$/, '') // 移除结尾的引号
+    .replace(/^[A-D]\./, '') // 移除开头的字母标签（如A.、B.等）
+    .trim(); // 清理空白字符
 };
 
 // 准备当前试题
@@ -1295,7 +1312,7 @@ watch(remainingTime, (newVal) => {
 
 .choice-btn {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   padding: 15px 20px;
   border: 2px solid #dcdfe6;
   border-radius: 8px;
@@ -1304,7 +1321,8 @@ watch(remainingTime, (newVal) => {
   transition: all 0.3s;
   text-align: left;
   width: 100%;
-  min-height: 60px;
+  min-height: 64px;
+  box-sizing: border-box;
 }
 
 .choice-btn:hover {
@@ -1325,15 +1343,21 @@ watch(remainingTime, (newVal) => {
 .option-label {
   font-weight: bold;
   font-size: 16px;
-  margin-right: 10px;
+  margin-right: 12px;
   flex-shrink: 0;
   color: #409EFF;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
 }
 
 .option-text {
   flex: 1;
   line-height: 1.5;
   font-size: 15px;
+  display: flex;
+  align-items: center;
+  min-height: 24px;
 }
 
 /* 实验结束 */
