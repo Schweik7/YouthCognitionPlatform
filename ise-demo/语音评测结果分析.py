@@ -1028,7 +1028,7 @@ def main():
 
         # 创建示例XML文件（基于您提供的内容）
         sample_xml_path = Path(
-            r"ise-demo\ise_python3\results\evaluation_20250615_201641.xml"
+            r"ise-demo/results/evaluation_20250615_201641.xml"
         )
         if not sample_xml_path.exists():
             print("❌ 示例XML文件不存在，请先将XML内容保存为文件")
