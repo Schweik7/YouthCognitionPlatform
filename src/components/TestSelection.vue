@@ -37,7 +37,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Document, View, EditPen } from '@element-plus/icons-vue';
+import { Document, View, EditPen, Microphone } from '@element-plus/icons-vue';
 import TopNavBar from './TopNavBar.vue';
 
 const router = useRouter();
@@ -45,11 +45,18 @@ const router = useRouter();
 // 可用测试列表
 const availableTests = ref([
   {
-    id: 'reading-fluency',
+    id: 'reading-comprehension',
     name: '阅读流畅性测试',
     description: '测量阅读句子并判断真假的能力，考察您的阅读速度和理解能力',
     icon: 'Document',
     route: '/experiment'
+  },
+  {
+    id: 'reading-fluency',
+    name: '朗读流畅性测试',
+    description: '测量朗读汉字的流畅度，评估您的口语表达能力和字音准确性',
+    icon: 'Microphone',
+    route: '/reading-fluency-test'
   },
   {
     id: 'attention-test',
@@ -116,14 +123,14 @@ const selectTest = (test) => {
 
 .test-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 30px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .test-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 

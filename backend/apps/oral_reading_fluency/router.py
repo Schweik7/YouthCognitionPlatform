@@ -7,21 +7,21 @@ from datetime import datetime
 
 from database import get_session
 from .models import (
-    ReadingFluencyTest,
-    ReadingFluencyTestCreate,
-    ReadingFluencySubmission,
-    ReadingFluencyTestResponse,
-    AudioRecordResponse,
+    OralReadingFluencyTest,
+    OralReadingFluencyTestCreate,
+    OralReadingFluencySubmission,
+    OralReadingFluencyTestResponse,
+    OralReadingAudioRecordResponse,
     TestResultSummary
 )
 from .service import (
     get_character_data,
-    create_reading_fluency_test,
-    get_reading_fluency_test,
+    create_oral_reading_fluency_test,
+    get_oral_reading_fluency_test,
     process_reading_submission,
     batch_evaluate_test_audio,
     get_test_results,
-    list_user_reading_tests
+    list_user_oral_reading_tests
 )
 from .xfyun_sdk import XfyunSDKFactory
 
@@ -59,12 +59,12 @@ async def get_characters():
 
 @router.post("/tests", status_code=status.HTTP_201_CREATED)
 async def create_test(
-    test_data: ReadingFluencyTestCreate, 
+    test_data: OralReadingFluencyTestCreate, 
     session: Session = Depends(get_session)
 ):
     """创建朗读流畅性测试"""
     try:
-        test = create_reading_fluency_test(session, test_data)
+        test = create_oral_reading_fluency_test(session, test_data)
         return {
             "success": True,
             "message": "测试创建成功",
@@ -88,7 +88,7 @@ async def create_test(
 @router.get("/tests/{test_id}")
 async def get_test(test_id: int, session: Session = Depends(get_session)):
     """获取朗读流畅性测试信息"""
-    test = get_reading_fluency_test(session, test_id)
+    test = get_oral_reading_fluency_test(session, test_id)
     if not test:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
     
@@ -131,7 +131,7 @@ async def submit_test(
         
         # 解析提交数据
         results_data = json.loads(results)
-        submission_data = ReadingFluencySubmission(
+        submission_data = OralReadingFluencySubmission(
             testType=testType,
             results=results_data
         )
@@ -178,7 +178,7 @@ async def upload_single_audio(
     """上传单个音频文件并立即开始评测"""
     try:
         # 检查测试是否存在
-        test = get_reading_fluency_test(session, test_id)
+        test = get_oral_reading_fluency_test(session, test_id)
         if not test:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
         
@@ -194,7 +194,7 @@ async def upload_single_audio(
         file_path = save_audio_file(audio_data, filename)
         
         # 创建音频记录
-        audio_record = ReadingAudioRecord(
+        audio_record = OralReadingAudioRecord(
             test_id=test_id,
             round_number=round_number,
             row_index=row_index,
@@ -230,7 +230,7 @@ async def evaluate_test_audio(test_id: int, session: Session = Depends(get_sessi
     """手动触发测试音频评测"""
     try:
         # 检查测试是否存在
-        test = get_reading_fluency_test(session, test_id)
+        test = get_oral_reading_fluency_test(session, test_id)
         if not test:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
         
@@ -276,7 +276,7 @@ async def get_test_results_route(test_id: int, session: Session = Depends(get_se
 async def list_user_tests(user_id: int, session: Session = Depends(get_session)):
     """获取用户的所有朗读流畅性测试"""
     try:
-        tests = list_user_reading_tests(session, user_id)
+        tests = list_user_oral_reading_tests(session, user_id)
         
         test_list = []
         for test in tests:
@@ -309,7 +309,7 @@ async def list_user_tests(user_id: int, session: Session = Depends(get_session))
 async def get_test_status(test_id: int, session: Session = Depends(get_session)):
     """获取测试状态（用于轮询评测进度）"""
     try:
-        test = get_reading_fluency_test(session, test_id)
+        test = get_oral_reading_fluency_test(session, test_id)
         if not test:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
         

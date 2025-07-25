@@ -14,10 +14,10 @@ class TestStatus(str, Enum):
     FAILED = "failed"        # 失败
 
 
-class ReadingFluencyTest(BaseModel, table=True):
+class OralReadingFluencyTest(BaseModel, table=True):
     """朗读流畅性测试会话模型"""
 
-    __tablename__ = "reading_fluency_tests"  # type: ignore
+    __tablename__ = "oral_reading_fluency_tests"  # type: ignore
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     start_time: datetime = Field(default_factory=datetime.now)
@@ -44,7 +44,7 @@ class ReadingFluencyTest(BaseModel, table=True):
     
     # 关系
     user: Optional[User] = Relationship()
-    audio_records: List["ReadingAudioRecord"] = Relationship(back_populates="test")
+    audio_records: List["OralReadingAudioRecord"] = Relationship(back_populates="test")
 
     @property
     def is_completed(self) -> bool:
@@ -72,12 +72,12 @@ class ReadingFluencyTest(BaseModel, table=True):
         return count
 
 
-class ReadingAudioRecord(BaseModel, table=True):
+class OralReadingAudioRecord(BaseModel, table=True):
     """朗读音频记录模型"""
 
-    __tablename__ = "reading_audio_records"  # type: ignore
+    __tablename__ = "oral_reading_audio_records"  # type: ignore
 
-    test_id: Optional[int] = Field(default=None, foreign_key="reading_fluency_tests.id", index=True)
+    test_id: Optional[int] = Field(default=None, foreign_key="oral_reading_fluency_tests.id", index=True)
     round_number: int = Field(index=True)  # 轮次：1或2
     row_index: int = Field(index=True)  # 行索引：0-17
     audio_file_path: str  # 音频文件路径
@@ -94,11 +94,11 @@ class ReadingAudioRecord(BaseModel, table=True):
     correct_character_count: Optional[int] = None  # 该行正确朗读的字数
     
     # 关系
-    test: Optional[ReadingFluencyTest] = Relationship(back_populates="audio_records")
+    test: Optional[OralReadingFluencyTest] = Relationship(back_populates="audio_records")
 
 
 # 数据传输对象（DTO）
-class ReadingFluencyTestCreate(SQLModel):
+class OralReadingFluencyTestCreate(SQLModel):
     """创建朗读流畅性测试的请求模型"""
     user_id: int
 
@@ -110,13 +110,13 @@ class RoundResult(SQLModel):
     audioFileCount: int  # 音频文件数量
 
 
-class ReadingFluencySubmission(SQLModel):
+class OralReadingFluencySubmission(SQLModel):
     """朗读流畅性测试提交数据"""
     testType: str
     results: Dict[str, Any]  # 包含round1和round2的结果
 
 
-class ReadingFluencyTestResponse(SQLModel):
+class OralReadingFluencyTestResponse(SQLModel):
     """朗读流畅性测试响应模型"""
     id: int
     user_id: int
@@ -137,7 +137,7 @@ class ReadingFluencyTestResponse(SQLModel):
     total_character_count: int
 
 
-class AudioRecordResponse(SQLModel):
+class OralReadingAudioRecordResponse(SQLModel):
     """音频记录响应模型"""
     id: int
     test_id: int

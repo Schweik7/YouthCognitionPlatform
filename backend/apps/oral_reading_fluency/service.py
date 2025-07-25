@@ -9,13 +9,13 @@ from config import settings
 from logger_config import logger
 from apps.users.models import User
 from .models import (
-    ReadingFluencyTest,
-    ReadingAudioRecord,
+    OralReadingFluencyTest,
+    OralReadingAudioRecord,
     TestStatus,
-    ReadingFluencyTestCreate,
-    ReadingFluencySubmission,
-    ReadingFluencyTestResponse,
-    AudioRecordResponse,
+    OralReadingFluencyTestCreate,
+    OralReadingFluencySubmission,
+    OralReadingFluencyTestResponse,
+    OralReadingAudioRecordResponse,
     TestResultSummary
 )
 from .xfyun_sdk import (
@@ -53,7 +53,7 @@ CHARACTER_ROWS = [
 ]
 
 # 上传文件存储路径
-UPLOAD_DIR = Path("uploads") / "reading_fluency"
+UPLOAD_DIR = Path("uploads") / "oral_reading_fluency"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -62,7 +62,7 @@ def get_character_data() -> List[str]:
     return CHARACTER_ROWS
 
 
-def create_reading_fluency_test(session: Session, test_data: ReadingFluencyTestCreate) -> ReadingFluencyTest:
+def create_oral_reading_fluency_test(session: Session, test_data: OralReadingFluencyTestCreate) -> OralReadingFluencyTest:
     """创建朗读流畅性测试"""
     # 检查用户是否存在
     user = session.get(User, test_data.user_id)
@@ -70,7 +70,7 @@ def create_reading_fluency_test(session: Session, test_data: ReadingFluencyTestC
         raise ValueError(f"用户不存在: ID={test_data.user_id}")
     
     # 创建测试
-    test = ReadingFluencyTest(
+    test = OralReadingFluencyTest(
         user_id=test_data.user_id,
         status=TestStatus.PENDING,
         start_time=datetime.now()
@@ -84,9 +84,9 @@ def create_reading_fluency_test(session: Session, test_data: ReadingFluencyTestC
     return test
 
 
-def get_reading_fluency_test(session: Session, test_id: int) -> Optional[ReadingFluencyTest]:
+def get_oral_reading_fluency_test(session: Session, test_id: int) -> Optional[OralReadingFluencyTest]:
     """获取朗读流畅性测试"""
-    return session.get(ReadingFluencyTest, test_id)
+    return session.get(OralReadingFluencyTest, test_id)
 
 
 def save_audio_file(audio_data: bytes, filename: str) -> str:
@@ -106,12 +106,12 @@ def save_audio_file(audio_data: bytes, filename: str) -> str:
 def process_reading_submission(
     session: Session, 
     test_id: int, 
-    submission_data: ReadingFluencySubmission,
+    submission_data: OralReadingFluencySubmission,
     audio_files: Dict[str, bytes]
-) -> ReadingFluencyTest:
+) -> OralReadingFluencyTest:
     """处理朗读流畅性测试提交"""
     # 获取测试
-    test = session.get(ReadingFluencyTest, test_id)
+    test = session.get(OralReadingFluencyTest, test_id)
     if not test:
         raise ValueError(f"测试不存在: ID={test_id}")
     
@@ -137,7 +137,7 @@ def process_reading_submission(
     
     # 统计已上传的音频文件数量（音频文件已通过单独接口上传）
     from sqlmodel import select
-    audio_query = select(ReadingAudioRecord).where(ReadingAudioRecord.test_id == test_id)
+    audio_query = select(OralReadingAudioRecord).where(OralReadingAudioRecord.test_id == test_id)
     existing_audio_records = session.exec(audio_query).all()
     total_audio_files = len(existing_audio_records)
     
@@ -156,7 +156,7 @@ async def evaluate_audio_record(session: Session, audio_record_id: int) -> bool:
     """评测单个音频记录"""
     try:
         # 获取音频记录
-        audio_record = session.get(ReadingAudioRecord, audio_record_id)
+        audio_record = session.get(OralReadingAudioRecord, audio_record_id)
         if not audio_record:
             logger.error(f"音频记录不存在: {audio_record_id}")
             return False
@@ -238,7 +238,7 @@ async def evaluate_audio_record(session: Session, audio_record_id: int) -> bool:
         
         # 更新状态为失败
         try:
-            audio_record = session.get(ReadingAudioRecord, audio_record_id)
+            audio_record = session.get(OralReadingAudioRecord, audio_record_id)
             if audio_record:
                 audio_record.evaluation_status = "failed"
                 audio_record.evaluation_result = json.dumps({"error": str(e)}, ensure_ascii=False)
@@ -254,14 +254,14 @@ async def batch_evaluate_test_audio(session: Session, test_id: int) -> Dict[str,
     """批量评测测试的所有音频"""
     try:
         # 获取测试
-        test = session.get(ReadingFluencyTest, test_id)
+        test = session.get(OralReadingFluencyTest, test_id)
         if not test:
             raise ValueError(f"测试不存在: ID={test_id}")
         
         # 获取所有待评测的音频记录
-        query = select(ReadingAudioRecord).where(
-            ReadingAudioRecord.test_id == test_id,  
-            ReadingAudioRecord.evaluation_status == "pending"
+        query = select(OralReadingAudioRecord).where(
+            OralReadingAudioRecord.test_id == test_id,  
+            OralReadingAudioRecord.evaluation_status == "pending"
         )
         audio_records = session.exec(query).all()
         
@@ -300,9 +300,9 @@ async def batch_evaluate_test_audio(session: Session, test_id: int) -> Dict[str,
         test.evaluation_completed_at = datetime.now()
         
         # 重新计算基于评测结果的字符数
-        completed_records_query = select(ReadingAudioRecord).where(
-            ReadingAudioRecord.test_id == test_id,
-            ReadingAudioRecord.evaluation_status == "completed"
+        completed_records_query = select(OralReadingAudioRecord).where(
+            OralReadingAudioRecord.test_id == test_id,
+            OralReadingAudioRecord.evaluation_status == "completed"
         )
         completed_records = session.exec(completed_records_query).all()
         
@@ -348,7 +348,7 @@ async def batch_evaluate_test_audio(session: Session, test_id: int) -> Dict[str,
         
         # 更新测试状态为失败
         try:
-            test = session.get(ReadingFluencyTest, test_id)
+            test = session.get(OralReadingFluencyTest, test_id)
             if test:
                 test.evaluation_status = "failed"
                 session.add(test)
@@ -366,7 +366,7 @@ async def batch_evaluate_test_audio(session: Session, test_id: int) -> Dict[str,
 def get_test_results(session: Session, test_id: int) -> Optional[Dict[str, Any]]:
     """获取测试结果"""
     # 获取测试
-    test = session.get(ReadingFluencyTest, test_id)
+    test = session.get(OralReadingFluencyTest, test_id)
     if not test:
         return None
     
@@ -374,7 +374,7 @@ def get_test_results(session: Session, test_id: int) -> Optional[Dict[str, Any]]
     user = session.get(User, test.user_id) if test.user_id else None
     
     # 获取所有音频记录
-    query = select(ReadingAudioRecord).where(ReadingAudioRecord.test_id == test_id)
+    query = select(OralReadingAudioRecord).where(OralReadingAudioRecord.test_id == test_id)
     audio_records = session.exec(query).all()
     
     # 统计评测完成情况
@@ -445,7 +445,7 @@ def get_test_results(session: Session, test_id: int) -> Optional[Dict[str, Any]]
     return result
 
 
-def list_user_reading_tests(session: Session, user_id: int) -> List[ReadingFluencyTest]:
+def list_user_oral_reading_tests(session: Session, user_id: int) -> List[OralReadingFluencyTest]:
     """获取用户的所有朗读流畅性测试"""
-    query = select(ReadingFluencyTest).where(ReadingFluencyTest.user_id == user_id)
+    query = select(OralReadingFluencyTest).where(OralReadingFluencyTest.user_id == user_id)
     return list(session.exec(query).all())
