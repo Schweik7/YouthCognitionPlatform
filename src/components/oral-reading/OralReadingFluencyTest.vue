@@ -23,7 +23,7 @@
         <h3>测试说明</h3>
         <ul>
           <li>请按顺序朗读下面的汉字，从左到右，从上到下</li>
-          <li>每完成一行朗读后，按<strong>空格键</strong>进入下一行</li>
+          <li><strong>按住空格键</strong>开始朗读，<strong>松开空格键</strong>结束录音并自动换行</li>
           <li>共需完成<strong>2轮</strong>朗读，每轮限时<strong>1分钟</strong></li>
           <li>只记录正确朗读的字数作为分数</li>
         </ul>
@@ -57,9 +57,6 @@
             v-for="(char, charIndex) in row" 
             :key="charIndex"
             class="character"
-            :class="{
-              'current-char': rowIndex === currentRowIndex && charIndex === currentCharIndex
-            }"
           >
             {{ char }}
           </span>
@@ -184,7 +181,7 @@ const characterData = ref([
 const testPhase = ref('instruction') // instruction, testing, completed
 const currentRound = ref(1)
 const currentRowIndex = ref(0)
-const currentCharIndex = ref(0)
+// 移除字符索引，因为不需要跟踪朗读进度
 const timeLeft = ref(60) // 倒计时秒数
 const isRecording = ref(false)
 const isLoading = ref(false)
@@ -246,14 +243,13 @@ const startTest = async () => {
     // 开始测试
     testPhase.value = 'testing'
     currentRowIndex.value = 0
-    currentCharIndex.value = 0
     timeLeft.value = 60
     
     // 开始计时
     startTimer()
     
-    // 开始录音
-    startRecording()
+    // 不自动开始录音，等待用户按住空格键
+    ElMessage.info('请按住空格键开始朗读当前行，松开空格键结束录音并换行')
     
   } catch (error) {
     ElMessage.error('无法启动录音功能，请检查麦克风权限')
@@ -404,10 +400,11 @@ const stopRecording = () => {
 }
 
 const startTimer = () => {
-  timer = setInterval(() => {
+  timer = setInterval(async () => {
     timeLeft.value--
     if (timeLeft.value <= 0) {
-      finishTest()
+      stopTimer()
+      await handleTimeUp()
     }
   }, 1000)
 }
@@ -417,6 +414,17 @@ const stopTimer = () => {
     clearInterval(timer)
     timer = null
   }
+}
+
+// 倒计时结束处理
+const handleTimeUp = async () => {
+  if (isRecording.value) {
+    // 如果正在录音，自动停止并上传
+    await stopAndUploadCurrentRow()
+  }
+  
+  // 完成当前轮次
+  await finishRound()
 }
 
 const nextRow = async () => {
@@ -435,7 +443,8 @@ const nextRow = async () => {
   }
 }
 
-const saveCurrentRowAudio = async () => {
+// 停止录音并上传当前行
+const stopAndUploadCurrentRow = async () => {
   stopRecording()
   
   // 等待录音停止并获取音频数据
@@ -455,6 +464,11 @@ const saveCurrentRowAudio = async () => {
             uploaded: true
           })
           
+          console.log(`第${currentRound.value}轮第${currentRowIndex.value + 1}行录音上传成功`)
+          
+          // 自动进入下一行
+          nextRow()
+          
           currentAudioBlob.value = null
           resolve()
         } catch (error) {
@@ -469,6 +483,9 @@ const saveCurrentRowAudio = async () => {
     checkAudio()
   })
 }
+
+// 保持原有函数用于其他地方调用
+const saveCurrentRowAudio = stopAndUploadCurrentRow
 
 // 上传单个音频文件
 const uploadAudioFile = async (audioBlob, roundNumber, rowIndex) => {
@@ -634,17 +651,34 @@ const showTestResults = async () => {
   }
 }
 
-// 键盘事件监听
-const handleKeyPress = (event) => {
-  if (event.code === 'Space' && testPhase.value === 'testing') {
+// 键盘事件监听 - 按住空格录音，松手上传
+const handleKeyDown = async (event) => {
+  if (testPhase.value === 'testing' && event.code === 'Space' && !event.repeat) {
     event.preventDefault()
-    nextRow()
+    
+    if (!isRecording.value) {
+      // 开始录音
+      startRecording()
+      console.log(`开始录音第${currentRound.value}轮第${currentRowIndex.value + 1}行`)
+    }
+  }
+}
+
+const handleKeyUp = async (event) => {
+  if (testPhase.value === 'testing' && event.code === 'Space') {
+    event.preventDefault()
+    
+    if (isRecording.value) {
+      // 停止录音并上传
+      await stopAndUploadCurrentRow()
+    }
   }
 }
 
 // 生命周期
 onMounted(() => {
-  document.addEventListener('keydown', handleKeyPress)
+  document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('keyup', handleKeyUp)
   
   // 检查用户信息，如果没有则创建默认用户信息
   checkAndInitUserInfo()
@@ -668,7 +702,8 @@ const checkAndInitUserInfo = () => {
 }
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyPress)
+  document.removeEventListener('keydown', handleKeyDown)
+  document.removeEventListener('keyup', handleKeyUp)
   stopTimer()
   if (mediaRecorder.value && mediaRecorder.value.stream) {
     mediaRecorder.value.stream.getTracks().forEach(track => track.stop())
@@ -825,11 +860,7 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
-.current-char {
-  background: #409eff;
-  color: white;
-  transform: scale(1.1);
-}
+/* 移除字符高亮样式，因为不再跟踪朗读进度 */
 
 .row-status {
   width: 80px;
