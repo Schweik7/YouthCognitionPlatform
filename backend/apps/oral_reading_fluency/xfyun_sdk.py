@@ -20,7 +20,7 @@ from urllib.parse import urlencode
 from wsgiref.handlers import format_date_time
 
 import websockets
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -41,8 +41,21 @@ class EvaluationRequest(BaseModel):
     text: str = Field(..., description="待评测文本")
     group: str = Field(default="pupil", description="用户群体")
     language: str = Field(default="cn_vip", description="语言类型")
-    audio_format: str = Field(default="raw", description="音频格式")
-    sample_rate: int = Field(default=16000, description="采样率")
+    audio_format: str = Field(default="mp3", description="音频格式")  
+    sample_rate: int = Field(default=44100, description="采样率")
+    aue: str = Field(default="lame", description="音频编码格式：raw(PCM/WAV), lame(MP3), speex-wb;7(讯飞定制)")
+    
+    @model_validator(mode='after')
+    def set_aue_from_format(self):
+        """根据audio_format自动设置aue参数"""
+        if self.audio_format == "mp3" and self.aue == "lame":
+            # MP3格式默认使用lame编码
+            pass
+        elif self.audio_format == "wav":
+            self.aue = "raw"
+        elif self.audio_format == "speex":
+            self.aue = "speex-wb;7"
+        return self
 
 
 class EvaluationResponse(BaseModel):
@@ -233,7 +246,7 @@ class XfyunSpeechEvaluationSDK:
                 "tte": "utf-8",
                 "cmd": "ssb",
                 "auf": f"audio/L16;rate={request.sample_rate}",
-                "aue": request.audio_format,
+                "aue": request.aue,  # 使用正确的aue参数
                 "text": "\ufeff" + request.text,
                 "extra_ability": "multi_dimension",
                 "rst": "entirety",

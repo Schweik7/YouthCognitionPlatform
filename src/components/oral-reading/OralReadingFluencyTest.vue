@@ -156,6 +156,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElButton, ElIcon, ElMessage } from 'element-plus'
 import { Timer, Check } from '@element-plus/icons-vue'
 import TopNavBar from '../TopNavBar.vue'
+import lamejs from 'lamejs'
 
 // 字符数据
 const characterData = ref([
@@ -193,6 +194,8 @@ const isSubmitting = ref(false)
 const mediaRecorder = ref(null)
 const audioChunks = ref([])
 const currentAudioBlob = ref(null)
+const audioContext = ref(null)
+const sourceNode = ref(null)
 
 // 测试结果
 const testResults = ref({
@@ -264,32 +267,125 @@ const initializeRecording = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ 
       audio: {
-        sampleRate: 16000,
+        sampleRate: 44100, // MP3通常使用44100Hz
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true
       }
     })
     
-    mediaRecorder.value = new MediaRecorder(stream, {
-      mimeType: 'audio/webm;codecs=opus'
-    })
+    // 初始化AudioContext用于MP3编码
+    audioContext.value = new (window.AudioContext || window.webkitAudioContext)()
+    sourceNode.value = audioContext.value.createMediaStreamSource(stream)
+    
+    // 使用最佳支持的格式录制原始音频
+    let mimeType = 'audio/webm;codecs=opus'
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'audio/webm'
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/ogg;codecs=opus'
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = '' // 使用默认
+        }
+      }
+    }
+    
+    console.log('录制格式:', mimeType || '默认格式', '将转换为MP3')
+    
+    const options = mimeType ? { mimeType } : {}
+    mediaRecorder.value = new MediaRecorder(stream, options)
     
     mediaRecorder.value.ondataavailable = (event) => {
       if (event.data.size > 0) {
         audioChunks.value.push(event.data)
+        console.log('录音数据块大小:', event.data.size, 'bytes')
       }
     }
     
-    mediaRecorder.value.onstop = () => {
-      const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
-      currentAudioBlob.value = audioBlob
+    mediaRecorder.value.onstop = async () => {
+      const audioBlob = new Blob(audioChunks.value, { type: mimeType || 'audio/webm' })
+      console.log('原始录音完成，文件大小:', audioBlob.size, 'bytes')
+      
+      // 转换为MP3格式
+      try {
+        const mp3Blob = await convertToMp3(audioBlob)
+        currentAudioBlob.value = mp3Blob
+        console.log('MP3转换完成，文件大小:', mp3Blob.size, 'bytes')
+      } catch (error) {
+        console.error('MP3转换失败，使用原始格式:', error)
+        currentAudioBlob.value = audioBlob
+      }
+      
       audioChunks.value = []
+    }
+    
+    mediaRecorder.value.onerror = (error) => {
+      console.error('录音错误:', error)
     }
     
   } catch (error) {
     throw new Error('Failed to initialize recording: ' + error.message)
   }
+}
+
+// MP3转换函数
+const convertToMp3 = async (audioBlob) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const arrayBuffer = e.target.result
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+          
+          // 解码音频数据
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+          
+          // 获取PCM数据
+          const samples = audioBuffer.getChannelData(0) // 单声道
+          const sampleRate = audioBuffer.sampleRate
+          
+          // 转换为16位PCM
+          const pcm16 = new Int16Array(samples.length)
+          for (let i = 0; i < samples.length; i++) {
+            pcm16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32767))
+          }
+          
+          // 使用lamejs编码为MP3
+          const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 128) // 单声道，采样率，比特率128kbps
+          const mp3Data = []
+          
+          const blockSize = 1152 // MP3帧大小
+          for (let i = 0; i < pcm16.length; i += blockSize) {
+            const chunk = pcm16.subarray(i, i + blockSize)
+            const mp3buf = mp3Encoder.encodeBuffer(chunk)
+            if (mp3buf.length > 0) {
+              mp3Data.push(mp3buf)
+            }
+          }
+          
+          // 结束编码
+          const finalMp3buf = mp3Encoder.flush()
+          if (finalMp3buf.length > 0) {
+            mp3Data.push(finalMp3buf)
+          }
+          
+          // 创建MP3 Blob
+          const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' })
+          resolve(mp3Blob)
+          
+        } catch (error) {
+          reject(error)
+        }
+      }
+      
+      reader.onerror = () => reject(new Error('Failed to read audio blob'))
+      reader.readAsArrayBuffer(audioBlob)
+      
+    } catch (error) {
+      reject(error)
+    }
+  })
 }
 
 const startRecording = () => {
@@ -380,10 +476,13 @@ const uploadAudioFile = async (audioBlob, roundNumber, rowIndex) => {
     throw new Error('测试ID不存在')
   }
   
+  // 固定使用mp3后缀，文件更小更适合传输
+  const fileExtension = 'mp3'
+  
   const formData = new FormData()
   formData.append('round_number', roundNumber.toString())
   formData.append('row_index', rowIndex.toString())
-  formData.append('audio_file', audioBlob, `round${roundNumber}_row${rowIndex}.webm`)
+  formData.append('audio_file', audioBlob, `round${roundNumber}_row${rowIndex}.${fileExtension}`)
   
   const response = await fetch(`/api/oral-reading-fluency/tests/${testId.value}/upload-audio`, {
     method: 'POST',

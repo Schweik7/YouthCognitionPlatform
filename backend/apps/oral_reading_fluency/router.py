@@ -8,6 +8,7 @@ from datetime import datetime
 from database import get_session
 from .models import (
     OralReadingFluencyTest,
+    OralReadingAudioRecord,
     OralReadingFluencyTestCreate,
     OralReadingFluencySubmission,
     OralReadingFluencyTestResponse,
@@ -30,14 +31,16 @@ router = APIRouter(tags=["朗读流畅性测试"])
 
 # 初始化SDK（应该在应用启动时配置）
 try:
-    # 这里需要从配置文件或环境变量中获取真实的API凭证
+    from config import settings
     XfyunSDKFactory.initialize(
-        app_id="your_app_id",  # 替换为真实的APP ID
-        api_key="your_api_key",  # 替换为真实的API Key  
-        api_secret="your_api_secret"  # 替换为真实的API Secret
+        app_id=settings.XFYUN_APP_ID,
+        api_key=settings.XFYUN_API_KEY,
+        api_secret=settings.XFYUN_API_SECRET
     )
+    print(f"✅ 讯飞SDK初始化成功，APP ID: {settings.XFYUN_APP_ID[:8]}...")
 except Exception as e:
-    print(f"警告: 语音评测SDK初始化失败: {e}")
+    print(f"⚠️  警告: 语音评测SDK初始化失败: {e}")
+    print("💡 请在config.py中设置正确的科大讯飞API凭证")
 
 
 @router.get("/characters")
@@ -185,9 +188,9 @@ async def upload_single_audio(
         # 读取音频数据
         audio_data = await audio_file.read()
         
-        # 生成文件名
+        # 固定使用mp3后缀，文件更小更适合传输
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"test_{test_id}_round{round_number}_row{row_index}_{timestamp}.webm"
+        filename = f"test_{test_id}_round{round_number}_row{row_index}_{timestamp}.mp3"
         
         # 保存文件
         from .service import save_audio_file

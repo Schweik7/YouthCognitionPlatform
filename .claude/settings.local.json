@@ -18,7 +18,8 @@
       "Bash(npm run build:*)",
       "Bash(uv add:*)",
       "Bash(cp:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(pnpm install:*)"
     ],
     "deny": []
   }

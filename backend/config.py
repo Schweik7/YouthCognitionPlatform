@@ -30,6 +30,12 @@ class Settings(BaseSettings):
 
     # 文件路径设置
     DATA_DIR: str = "data"
+    
+    # 科大讯飞语音评测API设置
+    XFYUN_HOST_URL: str = "ws://ise-api.xfyun.cn/v2/open-ise"
+    XFYUN_APP_ID: str = "e96b71cc"
+    XFYUN_API_KEY: str = "c596bae72326e35a645eca27bf9d235a"
+    XFYUN_API_SECRET: str = "YTM0YzkxYTk1MWQzOTdkZDg3Zjg0MTQx"
 
     def __init__(self, **data):
         super().__init__(**data)
