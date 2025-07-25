@@ -65,7 +65,7 @@
           <el-icon v-if="rowIndex < currentRowIndex" class="completed-icon">
             <Check />
           </el-icon>
-          <span v-if="rowIndex === currentRowIndex" class="reading-text">
+          <span v-if="rowIndex === currentRowIndex && isRecording" class="reading-text">
             朗读中...
           </span>
         </div>
@@ -82,7 +82,7 @@
         <el-button 
           @click="nextRow" 
           type="success"
-          :disabled="!isRecording"
+          :disabled="isRecording || isProcessingAction"
           size="large"
         >
           下一行 (空格)
@@ -194,6 +194,10 @@ const currentAudioBlob = ref(null)
 const audioContext = ref(null)
 const sourceNode = ref(null)
 
+// 防抖和状态控制
+const isProcessingAction = ref(false)  // 防止重复操作
+const spaceKeyPressed = ref(false)     // 空格键状态跟踪
+
 // 测试结果
 const testResults = ref({
   round1: { duration: 0, characterCount: 0, audioFiles: [] },
@@ -209,7 +213,7 @@ const characterRows = computed(() => {
 })
 
 const readCharacterCount = computed(() => {
-  return currentRowIndex.value * 10 + Math.min(currentCharIndex.value + 1, characterRows.value[currentRowIndex.value]?.length || 0)
+  return currentRowIndex.value * 10
 })
 
 const averageScore = computed(() => {
@@ -418,8 +422,9 @@ const stopTimer = () => {
 
 // 倒计时结束处理
 const handleTimeUp = async () => {
-  if (isRecording.value) {
+  if (isRecording.value && !isProcessingAction.value) {
     // 如果正在录音，自动停止并上传
+    spaceKeyPressed.value = false  // 重置空格键状态
     await stopAndUploadCurrentRow()
   }
   
@@ -428,60 +433,82 @@ const handleTimeUp = async () => {
 }
 
 const nextRow = async () => {
+  // 防止重复操作
+  if (isProcessingAction.value) {
+    return
+  }
+  
   if (currentRowIndex.value < characterRows.value.length - 1) {
     // 停止当前行录音并保存
     await saveCurrentRowAudio()
     
     // 移动到下一行
     currentRowIndex.value++
-    currentCharIndex.value = 0
     
-    // 开始新行录音
-    startRecording()
+    // 不自动开始新行录音，等待用户按空格
   } else {
-    finishTest()
+    await finishTest()
   }
 }
 
 // 停止录音并上传当前行
 const stopAndUploadCurrentRow = async () => {
-  stopRecording()
+  // 防止重复调用
+  if (isProcessingAction.value) {
+    return
+  }
   
-  // 等待录音停止并获取音频数据
-  return new Promise(async (resolve) => {
-    const checkAudio = async () => {
-      if (currentAudioBlob.value) {
-        try {
-          // 立即上传音频文件到后端
-          await uploadAudioFile(currentAudioBlob.value, currentRound.value, currentRowIndex.value)
-          
-          // 保存到本地记录（用于统计）
-          const roundKey = `round${currentRound.value}`
-          testResults.value[roundKey].audioFiles.push({
-            rowIndex: currentRowIndex.value,
-            audioBlob: currentAudioBlob.value,
-            timestamp: Date.now(),
-            uploaded: true
-          })
-          
-          console.log(`第${currentRound.value}轮第${currentRowIndex.value + 1}行录音上传成功`)
-          
-          // 自动进入下一行
-          nextRow()
-          
-          currentAudioBlob.value = null
-          resolve()
-        } catch (error) {
-          console.error('上传音频失败:', error)
-          ElMessage.error(`第${currentRowIndex.value + 1}行音频上传失败`)
-          resolve() // 继续执行，不阻塞流程
+  isProcessingAction.value = true
+  
+  try {
+    stopRecording()
+    
+    // 等待录音停止并获取音频数据
+    return new Promise(async (resolve) => {
+      const checkAudio = async () => {
+        if (currentAudioBlob.value) {
+          try {
+            // 立即上传音频文件到后端
+            await uploadAudioFile(currentAudioBlob.value, currentRound.value, currentRowIndex.value)
+            
+            // 保存到本地记录（用于统计）
+            const roundKey = `round${currentRound.value}`
+            testResults.value[roundKey].audioFiles.push({
+              rowIndex: currentRowIndex.value,
+              audioBlob: currentAudioBlob.value,
+              timestamp: Date.now(),
+              uploaded: true
+            })
+            
+            console.log(`第${currentRound.value}轮第${currentRowIndex.value + 1}行录音上传成功`)
+            
+            // 自动进入下一行（如果不是最后一行）
+            if (currentRowIndex.value < characterRows.value.length - 1) {
+              currentRowIndex.value++
+            } else {
+              // 如果是最后一行，完成测试
+              await finishRound()
+            }
+            
+            currentAudioBlob.value = null
+            resolve()
+          } catch (error) {
+            console.error('上传音频失败:', error)
+            ElMessage.error(`第${currentRowIndex.value + 1}行音频上传失败`)
+            resolve() // 继续执行，不阻塞流程
+          }
+        } else {
+          setTimeout(checkAudio, 100)
         }
-      } else {
-        setTimeout(checkAudio, 100)
       }
-    }
-    checkAudio()
-  })
+      checkAudio()
+    })
+  } finally {
+    // 延迟重置状态，防止快速重复操作
+    setTimeout(() => {
+      isProcessingAction.value = false
+    }, 300)
+  }
 }
 
 // 保持原有函数用于其他地方调用
@@ -516,9 +543,9 @@ const uploadAudioFile = async (audioBlob, roundNumber, rowIndex) => {
   return result
 }
 
-const finishTest = async () => {
+// 完成轮次
+const finishRound = async () => {
   stopTimer()
-  await saveCurrentRowAudio()
   
   // 保存当前轮次结果
   const roundKey = `round${currentRound.value}`
@@ -526,6 +553,15 @@ const finishTest = async () => {
   testResults.value[roundKey].characterCount = readCharacterCount.value
   
   testPhase.value = 'completed'
+}
+
+const finishTest = async () => {
+  // 如果还在录音，先停止并上传
+  if (isRecording.value && !isProcessingAction.value) {
+    await stopAndUploadCurrentRow()
+  }
+  
+  await finishRound()
 }
 
 const startNextRound = () => {
@@ -655,8 +691,16 @@ const showTestResults = async () => {
 const handleKeyDown = async (event) => {
   if (testPhase.value === 'testing' && event.code === 'Space' && !event.repeat) {
     event.preventDefault()
+    event.stopPropagation()  // 阻止事件冒泡
     
-    if (!isRecording.value) {
+    // 防止重复按键和正在处理中的操作
+    if (spaceKeyPressed.value || isProcessingAction.value) {
+      return
+    }
+    
+    spaceKeyPressed.value = true
+    
+    if (!isRecording.value && currentRowIndex.value < characterRows.value.length) {
       // 开始录音
       startRecording()
       console.log(`开始录音第${currentRound.value}轮第${currentRowIndex.value + 1}行`)
@@ -667,11 +711,29 @@ const handleKeyDown = async (event) => {
 const handleKeyUp = async (event) => {
   if (testPhase.value === 'testing' && event.code === 'Space') {
     event.preventDefault()
+    event.stopPropagation()  // 阻止事件冒泡
     
-    if (isRecording.value) {
+    // 只有当空格键确实被按下时才处理松开事件
+    if (!spaceKeyPressed.value) {
+      return
+    }
+    
+    spaceKeyPressed.value = false
+    
+    if (isRecording.value && !isProcessingAction.value) {
       // 停止录音并上传
       await stopAndUploadCurrentRow()
     }
+  }
+}
+
+// 全局空格键拦截函数
+const globalSpaceHandler = (event) => {
+  if (testPhase.value === 'testing' && event.code === 'Space') {
+    // 在测试阶段完全阻止空格键的默认行为
+    event.preventDefault()
+    event.stopPropagation()
+    return false
   }
 }
 
@@ -679,6 +741,9 @@ const handleKeyUp = async (event) => {
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('keyup', handleKeyUp)
+  
+  // 添加全局空格键拦截，优先级更高
+  document.addEventListener('keydown', globalSpaceHandler, true)  // 使用捕获阶段
   
   // 检查用户信息，如果没有则创建默认用户信息
   checkAndInitUserInfo()
@@ -704,7 +769,13 @@ const checkAndInitUserInfo = () => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('keyup', handleKeyUp)
+  document.removeEventListener('keydown', globalSpaceHandler, true)  // 移除全局拦截
   stopTimer()
+  
+  // 重置状态
+  spaceKeyPressed.value = false
+  isProcessingAction.value = false
+  
   if (mediaRecorder.value && mediaRecorder.value.stream) {
     mediaRecorder.value.stream.getTracks().forEach(track => track.stop())
   }
