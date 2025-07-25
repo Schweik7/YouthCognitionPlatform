@@ -42,7 +42,7 @@ class EvaluationRequest(BaseModel):
     group: str = Field(default="pupil", description="用户群体")
     language: str = Field(default="cn_vip", description="语言类型")
     audio_format: str = Field(default="mp3", description="音频格式")  
-    sample_rate: int = Field(default=44100, description="采样率")
+    sample_rate: int = Field(default=16000, description="采样率")
     aue: str = Field(default="lame", description="音频编码格式：raw(PCM/WAV), lame(MP3), speex-wb;7(讯飞定制)")
     
     @model_validator(mode='after')
@@ -130,7 +130,7 @@ class XfyunSpeechEvaluationSDK:
             # 生成认证URL
             auth_url = self._generate_auth_url()
             
-            # 建立WebSocket连接
+            # 建立WebSocket连接，使用与官方示例一致的简单设置
             async with websockets.connect(
                 auth_url,
                 ssl=ssl.create_default_context() if auth_url.startswith('wss') else None,
@@ -151,7 +151,7 @@ class XfyunSpeechEvaluationSDK:
                     progress_callback("开始上传音频数据...")
                 
                 # 发送音频数据
-                await self._send_audio_file(audio_file_path, progress_callback)
+                await self._send_audio_file(audio_file_path, progress_callback, request)
                 
                 if progress_callback:
                     progress_callback("等待评测结果...")
@@ -187,7 +187,7 @@ class XfyunSpeechEvaluationSDK:
             # 生成认证URL
             auth_url = self._generate_auth_url()
             
-            # 建立WebSocket连接
+            # 建立WebSocket连接，使用与官方示例一致的简单设置
             async with websockets.connect(
                 auth_url,
                 ssl=ssl.create_default_context() if auth_url.startswith('wss') else None,
@@ -208,7 +208,7 @@ class XfyunSpeechEvaluationSDK:
                     progress_callback("开始上传音频数据...")
                 
                 # 发送音频数据
-                await self._send_audio_data(audio_data, progress_callback)
+                await self._send_audio_data(audio_data, progress_callback, request.aue)
                 
                 if progress_callback:
                     progress_callback("等待评测结果...")
@@ -262,18 +262,18 @@ class XfyunSpeechEvaluationSDK:
         await self.websocket.send(json.dumps(param_data))
         logger.debug("评测参数已发送")
     
-    async def _send_audio_file(self, audio_file_path: Path, progress_callback: Optional[Callable]):
+    async def _send_audio_file(self, audio_file_path: Path, progress_callback: Optional[Callable], request: EvaluationRequest):
         """发送音频文件"""
         frame_size = 1280  # 每帧大小
         
         with open(audio_file_path, 'rb') as audio_file:
             audio_data = audio_file.read()
         
-        await self._send_audio_data(audio_data, progress_callback)
+        await self._send_audio_data(audio_data, progress_callback, request.aue)
     
-    async def _send_audio_data(self, audio_data: bytes, progress_callback: Optional[Callable]):
+    async def _send_audio_data(self, audio_data: bytes, progress_callback: Optional[Callable], aue: str = "raw"):
         """发送音频数据"""
-        frame_size = 1280  # 每帧大小
+        frame_size = 1280  # 固定使用1280字节帧大小，与官方示例一致
         total_size = len(audio_data)
         sent_size = 0
         
@@ -282,20 +282,18 @@ class XfyunSpeechEvaluationSDK:
             chunk = audio_data[i:i + frame_size]
             is_last_frame = (i + frame_size >= len(audio_data))
             
-            # 确定音频状态
-            if i == 0:
-                aus = 1  # 第一帧
-            elif is_last_frame:
+            # 按照官方示例：第一帧和中间帧都使用aus=1，最后一帧使用aus=4
+            if is_last_frame:
                 aus = 4  # 最后一帧
             else:
-                aus = 2  # 中间帧
+                aus = 1  # 第一帧和中间帧都使用1
             
             # 构建音频数据包
             audio_packet = {
                 "business": {
                     "cmd": "auw",
                     "aus": aus,
-                    "aue": "raw"
+                    "aue": aue
                 },
                 "data": {
                     "status": 2 if is_last_frame else 1,
@@ -312,20 +310,20 @@ class XfyunSpeechEvaluationSDK:
                 progress = min(100, int(sent_size / total_size * 100))
                 progress_callback(f"上传进度: {progress}%")
             
-            # 适当延时，避免发送过快
+            # 固定延时0.04秒，与官方示例一致
             await asyncio.sleep(0.04)
         
         logger.debug("音频数据发送完成")
     
-    async def _wait_for_result(self, timeout: int = 30) -> EvaluationResponse:
+    async def _wait_for_result(self, timeout: int = 60) -> EvaluationResponse:
         """等待评测结果"""
         try:
             start_time = time.time()
             
             while time.time() - start_time < timeout:
                 try:
-                    # 等待消息
-                    message = await asyncio.wait_for(self.websocket.recv(), timeout=5.0)
+                    # 等待消息，增加超时时间
+                    message = await asyncio.wait_for(self.websocket.recv(), timeout=10.0)
                     result_data = json.loads(message)
                     
                     logger.debug(f"收到消息: {result_data}")
@@ -334,11 +332,25 @@ class XfyunSpeechEvaluationSDK:
                     if result_data.get("data", {}).get("status") == 2:
                         # 解析结果
                         return self._parse_result(result_data)
+                    elif result_data.get("code") != 0:
+                        # 检查错误码
+                        error_msg = result_data.get("message", "未知错误")
+                        return EvaluationResponse(
+                            success=False,
+                            message=f"服务器返回错误: {error_msg}"
+                        )
                     
                 except asyncio.TimeoutError:
+                    logger.debug("等待消息超时，继续等待...")
                     continue
                 except Exception as e:
                     logger.error(f"接收消息失败: {str(e)}")
+                    # 如果是WebSocket关闭错误，直接返回失败
+                    if "1000" in str(e) or "closed" in str(e).lower():
+                        return EvaluationResponse(
+                            success=False,
+                            message=f"WebSocket连接意外关闭: {str(e)}"
+                        )
                     continue
             
             # 超时

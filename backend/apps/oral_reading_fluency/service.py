@@ -222,11 +222,14 @@ async def evaluate_audio_record(session: Session, audio_record_id: int) -> bool:
             logger.info(f"音频评测成功: {audio_record_id}, 总分: {result.total_score}")
         else:
             audio_record.evaluation_status = "failed"
-            audio_record.evaluation_result = json.dumps({
-                "error": result.message,
+            # 截断错误消息以防数据库字段长度限制
+            error_message = result.message[:500] if len(result.message) > 500 else result.message
+            error_data = {
+                "error": error_message,
                 "analysis_time": result.analysis_time.isoformat()
-            }, ensure_ascii=False)
-            logger.error(f"音频评测失败: {audio_record_id}, 错误: {result.message}")
+            }
+            audio_record.evaluation_result = json.dumps(error_data, ensure_ascii=False)
+            logger.error(f"音频评测失败: {audio_record_id}, 错误: {error_message}")
         
         session.add(audio_record)
         session.commit()
@@ -236,16 +239,24 @@ async def evaluate_audio_record(session: Session, audio_record_id: int) -> bool:
     except Exception as e:
         logger.error(f"评测音频记录时发生异常: {audio_record_id}, 错误: {str(e)}")
         
+        # 回滚事务
+        session.rollback()
+        
         # 更新状态为失败
         try:
+            # 重新获取会话和记录
             audio_record = session.get(OralReadingAudioRecord, audio_record_id)
             if audio_record:
                 audio_record.evaluation_status = "failed"
-                audio_record.evaluation_result = json.dumps({"error": str(e)}, ensure_ascii=False)
+                # 截断错误消息
+                error_message = str(e)[:500] if len(str(e)) > 500 else str(e)
+                error_data = {"error": error_message, "timestamp": datetime.now().isoformat()}
+                audio_record.evaluation_result = json.dumps(error_data, ensure_ascii=False)
                 session.add(audio_record)
                 session.commit()
         except Exception as db_error:
             logger.error(f"更新音频记录状态失败: {db_error}")
+            session.rollback()
         
         return False
 

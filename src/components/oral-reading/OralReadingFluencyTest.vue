@@ -267,7 +267,7 @@ const initializeRecording = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ 
       audio: {
-        sampleRate: 44100, // MP3通常使用44100Hz
+        sampleRate: 16000, // 使用与后端API一致的16000Hz
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true
