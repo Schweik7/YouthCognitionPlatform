@@ -56,7 +56,7 @@ const availableTests = ref([
     name: '朗读流畅性测试',
     description: '测量朗读汉字的流畅度，评估您的口语表达能力和字音准确性',
     icon: 'Microphone',
-    route: '/reading-fluency-test'
+    route: '/oral-reading-fluency-test'
   },
   {
     id: 'attention-test',

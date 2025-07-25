@@ -16,6 +16,7 @@ from logger_config import logger
 # 导入各个应用的路由
 from apps.users.router import router as users_router
 from apps.reading_fluency.router import router as reading_fluency_router
+from apps.oral_reading_fluency.router import router as oral_reading_fluency_router
 from apps.attention_test.router import router as attention_test_router
 from apps.calculation_test.router import router as calculation_router  # 新增计算流畅性测试路由
 
@@ -48,6 +49,7 @@ app.include_router(users_router, prefix=f"{settings.API_PREFIX}/users")
 
 # 测试系统路由
 app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}/reading-fluency")
+app.include_router(oral_reading_fluency_router, prefix=f"{settings.API_PREFIX}/oral-reading-fluency")
 app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
 app.include_router(
     calculation_router, prefix=f"{settings.API_PREFIX}/calculation"

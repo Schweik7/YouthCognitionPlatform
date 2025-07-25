@@ -523,7 +523,7 @@ const submitResults = async () => {
 // 显示测试结果
 const showTestResults = async () => {
   try {
-    const response = await fetch(`/api/reading-fluency/tests/${testId.value}/results`)
+    const response = await fetch(`/api/oral-reading-fluency/tests/${testId.value}/results`)
     if (response.ok) {
       const results = await response.json()
       // 这里可以显示详细结果或跳转到结果页面
