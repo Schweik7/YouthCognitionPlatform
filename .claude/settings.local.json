@@ -19,7 +19,13 @@
       "Bash(uv add:*)",
       "Bash(cp:*)",
       "Bash(sed:*)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(ls:*)",
+      "Bash(ffprobe:*)",
+      "mcp__context7__resolve-library-id",
+      "Bash(claude mcp add:*)",
+      "Bash(chmod:*)",
+      "Bash(/home/mengmeng/.local/bin/install-kimpanel:*)"
     ],
     "deny": []
   }

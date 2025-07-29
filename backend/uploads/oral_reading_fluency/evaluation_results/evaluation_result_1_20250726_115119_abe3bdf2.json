@@ -1,0 +1,112 @@
+{
+  "audio_record_id": 1,
+  "timestamp": "2025-07-26T11:51:19.730022",
+  "xml_result": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n  <xml_result>\n      <read_syllable lan=\"cn\" type=\"study\" version=\"7,0,0,1024\">\n          <rec_paper>\n              <read_syllable beg_pos=\"0\" content=\"的。一。了。我。是。不。在。上。来。有。\" end_pos=\"1416\" except_info=\"0\" fluency_score=\"0.000000\" integrity_score=\"0.000000\" phone_score=\"10.000000\" time_len=\"1416\" tone_score=\"39.999996\" total_score=\"25.000000\">\n                  <sentence beg_pos=\"0\" content=\"的\" end_pos=\"70\" time_len=\"70\">\n                      <word beg_pos=\"0\" content=\"的\" end_pos=\"70\" symbol=\"de5\" time_len=\"70\">\n                          <syll beg_pos=\"0\" content=\"sil\" dp_message=\"0\" end_pos=\"70\" rec_node_type=\"sil\" time_len=\"70\">\n                              <phone beg_pos=\"0\" content=\"sil\" dp_message=\"0\" end_pos=\"70\" rec_node_type=\"sil\" time_len=\"70\"></phone>\n                          </syll>\n                          <syll beg_pos=\"70\" content=\"的\" dp_message=\"16\" end_pos=\"70\" rec_node_type=\"paper\" symbol=\"de0\" time_len=\"0\">\n                              <phone content=\"d\" dp_message=\"16\" is_yun=\"0\" rec_node_type=\"paper\"></phone>\n                              <phone content=\"e\" dp_message=\"16\" is_yun=\"1\" mono_tone=\"TONE0\" rec_node_type=\"paper\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"70\" content=\"一\" end_pos=\"79\" time_len=\"9\">\n                      <word beg_pos=\"70\" content=\"一\" end_pos=\"79\" symbol=\"yi1\" time_len=\"9\">\n                          <syll beg_pos=\"70\" content=\"一\" dp_message=\"0\" end_pos=\"79\" rec_node_type=\"paper\" symbol=\"yi1\" time_len=\"9\">\n                              <phone beg_pos=\"70\" content=\"_i\" dp_message=\"0\" end_pos=\"74\" is_yun=\"0\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"4\"></phone>\n                              <phone beg_pos=\"74\" content=\"i\" dp_message=\"0\" end_pos=\"79\" is_yun=\"1\" mono_tone=\"TONE1\" perr_level_msg=\"2\" rec_node_type=\"paper\" time_len=\"5\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"79\" content=\"了\" end_pos=\"90\" time_len=\"11\">\n                      <word beg_pos=\"79\" content=\"了\" end_pos=\"90\" symbol=\"le5\" time_len=\"11\">\n                          <syll beg_pos=\"79\" content=\"sil\" dp_message=\"0\" end_pos=\"82\" rec_node_type=\"sil\" time_len=\"3\">\n                              <phone beg_pos=\"79\" content=\"sil\" dp_message=\"0\" end_pos=\"82\" rec_node_type=\"sil\" time_len=\"3\"></phone>\n                          </syll>\n                          <syll beg_pos=\"82\" content=\"了\" dp_message=\"0\" end_pos=\"90\" rec_node_type=\"paper\" symbol=\"le0\" time_len=\"8\">\n                              <phone beg_pos=\"82\" content=\"l\" dp_message=\"0\" end_pos=\"85\" is_yun=\"0\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"3\"></phone>\n                              <phone beg_pos=\"85\" content=\"e\" dp_message=\"0\" end_pos=\"90\" is_yun=\"1\" mono_tone=\"TONE0\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"5\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"90\" content=\"我\" end_pos=\"96\" time_len=\"6\">\n                      <word beg_pos=\"90\" content=\"我\" end_pos=\"96\" symbol=\"wo3\" time_len=\"6\">\n                          <syll beg_pos=\"90\" content=\"sil\" dp_message=\"0\" end_pos=\"96\" rec_node_type=\"sil\" time_len=\"6\">\n                              <phone beg_pos=\"90\" content=\"sil\" dp_message=\"0\" end_pos=\"96\" rec_node_type=\"sil\" time_len=\"6\"></phone>\n                          </syll>\n                          <syll beg_pos=\"96\" content=\"我\" dp_message=\"16\" end_pos=\"96\" rec_node_type=\"paper\" symbol=\"wo3\" time_len=\"0\">\n                              <phone content=\"_u\" dp_message=\"16\" is_yun=\"0\" rec_node_type=\"paper\"></phone>\n                              <phone content=\"uo\" dp_message=\"16\" is_yun=\"1\" mono_tone=\"TONE3\" rec_node_type=\"paper\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"96\" content=\"是\" end_pos=\"175\" time_len=\"79\">\n                      <word beg_pos=\"96\" content=\"是\" end_pos=\"175\" symbol=\"shi4\" time_len=\"79\">\n                          <syll beg_pos=\"96\" content=\"是\" dp_message=\"0\" end_pos=\"175\" rec_node_type=\"paper\" symbol=\"shi4\" time_len=\"79\">\n                              <phone beg_pos=\"96\" content=\"sh\" dp_message=\"0\" end_pos=\"99\" is_yun=\"0\" perr_level_msg=\"2\" rec_node_type=\"paper\" time_len=\"3\"></phone>\n                              <phone beg_pos=\"99\" content=\"iii\" dp_message=\"0\" end_pos=\"175\" is_yun=\"1\" mono_tone=\"TONE4\" perr_level_msg=\"2\" rec_node_type=\"paper\" time_len=\"76\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"175\" content=\"不\" end_pos=\"209\" time_len=\"34\">\n                      <word beg_pos=\"175\" content=\"不\" end_pos=\"209\" symbol=\"bu4\" time_len=\"34\">\n                          <syll beg_pos=\"175\" content=\"sil\" dp_message=\"0\" end_pos=\"194\" rec_node_type=\"sil\" time_len=\"19\">\n                              <phone beg_pos=\"175\" content=\"sil\" dp_message=\"0\" end_pos=\"194\" rec_node_type=\"sil\" time_len=\"19\"></phone>\n                          </syll>\n                          <syll beg_pos=\"194\" content=\"不\" dp_message=\"0\" end_pos=\"209\" rec_node_type=\"paper\" symbol=\"bu4\" time_len=\"15\">\n                              <phone beg_pos=\"194\" content=\"b\" dp_message=\"0\" end_pos=\"197\" is_yun=\"0\" perr_level_msg=\"2\" rec_node_type=\"paper\" time_len=\"3\"></phone>\n                              <phone beg_pos=\"197\" content=\"u\" dp_message=\"0\" end_pos=\"209\" is_yun=\"1\" mono_tone=\"TONE4\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"12\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"209\" content=\"在\" end_pos=\"546\" time_len=\"337\">\n                      <word beg_pos=\"209\" content=\"在\" end_pos=\"546\" symbol=\"zai4\" time_len=\"337\">\n                          <syll beg_pos=\"209\" content=\"sil\" dp_message=\"0\" end_pos=\"378\" rec_node_type=\"sil\" time_len=\"169\">\n                              <phone beg_pos=\"209\" content=\"sil\" dp_message=\"0\" end_pos=\"378\" rec_node_type=\"sil\" time_len=\"169\"></phone>\n                          </syll>\n                          <syll beg_pos=\"378\" content=\"在\" dp_message=\"0\" end_pos=\"546\" rec_node_type=\"paper\" symbol=\"zai4\" time_len=\"168\">\n                              <phone beg_pos=\"378\" content=\"z\" dp_message=\"0\" end_pos=\"381\" is_yun=\"0\" perr_level_msg=\"2\" rec_node_type=\"paper\" time_len=\"3\"></phone>\n                              <phone beg_pos=\"381\" content=\"ai\" dp_message=\"0\" end_pos=\"546\" is_yun=\"1\" mono_tone=\"TONE4\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"165\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"546\" content=\"上\" end_pos=\"577\" time_len=\"31\">\n                      <word beg_pos=\"546\" content=\"上\" end_pos=\"577\" symbol=\"shang4\" time_len=\"31\">\n                          <syll beg_pos=\"546\" content=\"sil\" dp_message=\"0\" end_pos=\"569\" rec_node_type=\"sil\" time_len=\"23\">\n                              <phone beg_pos=\"546\" content=\"sil\" dp_message=\"0\" end_pos=\"569\" rec_node_type=\"sil\" time_len=\"23\"></phone>\n                          </syll>\n                          <syll beg_pos=\"569\" content=\"上\" dp_message=\"0\" end_pos=\"577\" rec_node_type=\"paper\" symbol=\"shang4\" time_len=\"8\">\n                              <phone beg_pos=\"569\" content=\"sh\" dp_message=\"0\" end_pos=\"572\" is_yun=\"0\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"3\"></phone>\n                              <phone beg_pos=\"572\" content=\"ang\" dp_message=\"0\" end_pos=\"577\" is_yun=\"1\" mono_tone=\"TONE4\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"5\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"577\" content=\"来\" end_pos=\"664\" time_len=\"87\">\n                      <word beg_pos=\"577\" content=\"来\" end_pos=\"664\" symbol=\"lai2\" time_len=\"87\">\n                          <syll beg_pos=\"577\" content=\"sil\" dp_message=\"0\" end_pos=\"597\" rec_node_type=\"sil\" time_len=\"20\">\n                              <phone beg_pos=\"577\" content=\"sil\" dp_message=\"0\" end_pos=\"597\" rec_node_type=\"sil\" time_len=\"20\"></phone>\n                          </syll>\n                          <syll beg_pos=\"597\" content=\"来\" dp_message=\"0\" end_pos=\"664\" rec_node_type=\"paper\" symbol=\"lai2\" time_len=\"67\">\n                              <phone beg_pos=\"597\" content=\"l\" dp_message=\"0\" end_pos=\"600\" is_yun=\"0\" perr_level_msg=\"2\" rec_node_type=\"paper\" time_len=\"3\"></phone>\n                              <phone beg_pos=\"600\" content=\"ai\" dp_message=\"0\" end_pos=\"664\" is_yun=\"1\" mono_tone=\"TONE2\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"64\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n                  <sentence beg_pos=\"664\" content=\"有\" end_pos=\"1416\" time_len=\"752\">\n                      <word beg_pos=\"664\" content=\"有\" end_pos=\"1416\" symbol=\"you3\" time_len=\"752\">\n                          <syll beg_pos=\"664\" content=\"sil\" dp_message=\"0\" end_pos=\"1245\" rec_node_type=\"sil\" time_len=\"581\">\n                              <phone beg_pos=\"664\" content=\"sil\" dp_message=\"0\" end_pos=\"1245\" rec_node_type=\"sil\" time_len=\"581\"></phone>\n                          </syll>\n                          <syll beg_pos=\"1245\" content=\"有\" dp_message=\"0\" end_pos=\"1274\" rec_node_type=\"paper\" symbol=\"you3\" time_len=\"29\">\n                              <phone beg_pos=\"1245\" content=\"_i\" dp_message=\"0\" end_pos=\"1248\" is_yun=\"0\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"3\"></phone>\n                              <phone beg_pos=\"1248\" content=\"iou\" dp_message=\"0\" end_pos=\"1274\" is_yun=\"1\" mono_tone=\"TONE3\" perr_level_msg=\"3\" rec_node_type=\"paper\" time_len=\"26\"></phone>\n                          </syll>\n                          <syll beg_pos=\"1274\" content=\"sil\" dp_message=\"0\" end_pos=\"1416\" rec_node_type=\"sil\" time_len=\"142\">\n                              <phone beg_pos=\"1274\" content=\"sil\" end_pos=\"1416\" time_len=\"142\"></phone>\n                          </syll>\n                      </word>\n                  </sentence>\n              </read_syllable>\n          </rec_paper>\n      </read_syllable>\n  </xml_result>",
+  "detailed_analysis": {
+    "success": true,
+    "overall_score": 25.0,
+    "phone_score": 10.0,
+    "tone_score": 39.999996,
+    "fluency_score": 0.0,
+    "integrity_score": 0.0,
+    "total_characters": 10,
+    "read_characters": 10,
+    "correct_characters": 8,
+    "character_accuracy_rate": 80.0,
+    "reading_completion_rate": 100.0,
+    "total_duration_ms": 14160,
+    "analysis_time": "2025-07-26T11:51:19.728558",
+    "character_details": [
+      {
+        "character": "的",
+        "expected_pinyin": "de5",
+        "actual_pinyin": "de0",
+        "is_read": true,
+        "is_correct": false,
+        "status": "漏读",
+        "duration_ms": 700
+      },
+      {
+        "character": "一",
+        "expected_pinyin": "yi1",
+        "actual_pinyin": "yi1",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 90
+      },
+      {
+        "character": "了",
+        "expected_pinyin": "le5",
+        "actual_pinyin": "le0",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 110
+      },
+      {
+        "character": "我",
+        "expected_pinyin": "wo3",
+        "actual_pinyin": "wo3",
+        "is_read": true,
+        "is_correct": false,
+        "status": "漏读",
+        "duration_ms": 60
+      },
+      {
+        "character": "是",
+        "expected_pinyin": "shi4",
+        "actual_pinyin": "shi4",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 790
+      },
+      {
+        "character": "不",
+        "expected_pinyin": "bu4",
+        "actual_pinyin": "bu4",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 340
+      },
+      {
+        "character": "在",
+        "expected_pinyin": "zai4",
+        "actual_pinyin": "zai4",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 3370
+      },
+      {
+        "character": "上",
+        "expected_pinyin": "shang4",
+        "actual_pinyin": "shang4",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 310
+      },
+      {
+        "character": "来",
+        "expected_pinyin": "lai2",
+        "actual_pinyin": "lai2",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 870
+      },
+      {
+        "character": "有",
+        "expected_pinyin": "you3",
+        "actual_pinyin": "you3",
+        "is_read": true,
+        "is_correct": true,
+        "status": "正确",
+        "duration_ms": 7520
+      }
+    ]
+  }
+}

@@ -37,7 +37,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Document, View, EditPen, Microphone } from '@element-plus/icons-vue';
+import { Document, View, EditPen, Microphone, ChatLineRound } from '@element-plus/icons-vue';
 import TopNavBar from './TopNavBar.vue';
 
 const router = useRouter();
@@ -71,6 +71,13 @@ const availableTests = ref([
     description: '测量快速计算数学题的能力，评估您的心算能力和数学流畅度',
     icon: 'EditPen',
     route: '/calculation-experiment'
+  },
+  {
+    id: 'literacy-test',
+    name: '识字量测验',
+    description: '测量汉字识别和朗读能力，评估您的识字水平和发音准确性',
+    icon: 'ChatLineRound',
+    route: '/literacy-test'
   }
 ]);
 

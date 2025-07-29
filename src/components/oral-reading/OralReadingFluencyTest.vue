@@ -153,7 +153,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElButton, ElIcon, ElMessage } from 'element-plus'
 import { Timer, Check } from '@element-plus/icons-vue'
 import TopNavBar from '../TopNavBar.vue'
-import lamejs from 'lamejs'
+import vmsg from 'vmsg'
 
 // 字符数据
 const characterData = ref([
@@ -187,12 +187,9 @@ const isRecording = ref(false)
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 
-// 录音相关
-const mediaRecorder = ref(null)
-const audioChunks = ref([])
+// 录音相关 - 使用vmsg
+const recorder = ref(null)
 const currentAudioBlob = ref(null)
-const audioContext = ref(null)
-const sourceNode = ref(null)
 
 // 防抖和状态控制
 const isProcessingAction = ref(false)  // 防止重复操作
@@ -263,143 +260,89 @@ const startTest = async () => {
   }
 }
 
+// 创建新的录音器实例
+const createRecorder = async () => {
+  console.log('🔧 创建新的vmsg录音器实例...')
+  
+  const newRecorder = new vmsg.Recorder({
+    wasmURL: '/vmsg.wasm', // WASM文件路径
+    bitRate: 128000, // 比特率 128kbps
+    sampleRate: 16000, // 采样率，与后端API一致
+  })
+  
+  await newRecorder.init()
+  console.log('✅ vmsg录音器实例创建成功')
+  return newRecorder
+}
+
 const initializeRecording = async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      audio: {
-        sampleRate: 16000, // 使用与后端API一致的16000Hz
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true
-      }
-    })
-    
-    // 初始化AudioContext用于MP3编码
-    audioContext.value = new (window.AudioContext || window.webkitAudioContext)()
-    sourceNode.value = audioContext.value.createMediaStreamSource(stream)
-    
-    // 使用最佳支持的格式录制原始音频
-    let mimeType = 'audio/webm;codecs=opus'
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = 'audio/webm'
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/ogg;codecs=opus'
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = '' // 使用默认
-        }
-      }
-    }
-    
-    console.log('录制格式:', mimeType || '默认格式', '将转换为MP3')
-    
-    const options = mimeType ? { mimeType } : {}
-    mediaRecorder.value = new MediaRecorder(stream, options)
-    
-    mediaRecorder.value.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        audioChunks.value.push(event.data)
-        console.log('录音数据块大小:', event.data.size, 'bytes')
-      }
-    }
-    
-    mediaRecorder.value.onstop = async () => {
-      const audioBlob = new Blob(audioChunks.value, { type: mimeType || 'audio/webm' })
-      console.log('原始录音完成，文件大小:', audioBlob.size, 'bytes')
-      
-      // 转换为MP3格式
-      try {
-        const mp3Blob = await convertToMp3(audioBlob)
-        currentAudioBlob.value = mp3Blob
-        console.log('MP3转换完成，文件大小:', mp3Blob.size, 'bytes')
-      } catch (error) {
-        console.error('MP3转换失败，使用原始格式:', error)
-        currentAudioBlob.value = audioBlob
-      }
-      
-      audioChunks.value = []
-    }
-    
-    mediaRecorder.value.onerror = (error) => {
-      console.error('录音错误:', error)
-    }
+    console.log('🎙️ 初始化vmsg录音系统...')
+    // 只初始化一次，不创建实例（实例在每次录音时创建）
+    console.log('✅ vmsg录音系统初始化成功')
     
   } catch (error) {
+    console.error('❌ 录音系统初始化失败:', error)
     throw new Error('Failed to initialize recording: ' + error.message)
   }
 }
 
-// MP3转换函数
-const convertToMp3 = async (audioBlob) => {
-  return new Promise((resolve, reject) => {
-    try {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        try {
-          const arrayBuffer = e.target.result
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-          
-          // 解码音频数据
-          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-          
-          // 获取PCM数据
-          const samples = audioBuffer.getChannelData(0) // 单声道
-          const sampleRate = audioBuffer.sampleRate
-          
-          // 转换为16位PCM
-          const pcm16 = new Int16Array(samples.length)
-          for (let i = 0; i < samples.length; i++) {
-            pcm16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32767))
-          }
-          
-          // 使用lamejs编码为MP3
-          const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 128) // 单声道，采样率，比特率128kbps
-          const mp3Data = []
-          
-          const blockSize = 1152 // MP3帧大小
-          for (let i = 0; i < pcm16.length; i += blockSize) {
-            const chunk = pcm16.subarray(i, i + blockSize)
-            const mp3buf = mp3Encoder.encodeBuffer(chunk)
-            if (mp3buf.length > 0) {
-              mp3Data.push(mp3buf)
-            }
-          }
-          
-          // 结束编码
-          const finalMp3buf = mp3Encoder.flush()
-          if (finalMp3buf.length > 0) {
-            mp3Data.push(finalMp3buf)
-          }
-          
-          // 创建MP3 Blob
-          const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' })
-          resolve(mp3Blob)
-          
-        } catch (error) {
-          reject(error)
-        }
-      }
-      
-      reader.onerror = () => reject(new Error('Failed to read audio blob'))
-      reader.readAsArrayBuffer(audioBlob)
-      
-    } catch (error) {
-      reject(error)
-    }
-  })
-}
-
-const startRecording = () => {
-  if (mediaRecorder.value && mediaRecorder.value.state !== 'recording') {
-    audioChunks.value = []
-    mediaRecorder.value.start()
+// 使用vmsg的录音函数 - 每次创建新实例
+const startRecording = async () => {
+  try {
+    console.log('🎙️ 开始录音...')
+    
+    // 每次录音创建新的录音器实例
+    recorder.value = await createRecorder()
+    
+    await recorder.value.startRecording()
     isRecording.value = true
+    console.log('✅ 录音已开始')
+    
+  } catch (error) {
+    console.error('❌ 开始录音失败:', error)
+    throw error
   }
 }
 
-const stopRecording = () => {
-  if (mediaRecorder.value && mediaRecorder.value.state === 'recording') {
-    mediaRecorder.value.stop()
+const stopRecording = async () => {
+  try {
+    if (!recorder.value || !isRecording.value) {
+      return
+    }
+    
+    console.log('⏹️ 停止录音...')
+    const mp3Blob = await recorder.value.stopRecording()
+    console.log('✅ 录音停止，MP3文件大小:', mp3Blob.size, 'bytes')
+    
+    currentAudioBlob.value = mp3Blob
     isRecording.value = false
+    
+    // 关闭当前录音器实例，为下次录音做准备
+    try {
+      recorder.value.close()
+      console.log('🔒 录音器实例已关闭')
+    } catch (closeError) {
+      console.warn('⚠️ 录音器关闭时出现警告:', closeError.message)
+    }
+    
+    recorder.value = null // 清空引用
+    
+  } catch (error) {
+    console.error('❌ 停止录音失败:', error)
+    isRecording.value = false
+    
+    // 即使出错也要清理录音器
+    if (recorder.value) {
+      try {
+        recorder.value.close()
+      } catch (closeError) {
+        console.warn('清理时录音器关闭失败:', closeError.message)
+      }
+      recorder.value = null
+    }
+    
+    throw error
   }
 }
 
@@ -425,7 +368,12 @@ const handleTimeUp = async () => {
   if (isRecording.value && !isProcessingAction.value) {
     // 如果正在录音，自动停止并上传
     spaceKeyPressed.value = false  // 重置空格键状态
-    await stopAndUploadCurrentRow()
+    try {
+      await stopRecording()
+      await stopAndUploadCurrentRow()
+    } catch (error) {
+      console.error('超时停止录音失败:', error)
+    }
   }
   
   // 完成当前轮次
@@ -461,48 +409,42 @@ const stopAndUploadCurrentRow = async () => {
   isProcessingAction.value = true
   
   try {
-    stopRecording()
+    // 检查是否有音频数据
+    if (!currentAudioBlob.value) {
+      console.warn('没有音频数据可上传')
+      return
+    }
     
-    // 等待录音停止并获取音频数据
-    return new Promise(async (resolve) => {
-      const checkAudio = async () => {
-        if (currentAudioBlob.value) {
-          try {
-            // 立即上传音频文件到后端
-            await uploadAudioFile(currentAudioBlob.value, currentRound.value, currentRowIndex.value)
-            
-            // 保存到本地记录（用于统计）
-            const roundKey = `round${currentRound.value}`
-            testResults.value[roundKey].audioFiles.push({
-              rowIndex: currentRowIndex.value,
-              audioBlob: currentAudioBlob.value,
-              timestamp: Date.now(),
-              uploaded: true
-            })
-            
-            console.log(`第${currentRound.value}轮第${currentRowIndex.value + 1}行录音上传成功`)
-            
-            // 自动进入下一行（如果不是最后一行）
-            if (currentRowIndex.value < characterRows.value.length - 1) {
-              currentRowIndex.value++
-            } else {
-              // 如果是最后一行，完成测试
-              await finishRound()
-            }
-            
-            currentAudioBlob.value = null
-            resolve()
-          } catch (error) {
-            console.error('上传音频失败:', error)
-            ElMessage.error(`第${currentRowIndex.value + 1}行音频上传失败`)
-            resolve() // 继续执行，不阻塞流程
-          }
-        } else {
-          setTimeout(checkAudio, 100)
-        }
+    try {
+      // 立即上传音频文件到后端
+      await uploadAudioFile(currentAudioBlob.value, currentRound.value, currentRowIndex.value)
+      
+      // 保存到本地记录（用于统计）
+      const roundKey = `round${currentRound.value}`
+      testResults.value[roundKey].audioFiles.push({
+        rowIndex: currentRowIndex.value,
+        audioBlob: currentAudioBlob.value,
+        timestamp: Date.now(),
+        uploaded: true
+      })
+      
+      console.log(`✅ 第${currentRound.value}轮第${currentRowIndex.value + 1}行录音上传成功`)
+      
+      // 自动进入下一行（如果不是最后一行）
+      if (currentRowIndex.value < characterRows.value.length - 1) {
+        currentRowIndex.value++
+      } else {
+        // 如果是最后一行，完成测试
+        await finishRound()
       }
-      checkAudio()
-    })
+      
+      currentAudioBlob.value = null
+      
+    } catch (error) {
+      console.error('❌ 上传音频失败:', error)
+      ElMessage.error(`第${currentRowIndex.value + 1}行音频上传失败`)
+    }
+    
   } finally {
     // 延迟重置状态，防止快速重复操作
     setTimeout(() => {
@@ -514,14 +456,20 @@ const stopAndUploadCurrentRow = async () => {
 // 保持原有函数用于其他地方调用
 const saveCurrentRowAudio = stopAndUploadCurrentRow
 
-// 上传单个音频文件
+// 上传单个音频文件 - 强制使用MP3格式
 const uploadAudioFile = async (audioBlob, roundNumber, rowIndex) => {
   if (!testId.value) {
     throw new Error('测试ID不存在')
   }
   
-  // 固定使用mp3后缀，文件更小更适合传输
+  // 强制使用MP3格式（后端仅支持mp3/wav/pcm，我们选择mp3以获得最佳压缩比）
   const fileExtension = 'mp3'
+  const mimeType = audioBlob.type || 'audio/mp3'
+  
+  console.log(`📤 上传音频文件: 第${roundNumber}轮第${rowIndex + 1}行`)
+  console.log(`   文件大小: ${audioBlob.size} bytes`)
+  console.log(`   MIME类型: ${mimeType}`)
+  console.log(`   扩展名: ${fileExtension}`)
   
   const formData = new FormData()
   formData.append('round_number', roundNumber.toString())
@@ -539,7 +487,7 @@ const uploadAudioFile = async (audioBlob, roundNumber, rowIndex) => {
   }
   
   const result = await response.json()
-  console.log(`第${roundNumber}轮第${rowIndex + 1}行音频上传成功:`, result)
+  console.log(`✅ 第${roundNumber}轮第${rowIndex + 1}行音频上传成功:`, result)
   return result
 }
 
@@ -558,7 +506,12 @@ const finishRound = async () => {
 const finishTest = async () => {
   // 如果还在录音，先停止并上传
   if (isRecording.value && !isProcessingAction.value) {
-    await stopAndUploadCurrentRow()
+    try {
+      await stopRecording()
+      await stopAndUploadCurrentRow()
+    } catch (error) {
+      console.error('完成测试时停止录音失败:', error)
+    }
   }
   
   await finishRound()
@@ -690,9 +643,6 @@ const showTestResults = async () => {
 // 键盘事件监听 - 按住空格录音，松手上传
 const handleKeyDown = async (event) => {
   if (testPhase.value === 'testing' && event.code === 'Space' && !event.repeat) {
-    event.preventDefault()
-    event.stopPropagation()  // 阻止事件冒泡
-    
     // 防止重复按键和正在处理中的操作
     if (spaceKeyPressed.value || isProcessingAction.value) {
       return
@@ -702,17 +652,20 @@ const handleKeyDown = async (event) => {
     
     if (!isRecording.value && currentRowIndex.value < characterRows.value.length) {
       // 开始录音
-      startRecording()
-      console.log(`开始录音第${currentRound.value}轮第${currentRowIndex.value + 1}行`)
+      try {
+        await startRecording()
+        console.log(`🎙️ 开始录音第${currentRound.value}轮第${currentRowIndex.value + 1}行`)
+      } catch (error) {
+        console.error('开始录音失败:', error)
+        ElMessage.error('开始录音失败')
+        spaceKeyPressed.value = false
+      }
     }
   }
 }
 
 const handleKeyUp = async (event) => {
   if (testPhase.value === 'testing' && event.code === 'Space') {
-    event.preventDefault()
-    event.stopPropagation()  // 阻止事件冒泡
-    
     // 只有当空格键确实被按下时才处理松开事件
     if (!spaceKeyPressed.value) {
       return
@@ -722,28 +675,34 @@ const handleKeyUp = async (event) => {
     
     if (isRecording.value && !isProcessingAction.value) {
       // 停止录音并上传
-      await stopAndUploadCurrentRow()
+      try {
+        await stopRecording()
+        await stopAndUploadCurrentRow()
+      } catch (error) {
+        console.error('停止录音失败:', error)
+        ElMessage.error('停止录音失败')
+      }
     }
   }
 }
 
-// 全局空格键拦截函数
+// 全局空格键拦截函数 - 只阻止默认行为，不阻止事件传播
 const globalSpaceHandler = (event) => {
   if (testPhase.value === 'testing' && event.code === 'Space') {
-    // 在测试阶段完全阻止空格键的默认行为
+    // 只阻止空格键的默认行为（防止页面滚动），但允许事件继续传播到我们的处理函数
     event.preventDefault()
-    event.stopPropagation()
-    return false
+    // 不调用 stopPropagation()，让事件能正常传递给 handleKeyDown 和 handleKeyUp
   }
 }
 
 // 生命周期
 onMounted(() => {
+  // 添加全局空格键拦截，仅阻止默认行为（防止页面滚动）
+  document.addEventListener('keydown', globalSpaceHandler, true)  // 使用捕获阶段
+  
+  // 添加我们的键盘事件处理器
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('keyup', handleKeyUp)
-  
-  // 添加全局空格键拦截，优先级更高
-  document.addEventListener('keydown', globalSpaceHandler, true)  // 使用捕获阶段
   
   // 检查用户信息，如果没有则创建默认用户信息
   checkAndInitUserInfo()
@@ -776,8 +735,14 @@ onUnmounted(() => {
   spaceKeyPressed.value = false
   isProcessingAction.value = false
   
-  if (mediaRecorder.value && mediaRecorder.value.stream) {
-    mediaRecorder.value.stream.getTracks().forEach(track => track.stop())
+  // 清理录音器
+  if (recorder.value) {
+    try {
+      recorder.value.close()
+      recorder.value = null
+    } catch (error) {
+      console.log('录音器清理完成')
+    }
   }
 })
 </script>

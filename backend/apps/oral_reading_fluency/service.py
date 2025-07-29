@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
@@ -100,6 +101,33 @@ def save_audio_file(audio_data: bytes, filename: str) -> str:
     with open(file_path, 'wb') as f:
         f.write(audio_data)
     
+    return str(file_path)
+
+
+def save_evaluation_result_file(xml_result: str, detailed_analysis: dict, audio_record_id: int) -> str:
+    """保存评测结果XML文件并返回路径"""
+    # 创建results目录
+    results_dir = UPLOAD_DIR / "evaluation_results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 生成唯一的文件名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"evaluation_result_{audio_record_id}_{timestamp}_{uuid.uuid4().hex[:8]}.json"
+    file_path = results_dir / filename
+    
+    # 准备完整的结果数据
+    result_data = {
+        "audio_record_id": audio_record_id,
+        "timestamp": datetime.now().isoformat(),
+        "xml_result": xml_result,
+        "detailed_analysis": detailed_analysis
+    }
+    
+    # 保存为JSON文件
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(result_data, f, ensure_ascii=False, indent=2)
+    
+    logger.info(f"评测结果已保存到文件: {file_path}")
     return str(file_path)
 
 
@@ -209,27 +237,26 @@ async def evaluate_audio_record(session: Session, audio_record_id: int) -> bool:
                 result.xml_result, max_chars_in_row
             )
             
-            # 保存详细结果（包含解析后的分析）
+            # 保存详细结果到文件
             detailed_analysis = analyze_reading_evaluation(result.xml_result)
-            evaluation_result_data = {
-                "xml_result": result.xml_result,
-                "analysis_time": result.analysis_time.isoformat(),
-                "message": result.message,
-                "detailed_analysis": detailed_analysis
-            }
-            audio_record.evaluation_result = json.dumps(evaluation_result_data, ensure_ascii=False)
+            result_file_path = save_evaluation_result_file(
+                result.xml_result, detailed_analysis, audio_record_id
+            )
+            audio_record.evaluation_result_path = result_file_path
             
             logger.info(f"音频评测成功: {audio_record_id}, 总分: {result.total_score}")
         else:
             audio_record.evaluation_status = "failed"
-            # 截断错误消息以防数据库字段长度限制
-            error_message = result.message[:500] if len(result.message) > 500 else result.message
+            # 保存错误信息到文件
             error_data = {
-                "error": error_message,
+                "error": result.message,
                 "analysis_time": result.analysis_time.isoformat()
             }
-            audio_record.evaluation_result = json.dumps(error_data, ensure_ascii=False)
-            logger.error(f"音频评测失败: {audio_record_id}, 错误: {error_message}")
+            error_file_path = save_evaluation_result_file(
+                "", error_data, audio_record_id
+            )
+            audio_record.evaluation_result_path = error_file_path
+            logger.error(f"音频评测失败: {audio_record_id}, 错误: {result.message}")
         
         session.add(audio_record)
         session.commit()
@@ -248,10 +275,15 @@ async def evaluate_audio_record(session: Session, audio_record_id: int) -> bool:
             audio_record = session.get(OralReadingAudioRecord, audio_record_id)
             if audio_record:
                 audio_record.evaluation_status = "failed"
-                # 截断错误消息
-                error_message = str(e)[:500] if len(str(e)) > 500 else str(e)
-                error_data = {"error": error_message, "timestamp": datetime.now().isoformat()}
-                audio_record.evaluation_result = json.dumps(error_data, ensure_ascii=False)
+                # 保存异常信息到文件
+                error_data = {"error": str(e), "timestamp": datetime.now().isoformat()}
+                try:
+                    error_file_path = save_evaluation_result_file("", error_data, audio_record_id)
+                    audio_record.evaluation_result_path = error_file_path
+                except Exception as file_error:
+                    logger.error(f"保存异常信息文件失败: {file_error}")
+                    # 如果文件保存失败，至少记录一个错误标识
+                    audio_record.evaluation_result_path = f"error_{audio_record_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 session.add(audio_record)
                 session.commit()
         except Exception as db_error:

@@ -188,7 +188,7 @@ async def upload_single_audio(
         # 读取音频数据
         audio_data = await audio_file.read()
         
-        # 固定使用mp3后缀，文件更小更适合传输
+        # 强制使用MP3扩展名（后端仅支持mp3/wav/pcm，前端已转换为MP3）
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"test_{test_id}_round{round_number}_row{row_index}_{timestamp}.mp3"
         

@@ -1,4 +1,5 @@
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import Text
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from enum import Enum
@@ -85,7 +86,7 @@ class OralReadingAudioRecord(BaseModel, table=True):
     
     # 语音评测结果
     evaluation_status: str = Field(default="pending")  # pending, processing, completed, failed
-    evaluation_result: Optional[str] = Field(default=None, max_length=10000)  # JSON字符串存储详细结果，增加长度限制
+    evaluation_result_path: Optional[str] = Field(default=None, max_length=500)  # 存储XML结果文件路径
     total_score: Optional[float] = None
     phone_score: Optional[float] = None
     tone_score: Optional[float] = None

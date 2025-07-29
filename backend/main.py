@@ -17,6 +17,7 @@ from logger_config import logger
 from apps.users.router import router as users_router
 from apps.reading_fluency.router import router as reading_fluency_router
 from apps.oral_reading_fluency.router import router as oral_reading_fluency_router
+from apps.literacy_test.router import router as literacy_test_router
 from apps.attention_test.router import router as attention_test_router
 from apps.calculation_test.router import router as calculation_router  # 新增计算流畅性测试路由
 
@@ -54,6 +55,7 @@ app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attenti
 app.include_router(
     calculation_router, prefix=f"{settings.API_PREFIX}/calculation"
 )  # 新增计算流畅性测试路由
+app.include_router(literacy_test_router, prefix=f"{settings.API_PREFIX}/literacy")  # 新增识字量测验路由
 
 # 未来可以注册其他测试系统的路由
 

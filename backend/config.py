@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # 文件路径设置
     DATA_DIR: str = "data"
+    UPLOAD_DIR: str = "uploads"
     
     # 科大讯飞语音评测API设置
     XFYUN_HOST_URL: str = "ws://ise-api.xfyun.cn/v2/open-ise"
@@ -51,6 +52,11 @@ class Settings(BaseSettings):
 
 # 创建设置实例
 settings = Settings()
+
+# 上传目录配置
+from pathlib import Path
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 # 确保数据目录存在
 os.makedirs(settings.DATA_DIR, exist_ok=True)
