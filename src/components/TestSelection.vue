@@ -2,7 +2,7 @@
   <div class="test-selection-page">
     <TopNavBar />
     <div class="test-selection-container">
-      <el-card class="selection-card">
+    <el-card class="selection-card">
       <template #header>
         <div class="card-header">
           <h1>中小学生学习困难筛查线上平台</h1>
@@ -37,7 +37,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Document, View, EditPen } from '@element-plus/icons-vue';
+import { Document, View, EditPen, Microphone, ChatLineRound } from '@element-plus/icons-vue';
 import TopNavBar from './TopNavBar.vue';
 
 const router = useRouter();
@@ -45,11 +45,18 @@ const router = useRouter();
 // 可用测试列表
 const availableTests = ref([
   {
-    id: 'reading-fluency',
+    id: 'reading-comprehension',
     name: '阅读流畅性测试',
     description: '测量阅读句子并判断真假的能力，考察您的阅读速度和理解能力',
     icon: 'Document',
     route: '/experiment'
+  },
+  {
+    id: 'reading-fluency',
+    name: '朗读流畅性测试',
+    description: '测量朗读汉字的流畅度，评估您的口语表达能力和字音准确性',
+    icon: 'Microphone',
+    route: '/oral-reading-fluency-test'
   },
   {
     id: 'attention-test',
@@ -64,6 +71,13 @@ const availableTests = ref([
     description: '测量快速计算数学题的能力，评估您的心算能力和数学流畅度',
     icon: 'EditPen',
     route: '/calculation-experiment'
+  },
+  {
+    id: 'literacy-test',
+    name: '识字量测验',
+    description: '测量汉字识别和朗读能力，评估您的识字水平和发音准确性',
+    icon: 'ChatLineRound',
+    route: '/literacy-test'
   }
 ]);
 
@@ -81,6 +95,7 @@ onMounted(() => {
 const selectTest = (test) => {
   router.push(test.route);
 };
+
 </script>
 
 <style scoped>
@@ -115,14 +130,14 @@ const selectTest = (test) => {
 
 .test-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 30px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .test-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
@@ -167,4 +182,5 @@ const selectTest = (test) => {
   overflow: hidden;
   margin: 0;
 }
+
 </style>

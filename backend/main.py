@@ -10,12 +10,14 @@ import time
 from datetime import datetime
 
 from config import settings
-from database import get_session, create_db_and_tables
+from database import get_session, create_db_and_tables, recreate_db_and_tables, init_dev_data
 from logger_config import logger
 
 # 导入各个应用的路由
 from apps.users.router import router as users_router
 from apps.reading_fluency.router import router as reading_fluency_router
+from apps.oral_reading_fluency.router import router as oral_reading_fluency_router
+from apps.literacy_test.router import router as literacy_test_router
 from apps.attention_test.router import router as attention_test_router
 from apps.calculation_test.router import router as calculation_router  # 新增计算流畅性测试路由
 
@@ -48,10 +50,12 @@ app.include_router(users_router, prefix=f"{settings.API_PREFIX}/users")
 
 # 测试系统路由
 app.include_router(reading_fluency_router, prefix=f"{settings.API_PREFIX}/reading-fluency")
+app.include_router(oral_reading_fluency_router, prefix=f"{settings.API_PREFIX}/oral-reading-fluency")
 app.include_router(attention_test_router, prefix=f"{settings.API_PREFIX}/attention-test")
 app.include_router(
     calculation_router, prefix=f"{settings.API_PREFIX}/calculation"
 )  # 新增计算流畅性测试路由
+app.include_router(literacy_test_router, prefix=f"{settings.API_PREFIX}/literacy")  # 新增识字量测验路由
 
 # 未来可以注册其他测试系统的路由
 
@@ -74,9 +78,19 @@ async def serve_spa(request: Request):
 @app.on_event("startup")
 def on_startup():
     """应用启动时执行"""
-    # 创建数据库表
-    create_db_and_tables()
-    logger.info("数据库表创建完成")
+    # 开发模式下重建数据库表
+    if settings.DEBUG:
+        logger.info("开发模式：重建数据库表")
+        recreate_db_and_tables()
+        logger.info("数据库表重建完成")
+        
+        # 初始化开发数据
+        init_dev_data()
+        logger.info("开发数据初始化完成")
+    else:
+        # 生产模式下只创建不存在的表
+        create_db_and_tables()
+        logger.info("数据库表创建完成")
     logger.info(f"应用启动成功，访问地址: http://localhost:{settings.PORT}")
 
 

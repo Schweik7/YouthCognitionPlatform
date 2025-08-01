@@ -6,11 +6,16 @@ import 'element-plus/dist/index.css';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 // 导入jsPsych的CSS
 import 'jspsych/css/jspsych.css';
+// 导入数字格式化样式
+import './styles/numberFormat.css';
 import App from './App.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import ReadingExperiment from './components/ReadingExperiment.vue';
 import AttentionExperiment from './components/AttentionExperiment.vue';
 import CalculationExperiment from './components/CalculationExperiment.vue';
+import ReadingFluencyTest from './components/reading/ReadingFluencyTest.vue';
+import OralReadingFluencyTest from './components/oral-reading/OralReadingFluencyTest.vue';
+import LiteracyTest from './components/literacy/LiteracyTest.vue';
 import UserInfo from './components/UserInfo.vue';
 import TestSelection from './components/TestSelection.vue';
 
@@ -22,7 +27,10 @@ const router = createRouter({
     { path: '/selection', component: TestSelection },
     { path: '/experiment', component: ReadingExperiment },
     { path: '/attention-experiment', component: AttentionExperiment },
-    { path: '/calculation-experiment', component: CalculationExperiment }
+    { path: '/calculation-experiment', component: CalculationExperiment },
+    { path: '/reading-fluency-test', component: ReadingFluencyTest },
+    { path: '/oral-reading-fluency-test', component: OralReadingFluencyTest },
+    { path: '/literacy-test', component: LiteracyTest }
   ]
 });
 

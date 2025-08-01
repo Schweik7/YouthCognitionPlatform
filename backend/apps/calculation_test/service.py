@@ -3,6 +3,8 @@ from datetime import datetime
 from sqlmodel import Session, select
 import statistics
 import re
+import json
+import os
 from fractions import Fraction
 
 from logger_config import logger
@@ -51,6 +53,16 @@ def parse_answer(answer_str: str) -> float:
     if not answer_str or answer_str == "0":
         return 0.0
     
+    # 处理循环小数格式，如 "8.1[3]" 或 "0.8[54]"
+    if '[' in answer_str and ']' in answer_str:
+        # 暂时移除循环节，只取非循环部分进行数值比较
+        # 这里简化处理，实际应用中可能需要更精确的循环小数转换
+        base_part = answer_str.split('[')[0]
+        try:
+            return float(base_part)
+        except ValueError:
+            return 0.0
+    
     # 处理带分数格式 a+b/c
     if '+' in answer_str and '/' in answer_str:
         parts = answer_str.split('+')
@@ -79,8 +91,16 @@ def compare_answers(user_answer_str: str, correct_answer_str: str) -> bool:
         return False
     
     try:
-        user_value = parse_answer(str(user_answer_str))
-        correct_value = parse_answer(str(correct_answer_str))
+        # 首先尝试字符串直接比较（适用于循环小数格式）
+        user_str = str(user_answer_str).strip()
+        correct_str = str(correct_answer_str).strip()
+        
+        if user_str == correct_str:
+            return True
+        
+        # 如果字符串不匹配，尝试数值比较
+        user_value = parse_answer(user_str)
+        correct_value = parse_answer(correct_str)
         
         # 允许小的数值误差
         return abs(user_value - correct_value) < 0.01
@@ -702,3 +722,38 @@ def get_grade_performance_analysis(session: Session, user_id: int, grade_level: 
     }
     
     return analysis
+
+
+def get_fixed_problems_for_grade(grade_level: int) -> List[Dict[str, Any]]:
+    """获取指定年级的固定题目"""
+    try:
+        # 构建文件路径
+        if grade_level >= 7:
+            filename = f"grade-7+-answers.json"
+        else:
+            filename = f"grade-{grade_level}-answers.json"
+        
+        # 获取文件绝对路径（相对于项目根目录）
+        # 当前文件: backend/apps/calculation_test/service.py
+        # 目标路径: src/components/calculation/
+        current_file = os.path.abspath(__file__)
+        # 向上三级到 backend/ 目录
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+        # 再向上一级到项目根目录
+        project_root = os.path.dirname(backend_dir)
+        file_path = os.path.join(project_root, "src", "components", "calculation", filename)
+        
+        # 读取JSON文件
+        if not os.path.exists(file_path):
+            logger.error(f"题目文件不存在: {file_path}")
+            return []
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            problems = json.load(f)
+        
+        logger.info(f"成功加载年级 {grade_level} 的 {len(problems)} 道题目")
+        return problems
+        
+    except Exception as e:
+        logger.error(f"读取年级 {grade_level} 题目失败: {str(e)}", exc_info=True)
+        return []

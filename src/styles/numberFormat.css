@@ -1,0 +1,78 @@
+/* 数字格式化样式 */
+
+/* 分数样式 */
+.fraction {
+  display: inline-block;
+  vertical-align: middle;
+  font-family: 'Times New Roman', serif;
+}
+
+.fraction sup {
+  font-size: 0.8em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.fraction sub {
+  font-size: 0.8em;
+  vertical-align: sub;
+  line-height: 0;
+}
+
+/* 带分数样式 */
+.mixed-number {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 2px;
+  font-family: 'Times New Roman', serif;
+}
+
+.mixed-number sup {
+  font-size: 0.8em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.mixed-number sub {
+  font-size: 0.8em;
+  vertical-align: sub;
+  line-height: 0;
+}
+
+/* 循环小数样式 */
+.repeating {
+  position: relative;
+  display: inline-block;
+}
+
+.repeating::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: currentColor;
+  transform: translateY(-2px);
+}
+
+/* 确保在不同字体大小下正确显示 */
+.problem-text .fraction,
+.problem-text .mixed-number,
+.problem-text .repeating {
+  font-size: inherit;
+}
+
+.answer-display .fraction,
+.answer-display .mixed-number,
+.answer-display .repeating {
+  font-size: inherit;
+}
+
+/* 结果页面中的格式化数字 */
+.result-answer .fraction,
+.result-answer .mixed-number,
+.result-answer .repeating {
+  font-size: 1.1em;
+  font-weight: bold;
+}

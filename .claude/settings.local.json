@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(grep:*)",
+      "Bash(npm run dev:*)",
+      "Bash(rg:*)",
+      "Bash(uv run:*)",
+      "Bash(git checkout:*)",
+      "Bash(curl:*)",
+      "Bash(http_proxy=\"\" https_proxy=\"\" curl -s \"http://localhost:3000/api/health\")",
+      "Bash(env:*)",
+      "Bash(git push:*)",
+      "Bash(mysql:*)",
+      "Bash(rm:*)",
+      "Bash(node:*)",
+      "Bash(npm run build:*)",
+      "Bash(uv add:*)",
+      "Bash(cp:*)",
+      "Bash(sed:*)",
+      "Bash(pnpm install:*)",
+      "Bash(ls:*)",
+      "Bash(ffprobe:*)",
+      "mcp__context7__resolve-library-id",
+      "Bash(claude mcp add:*)",
+      "Bash(chmod:*)",
+      "Bash(/home/mengmeng/.local/bin/install-kimpanel:*)"
+    ],
+    "deny": []
+  }
+}

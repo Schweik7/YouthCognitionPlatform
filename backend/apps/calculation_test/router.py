@@ -24,6 +24,7 @@ from .service import (
     get_session_problems,
     get_test_session_results,
     get_grade_performance_analysis,
+    get_fixed_problems_for_grade,
 )
 
 # 创建路由
@@ -230,3 +231,23 @@ def generate_recommendations(results: Dict[str, Any]) -> List[str]:
         recommendations.append("表现优秀，继续保持！")
     
     return recommendations
+
+
+@router.get("/grades/{grade_level}/problems", response_model=List[Dict[str, Any]])
+async def get_grade_problems_route(grade_level: int):
+    """获取指定年级的固定题目"""
+    try:
+        problems = get_fixed_problems_for_grade(grade_level)
+        if not problems:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail=f"未找到年级 {grade_level} 的题目"
+            )
+        return problems
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取年级 {grade_level} 题目失败: {str(e)}"
+        )

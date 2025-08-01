@@ -39,7 +39,7 @@
 
     <!-- 题型分析 -->
     <TypeStats 
-      v-if="gradeLevel <= 6"
+      v-if="gradeLevel <= 6 && showTypeAnalysis"
       :grade-level="gradeLevel"
       :type-stats="typeStats"
       :format-percentage="formatPercentage"
@@ -91,6 +91,10 @@ defineProps({
   formatTime: {
     type: Function,
     required: true
+  },
+  showTypeAnalysis: {
+    type: Boolean,
+    default: true
   }
 })
 

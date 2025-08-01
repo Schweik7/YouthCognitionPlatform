@@ -43,7 +43,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { House, Document, User, SwitchButton, ArrowDown, Avatar, Female, Male, UserFilled, Promotion, Star } from '@element-plus/icons-vue';
+import { House, Document, User, SwitchButton, ArrowDown, Avatar, Female, Male, UserFilled, Star } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const userInfo = ref({

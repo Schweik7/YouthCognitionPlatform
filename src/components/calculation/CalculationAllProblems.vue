@@ -40,7 +40,7 @@
           <!-- 答案区域 -->
           <div class="answer-area">
             <!-- 五年级小数题目的特殊答案框 -->
-            <div v-if="gradeLevel === 5" class="answer-box-decimal">
+            <div v-if="gradeLevel === 5 && decimalAnswers[index]" class="answer-box-decimal">
               <div class="decimal-input-container">
                 <!-- 整数部分 -->
                 <input 
@@ -60,10 +60,14 @@
                   <!-- 小数位数字 -->
                   <div class="decimal-digits">
                     <span 
-                      v-for="(digit, digitIndex) in decimalAnswers[index].decimals" 
+                      v-for="(digit, digitIndex) in (decimalAnswers[index]?.decimals || [])" 
                       :key="digitIndex"
                       class="decimal-digit"
-                      :class="{ 'has-dot': digit.hasDot }"
+                      :class="{ 
+                        'has-dot': digit.hasDot,
+                        'in-repeat': isInRepeatRange(index, digitIndex),
+                        'repeat-boundary': digit.hasDot
+                      }"
                       @click="toggleDot(index, digitIndex)"
                     >
                       <input 
@@ -96,7 +100,7 @@
             </div>
 
             <!-- 分数题目的答案框 (整数 + 分数) -->
-            <div v-else class="answer-box-fraction">
+            <div v-else-if="fractionAnswers[index]" class="answer-box-fraction">
               <!-- 整数部分 -->
               <div class="whole-number-box">
                 <input 
@@ -202,7 +206,7 @@ const props = defineProps({
 const emit = defineEmits(['submit-all-answers'])
 
 // 答案数组
-const answers = ref(new Array(props.problems.length).fill(null))
+const answers = ref([])
 
 // 分数答案对象（用于4-6年级的分数题）
 const fractionAnswers = reactive({})
@@ -211,14 +215,16 @@ const fractionAnswers = reactive({})
 const decimalAnswers = reactive({})
 
 // 反应时间记录
-const responseTimes = ref(new Array(props.problems.length).fill(0))
-const problemStartTimes = ref(new Array(props.problems.length).fill(0))
+const responseTimes = ref([])
+const problemStartTimes = ref([])
 
 // 处理状态
 const isProcessing = ref(false)
 
 // 初始化分数答案
 const initializeFractionAnswers = () => {
+  if (!props.problems || props.problems.length === 0) return
+  
   props.problems.forEach((problem, index) => {
     if (problem.hasFraction) {
       fractionAnswers[index] = {
@@ -232,19 +238,21 @@ const initializeFractionAnswers = () => {
 
 // 初始化五年级小数答案
 const initializeDecimalAnswers = () => {
-  if (props.gradeLevel === 5) {
-    props.problems.forEach((problem, index) => {
-      decimalAnswers[index] = {
-        integer: '',
-        decimals: [
-          { value: '', hasDot: false },
-          { value: '', hasDot: false },
-          { value: '', hasDot: false },
-          { value: '', hasDot: false }
-        ]
-      }
-    })
-  }
+  if (props.gradeLevel !== 5 || !props.problems || props.problems.length === 0) return
+  
+  props.problems.forEach((problem, index) => {
+    decimalAnswers[index] = {
+      integer: '',
+      decimals: [
+        { value: '', hasDot: false },
+        { value: '', hasDot: false },
+        { value: '', hasDot: false },
+        { value: '', hasDot: false }
+      ],
+      repeatStart: -1,  // 循环开始位置
+      repeatEnd: -1     // 循环结束位置
+    }
+  })
 }
 
 // 完成数量
@@ -252,21 +260,26 @@ const completedCount = computed(() => {
   if (props.gradeLevel === 5) {
     // 五年级计算已填写的小数答案
     return Object.values(decimalAnswers).filter(decimal => {
-      return decimal.integer !== '' || decimal.decimals.some(d => d.value !== '')
+      return decimal && (
+        (decimal.integer !== '' && decimal.integer !== '0') || 
+        decimal.decimals?.some(d => d.value !== '')
+      )
     }).length
   } else {
     // 其他年级使用原有逻辑
-    return answers.value.filter(answer => answer !== null && answer !== undefined).length
+    return answers.value?.filter(answer => answer !== null && answer !== undefined && answer !== '').length || 0
   }
 })
 
 // 处理普通答案变化
 const handleAnswerChange = (index, event) => {
+  if (!answers.value || index >= answers.value.length) return
+  
   const value = event.target.value
   answers.value[index] = value === '' ? null : parseFloat(value)
   
   // 记录开始时间（如果还没有记录）
-  if (problemStartTimes.value[index] === 0) {
+  if (problemStartTimes.value && problemStartTimes.value[index] === 0) {
     problemStartTimes.value[index] = Date.now()
   }
 }
@@ -307,18 +320,66 @@ const handleDecimalChange = (index) => {
     // 构建小数答案字符串
     let answerString = decimal.integer || '0'
     
-    // 添加小数部分
-    const decimalPart = decimal.decimals.map(d => d.value).join('').replace(/0+$/, '')
-    if (decimalPart) {
-      answerString += '.' + decimalPart
+    // 获取所有有值的小数位
+    const hasDecimalInput = decimal.decimals.some(d => d.value !== '')
+    
+    if (hasDecimalInput) {
+      answerString += '.'
+      
+      // 如果有循环节标记
+      if (decimal.repeatStart !== -1 && decimal.repeatEnd !== -1) {
+        let currentPos = 0
+        
+        // 非循环部分（循环开始前的部分）
+        while (currentPos < decimal.repeatStart) {
+          if (decimal.decimals[currentPos] && decimal.decimals[currentPos].value) {
+            answerString += decimal.decimals[currentPos].value
+          }
+          currentPos++
+        }
+        
+        // 循环部分
+        const repeatPart = []
+        for (let i = decimal.repeatStart; i <= decimal.repeatEnd; i++) {
+          if (decimal.decimals[i] && decimal.decimals[i].value) {
+            repeatPart.push(decimal.decimals[i].value)
+          }
+        }
+        
+        if (repeatPart.length > 0) {
+          answerString += '[' + repeatPart.join('') + ']'
+        }
+        
+        // 循环后的部分
+        for (let i = decimal.repeatEnd + 1; i < decimal.decimals.length; i++) {
+          if (decimal.decimals[i] && decimal.decimals[i].value) {
+            answerString += decimal.decimals[i].value
+          }
+        }
+      } else {
+        // 没有循环节，按顺序添加所有有值的小数位
+        for (let i = 0; i < decimal.decimals.length; i++) {
+          if (decimal.decimals[i] && decimal.decimals[i].value) {
+            answerString += decimal.decimals[i].value
+          }
+        }
+      }
     }
     
-    // 转换为数字
-    const numericAnswer = parseFloat(answerString) || 0
-    answers.value[index] = numericAnswer
+    // 调试输出
+    console.log(`题目 ${index + 1} 答案格式化:`, {
+      integer: decimal.integer,
+      decimals: decimal.decimals.map(d => d.value),
+      repeatStart: decimal.repeatStart,
+      repeatEnd: decimal.repeatEnd,
+      result: answerString
+    })
+    
+    // 保存格式化后的字符串答案（用于提交）
+    answers.value[index] = answerString
     
     // 记录开始时间（如果还没有记录）
-    if (problemStartTimes.value[index] === 0) {
+    if (problemStartTimes.value && problemStartTimes.value[index] === 0) {
       problemStartTimes.value[index] = Date.now()
     }
   }
@@ -374,7 +435,66 @@ const handleDigitKeydown = (index, digitIndex, event) => {
 
 // 切换循环节点
 const toggleDot = (index, digitIndex) => {
-  decimalAnswers[index].decimals[digitIndex].hasDot = !decimalAnswers[index].decimals[digitIndex].hasDot
+  const answer = decimalAnswers[index]
+  const currentHasDot = answer.decimals[digitIndex].hasDot
+  
+  if (currentHasDot) {
+    // 取消当前位的循环标记
+    answer.decimals[digitIndex].hasDot = false
+    
+    // 重新计算循环范围
+    updateRepeatRange(index)
+  } else {
+    // 计算当前有多少个循环点
+    const dotCount = answer.decimals.filter(d => d.hasDot).length
+    
+    if (dotCount >= 2) {
+      // 已经有2个循环点，不能再添加
+      return
+    }
+    
+    // 添加循环标记
+    answer.decimals[digitIndex].hasDot = true
+    
+    // 更新循环范围
+    updateRepeatRange(index)
+  }
+  
+  // 重新格式化答案
+  handleDecimalChange(index)
+}
+
+// 更新循环范围
+const updateRepeatRange = (index) => {
+  const answer = decimalAnswers[index]
+  const dotPositions = []
+  
+  answer.decimals.forEach((digit, idx) => {
+    if (digit.hasDot) {
+      dotPositions.push(idx)
+    }
+  })
+  
+  if (dotPositions.length === 2) {
+    answer.repeatStart = Math.min(...dotPositions)
+    answer.repeatEnd = Math.max(...dotPositions)
+  } else if (dotPositions.length === 1) {
+    answer.repeatStart = dotPositions[0]
+    answer.repeatEnd = dotPositions[0]
+  } else {
+    answer.repeatStart = -1
+    answer.repeatEnd = -1
+  }
+}
+
+// 判断是否在循环范围内
+const isInRepeatRange = (index, digitIndex) => {
+  if (!decimalAnswers[index]) return false
+  const answer = decimalAnswers[index]
+  
+  if (answer.repeatStart === -1 || answer.repeatEnd === -1) return false
+  
+  return digitIndex >= answer.repeatStart && digitIndex <= answer.repeatEnd
 }
 
 // 格式化分数答案为字符串格式
@@ -399,7 +519,7 @@ const formatFractionAnswer = (fraction) => {
   } else if (numerator === 0) {
     return `${whole}`
   } else {
-    return `${whole}+${numerator}/${denominator}`
+    return `${whole}又${numerator}/${denominator}`
   }
 }
 
@@ -413,6 +533,9 @@ const calculateResponseTime = (index) => {
 
 // 格式化题目文本，将分数显示为更美观的形式
 const formatProblemText = (text, index) => {
+  // 检测是否包含分数
+  const hasFraction = /\d+\/\d+/.test(text)
+  
   // 处理分数形式，支持 "a/b" 格式
   let formattedText = text.replace(/(\d+)\/(\d+)/g, (match, numerator, denominator) => {
     return `<span class="fraction-display">
@@ -422,18 +545,32 @@ const formatProblemText = (text, index) => {
     </span>`
   })
   
-  // 替换减号为更长的减号符号，并包装在span中
-  formattedText = formattedText.replace(/\s-\s/g, '<span class="math-symbol">−</span>')
+  // 如果包含分数，在数字与运算符之间添加空格
+  if (hasFraction) {
+    // 在数字后面的运算符前添加空格（如果没有空格的话）
+    formattedText = formattedText.replace(/(\d+)([+\-×÷])/g, '$1 $2')
+    // 在运算符后面的数字前添加空格（如果没有空格的话）
+    formattedText = formattedText.replace(/([+\-×÷])(\d+)/g, '$1 $2')
+    // 在括号和运算符之间添加空格
+    formattedText = formattedText.replace(/(\))([+\-×÷])/g, '$1 $2')
+    formattedText = formattedText.replace(/([+\-×÷])(\()/g, '$1 $2')
+    // 在括号内部添加空格：左括号后面和右括号前面
+    formattedText = formattedText.replace(/(\()(\d+)/g, '$1 $2')
+    formattedText = formattedText.replace(/(\d+)(\))/g, '$1 $2')
+  }
   
-  // 替换乘号为更清晰的符号
-  formattedText = formattedText.replace(/\s×\s/g, '<span class="math-symbol">×</span>')
-  formattedText = formattedText.replace(/\s\*\s/g, '<span class="math-symbol">×</span>')
+  // 替换减号为更长的减号符号（不使用 math-symbol 类）
+  formattedText = formattedText.replace(/\s-\s/g, ' − ')
   
-  // 替换加号
-  formattedText = formattedText.replace(/\s\+\s/g, '<span class="math-symbol">+</span>')
+  // 替换乘号为更清晰的符号（不使用 math-symbol 类）
+  formattedText = formattedText.replace(/\s×\s/g, ' × ')
+  formattedText = formattedText.replace(/\s\*\s/g, ' × ')
   
   // 清理多余的空格
   formattedText = formattedText.replace(/\s+/g, ' ')
+  
+  // 最后处理：删除带"又"字的混合分数中的"又"字
+  formattedText = formattedText.replace(/(\d+)又/g, '$1')
   
   // 移除等号，因为我们会在CSS中添加
   return formattedText.replace(/\s*=\s*$/, '')
@@ -477,13 +614,20 @@ initializeFractionAnswers()
 initializeDecimalAnswers()
 
 // 监听题目变化，重新初始化
-watch(() => props.problems, () => {
-  answers.value = new Array(props.problems.length).fill(null)
-  responseTimes.value = new Array(props.problems.length).fill(0)
-  problemStartTimes.value = new Array(props.problems.length).fill(0)
+watch(() => props.problems, (newProblems) => {
+  if (!newProblems || newProblems.length === 0) return
+  
+  answers.value = new Array(newProblems.length).fill(null)
+  responseTimes.value = new Array(newProblems.length).fill(0)
+  problemStartTimes.value = new Array(newProblems.length).fill(0)
+  
+  // 清空之前的答案对象
+  Object.keys(fractionAnswers).forEach(key => delete fractionAnswers[key])
+  Object.keys(decimalAnswers).forEach(key => delete decimalAnswers[key])
+  
   initializeFractionAnswers()
   initializeDecimalAnswers()
-}, { deep: true })
+}, { deep: true, immediate: true })
 </script>
 
 <style scoped>
@@ -789,6 +933,49 @@ watch(() => props.problems, () => {
 .decimal-digit.has-dot .digit-input {
   border-color: #409EFF;
   background-color: #f0f9ff;
+}
+
+/* 循环节范围内的数字样式 */
+.decimal-digit.in-repeat .digit-input {
+  background-color: #fff7e6;
+  border-color: #f56c6c;
+  color: #f56c6c;
+  font-weight: bold;
+}
+
+.decimal-digit.in-repeat .digit-input:focus {
+  border-color: #f56c6c;
+  box-shadow: 0 0 0 1px rgba(245, 108, 108, 0.3);
+}
+
+/* 循环节边界点样式 */
+.decimal-digit.repeat-boundary .repeating-dot {
+  background-color: #f56c6c;
+  width: 6px;
+  height: 6px;
+  top: -10px;
+  animation: pulse-red 1.5s infinite;
+}
+
+.decimal-digit.repeat-boundary .digit-input {
+  border-color: #f56c6c;
+  border-width: 2px;
+  background-color: #fff0f0;
+}
+
+@keyframes pulse-red {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes pulse {

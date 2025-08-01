@@ -83,6 +83,12 @@ def on_close(ws, reason, res):
 
 
 def on_open(ws):
+    '''参数上传阶段，详见业务参数说明（business）：
+    参数第一次上传，data.status=0,并设置cmd="ssb"；
+    音频上传阶段，此阶段开始上传音频数据：
+    第一帧音频需要设置cmd="auw"，aus=1，data.status=1；
+    中间帧音频需要设置cmd="auw"，aus=2，data.status=1；
+    最后一帧音频需要设置cmd="auw"，aus=4，并设置data.status=2；'''
     print(f"WebSocket connection opened,{ws},ws连接建立成功...")
     # 这里可以发送初始消息给服务器，如果需要的话
     send_dict = {

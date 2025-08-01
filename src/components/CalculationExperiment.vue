@@ -48,6 +48,7 @@
         :format-percentage="formatPercentage"
         :format-response-time="formatResponseTime"
         :format-time="formatTime"
+        :show-type-analysis="showTypeAnalysis"
         @go-to-selection="goToSelection"
         @restart-test="restartTest"
       />
@@ -86,20 +87,22 @@ const currentIndex = ref(0) // 当前题目索引
 const totalProblems = ref(40) // 总题目数
 const testEnded = ref(false) // 测试是否结束
 const jumpToIndex = ref(1) // 调试模式：跳转题号
+const showTypeAnalysis = ref(true) // 控制是否显示题型成绩分析
 const problemStartTime = ref(0) // 当前题目开始时间
 const testComponent = ref(null) // 测试组件引用
 
 // 根据年级设置测试时间
 const getTestDuration = (grade) => {
   const durations = {
-    1: 180, // 一年级3分钟
-    2: 240, // 二年级4分钟
-    3: 300, // 三年级5分钟
-    4: 360, // 四年级6分钟
-    5: 420, // 五年级7分钟
-    6: 480  // 六年级8分钟
+    1: 600, // 一年级10分钟
+    2: 600, // 二年级10分钟
+    3: 600, // 三年级10分钟
+    4: 600, // 四年级10分钟
+    5: 600, // 五年级10分钟
+    6: 600, // 六年级10分钟
+    7: 180  // 七年级及以上3分钟
   }
-  return durations[grade] || 300
+  return durations[grade] || 600
 }
 
 const testDuration = computed(() => getTestDuration(gradeLevel.value))
@@ -168,8 +171,14 @@ const initializeUserInfo = async () => {
   try {
     const userInfo = JSON.parse(userInfoStr)
     
-    // 设置年级（支持1-6年级）
-    gradeLevel.value = userInfo.grade > 0 && userInfo.grade <= 6 ? userInfo.grade : 1
+    // 设置年级（支持1-6年级，7年级及以上使用7年级题目）
+    if (userInfo.grade > 0 && userInfo.grade <= 6) {
+      gradeLevel.value = userInfo.grade
+    } else if (userInfo.grade >= 7) {
+      gradeLevel.value = 7  // 7年级及以上使用7年级题目
+    } else {
+      gradeLevel.value = 1  // 默认1年级
+    }
     
     // 根据年级设置题目数量
     const problemCounts = {
@@ -178,7 +187,8 @@ const initializeUserInfo = async () => {
       3: 40, // 三年级
       4: 40, // 四年级
       5: 40, // 五年级
-      6: 40  // 六年级
+      6: 40, // 六年级
+      7: 50  // 七年级及以上
     }
     totalProblems.value = problemCounts[gradeLevel.value] || 40
     
@@ -422,29 +432,39 @@ const updateTypeStats = (problemTypeStats) => {
 
 // 开始测试
 const startTest = async () => {
-  // 获取用户信息
-  await initializeUserInfo()
+  try {
+    // 获取用户信息
+    await initializeUserInfo()
 
-  // 生成题目
-  problems.value = generateProblems(gradeLevel.value)
-
-  // 创建测试会话
-  await createTestSession()
-
-  // 准备测试
-  phase.value = 'test'
-  currentIndex.value = 0
-  problemStartTime.value = Date.now()
-
-  // 启动计时器
-  startTimer(() => endTest())
-
-  // 聚焦答案输入框
-  nextTick(() => {
-    if (testComponent.value?.focusInput) {
-      testComponent.value.focusInput()
+    // 生成题目
+    const generatedProblems = await generateProblems(gradeLevel.value)
+    if (!generatedProblems || generatedProblems.length === 0) {
+      ElMessage.error('获取题目失败，请重试')
+      return
     }
-  })
+    problems.value = generatedProblems
+
+    // 创建测试会话
+    await createTestSession()
+
+    // 准备测试
+    phase.value = 'test'
+    currentIndex.value = 0
+    problemStartTime.value = Date.now()
+
+    // 启动计时器
+    startTimer(() => endTest())
+
+    // 聚焦答案输入框
+    nextTick(() => {
+      if (testComponent.value?.focusInput) {
+        testComponent.value.focusInput()
+      }
+    })
+  } catch (error) {
+    console.error('开始测试失败:', error)
+    ElMessage.error('开始测试失败，请重试')
+  }
 }
 
 // 处理提交答案

@@ -1,441 +1,451 @@
 import os
-import csv
-import pandas as pd
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
-from sqlmodel import Session, select, or_, update
+import json
+import asyncio
 from pathlib import Path
-import csv
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime
+from sqlmodel import Session, select
 from config import settings
 from logger_config import logger
 from apps.users.models import User
 from .models import (
-    Trial,
-    TestSession,
-    TrialData,
-    UserTrialData,
-    TestSessionCreate,
-    TestSessionUpdate,
-    TestSessionResponse,
-    Answer,
+    ReadingFluencyTest,
+    ReadingAudioRecord,
+    TestStatus,
+    ReadingFluencyTestCreate,
+    ReadingFluencySubmission,
+    ReadingFluencyTestResponse,
+    AudioRecordResponse,
+    TestResultSummary
+)
+from .xfyun_sdk import (
+    XfyunSpeechEvaluationSDK,
+    XfyunSDKFactory,
+    EvaluationRequest,
+    EvaluationResponse
+)
+from .analysis import (
+    analyze_reading_evaluation,
+    estimate_correct_character_count
 )
 
 
-# 数据文件路径
-data_dir = Path(settings.DATA_DIR)
-practice_trial_path = data_dir / "教学阶段.csv"
-formal_trial_path = data_dir / "正式阶段.csv"
-_standard_answers: Dict[int, bool] = {}
-# 缓存数据
-_practice_trials = None
-_formal_trials = None
+# 字符数据
+CHARACTER_ROWS = [
+    "的 一 了 我 是 不 在 上 来 有",
+    "着 他 地 子 人 们 到 个 小 这",
+    "里 大 天 就 说 那 去 看 下 得", 
+    "时 么 你 也 过 出 起 好 要 把",
+    "它 儿 头 只 多 可 中 和 家 会",
+    "还 又 没 花 水 长 道 面 样 见",
+    "很 走 老 开 树 生 边 想 为 能",
+    "声 后 然 从 自 妈 山 回 什 用",
+    "成 发 叫 前 以 手 对 点 身 候",
+    "飞 白 两 方 心 动 太 听 风 三",
+    "十 吃 眼 几 亲 色 雨 光 学 月",
+    "高 些 进 孩 住 气 给 她 知 向",
+    "船 如 种 国 呢 事 红 快 外 无",
+    "再 明 西 同 日 海 真 于 己 门",
+    "亮 怎 草 跑 行 最 阳 问 正 啊",
+    "常 马 牛 当 笑 打 放 别 经 河",
+    "做 鸟 星 东 石 物 空 才 之 吧",
+    "火 许 每 间 力 已 二 四 美 次"
+]
+
+# 上传文件存储路径
+UPLOAD_DIR = Path("uploads") / "reading_fluency"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def load_standard_answers() -> Dict[int, bool]:
-    """从CSV文件加载标准答案"""
-    global _standard_answers
-    if _standard_answers:
-        return _standard_answers
-    answers_path = data_dir / "阅读流畅性测试标准答案.csv"
-    if not answers_path.exists():
-        logger.warning(f"标准答案文件不存在 {answers_path}")
-        return {}
+def get_character_data() -> List[str]:
+    """获取字符表数据"""
+    return CHARACTER_ROWS
+
+
+def create_reading_fluency_test(session: Session, test_data: ReadingFluencyTestCreate) -> ReadingFluencyTest:
+    """创建朗读流畅性测试"""
+    # 检查用户是否存在
+    user = session.get(User, test_data.user_id)
+    if not user:
+        raise ValueError(f"用户不存在: ID={test_data.user_id}")
+    
+    # 创建测试
+    test = ReadingFluencyTest(
+        user_id=test_data.user_id,
+        status=TestStatus.PENDING,
+        start_time=datetime.now()
+    )
+    
+    session.add(test)
+    session.commit()
+    session.refresh(test)
+    
+    logger.info(f"为用户 {user.name} 创建朗读流畅性测试，ID: {test.id}")
+    return test
+
+
+def get_reading_fluency_test(session: Session, test_id: int) -> Optional[ReadingFluencyTest]:
+    """获取朗读流畅性测试"""
+    return session.get(ReadingFluencyTest, test_id)
+
+
+def save_audio_file(audio_data: bytes, filename: str) -> str:
+    """保存音频文件并返回路径"""
+    file_path = UPLOAD_DIR / filename
+    
+    # 确保目录存在
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # 保存文件
+    with open(file_path, 'wb') as f:
+        f.write(audio_data)
+    
+    return str(file_path)
+
+
+def process_reading_submission(
+    session: Session, 
+    test_id: int, 
+    submission_data: ReadingFluencySubmission,
+    audio_files: Dict[str, bytes]
+) -> ReadingFluencyTest:
+    """处理朗读流畅性测试提交"""
+    # 获取测试
+    test = session.get(ReadingFluencyTest, test_id)
+    if not test:
+        raise ValueError(f"测试不存在: ID={test_id}")
+    
+    # 解析提交结果
+    results = submission_data.results
+    round1_data = results.get("round1", {})
+    round2_data = results.get("round2", {})
+    
+    # 更新测试基本信息
+    test.status = TestStatus.COMPLETED
+    test.end_time = datetime.now()
+    test.round1_duration = round1_data.get("duration", 0)
+    test.round1_character_count = round1_data.get("characterCount", 0)
+    test.round1_completed = True
+    
+    test.round2_duration = round2_data.get("duration", 0)
+    test.round2_character_count = round2_data.get("characterCount", 0)
+    test.round2_completed = True
+    
+    # 计算平均成绩
+    if test.round1_character_count and test.round2_character_count:
+        test.average_score = (test.round1_character_count + test.round2_character_count) / 2
+    
+    # 统计已上传的音频文件数量（音频文件已通过单独接口上传）
+    from sqlmodel import select
+    audio_query = select(ReadingAudioRecord).where(ReadingAudioRecord.test_id == test_id)
+    existing_audio_records = session.exec(audio_query).all()
+    total_audio_files = len(existing_audio_records)
+    
+    test.total_audio_files = total_audio_files
+    test.evaluation_status = "pending"
+    
+    session.add(test)
+    session.commit()
+    session.refresh(test)
+    
+    logger.info(f"朗读流畅性测试提交完成: {test.id}, 音频文件数: {total_audio_files}")
+    return test
+
+
+async def evaluate_audio_record(session: Session, audio_record_id: int) -> bool:
+    """评测单个音频记录"""
     try:
-        with open(answers_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    trial_id = int(row["id"])
-                    # 注意CSV中的TRUE/FALSE是字符串，需要转换为布尔值
-                    is_correct = row["answer"].strip().upper() == "TRUE"
-                    _standard_answers[trial_id] = is_correct
-                except (ValueError, KeyError) as e:
-                    logger.error(f"解析标准答案行失败: {row}, 错误: {str(e)}")
-                    continue
-        logger.info(f"成功加载 {len(_standard_answers)} 个标准答案")
-        return _standard_answers
+        # 获取音频记录
+        audio_record = session.get(ReadingAudioRecord, audio_record_id)
+        if not audio_record:
+            logger.error(f"音频记录不存在: {audio_record_id}")
+            return False
+        
+        # 获取对应行的文本
+        if 0 <= audio_record.row_index < len(CHARACTER_ROWS):
+            text_to_evaluate = CHARACTER_ROWS[audio_record.row_index]
+        else:
+            logger.error(f"行索引超出范围: {audio_record.row_index}")
+            return False
+        
+        # 更新状态为处理中
+        audio_record.evaluation_status = "processing"
+        session.add(audio_record)
+        session.commit()
+        
+        # 创建评测请求
+        evaluation_request = XfyunSDKFactory.create_syllable_request(text_to_evaluate)
+        
+        # 获取SDK并进行评测
+        sdk = XfyunSDKFactory.get_sdk()
+        audio_path = Path(audio_record.audio_file_path)
+        
+        if not audio_path.exists():
+            logger.error(f"音频文件不存在: {audio_path}")
+            audio_record.evaluation_status = "failed"
+            session.add(audio_record)
+            session.commit()
+            return False
+        
+        # 执行评测
+        result = await sdk.evaluate_audio_file(
+            audio_path, 
+            evaluation_request,
+            progress_callback=lambda msg: logger.info(f"评测进度 [{audio_record_id}]: {msg}")
+        )
+        
+        # 保存评测结果
+        if result.success:
+            audio_record.evaluation_status = "completed"
+            audio_record.total_score = result.total_score
+            audio_record.phone_score = result.phone_score
+            audio_record.tone_score = result.tone_score
+            audio_record.fluency_score = result.fluency_score
+            audio_record.integrity_score = result.integrity_score
+            
+            # 使用详细分析估算正确字数
+            max_chars_in_row = 10  # 每行10个字
+            audio_record.correct_character_count = estimate_correct_character_count(
+                result.xml_result, max_chars_in_row
+            )
+            
+            # 保存详细结果（包含解析后的分析）
+            detailed_analysis = analyze_reading_evaluation(result.xml_result)
+            evaluation_result_data = {
+                "xml_result": result.xml_result,
+                "analysis_time": result.analysis_time.isoformat(),
+                "message": result.message,
+                "detailed_analysis": detailed_analysis
+            }
+            audio_record.evaluation_result = json.dumps(evaluation_result_data, ensure_ascii=False)
+            
+            logger.info(f"音频评测成功: {audio_record_id}, 总分: {result.total_score}")
+        else:
+            audio_record.evaluation_status = "failed"
+            audio_record.evaluation_result = json.dumps({
+                "error": result.message,
+                "analysis_time": result.analysis_time.isoformat()
+            }, ensure_ascii=False)
+            logger.error(f"音频评测失败: {audio_record_id}, 错误: {result.message}")
+        
+        session.add(audio_record)
+        session.commit()
+        
+        return result.success
+        
     except Exception as e:
-        logger.error(f"加载标准答案失败: {str(e)}")
-        return {}
-
-
-answers = load_standard_answers()
-# logger.info(answers)
-
-
-# 判断用户答案是否正确
-def check_answer(trial_id: int, user_answer: bool) -> bool:
-    """检查用户答案是否正确"""
-    # logger.debug(
-    #     f"检查试题ID {trial_id} 的答案: 用户答案 {user_answer}, 标准答案 {answers[trial_id]}"
-    # )
-    if trial_id not in answers:
-        logger.warning(f"试题ID {trial_id} 没有对应的标准答案")
+        logger.error(f"评测音频记录时发生异常: {audio_record_id}, 错误: {str(e)}")
+        
+        # 更新状态为失败
+        try:
+            audio_record = session.get(ReadingAudioRecord, audio_record_id)
+            if audio_record:
+                audio_record.evaluation_status = "failed"
+                audio_record.evaluation_result = json.dumps({"error": str(e)}, ensure_ascii=False)
+                session.add(audio_record)
+                session.commit()
+        except Exception as db_error:
+            logger.error(f"更新音频记录状态失败: {db_error}")
+        
         return False
 
-    return user_answer == answers[trial_id]
 
-
-def read_csv_trials(file_path: Path) -> List[str]:
-    """从CSV文件读取试题"""
-    if not file_path.exists():
-        logger.warning(f"文件不存在 {file_path}")
-        return []
-
+async def batch_evaluate_test_audio(session: Session, test_id: int) -> Dict[str, Any]:
+    """批量评测测试的所有音频"""
     try:
-        # 尝试读取CSV文件
-        trials = []
-
-        # 使用pandas读取，处理可能的编码问题
-        df = pd.read_csv(file_path, header=None, encoding="utf-8")
-
-        # 提取句子内容 (第二列或第一列)
-        for _, row in df.iterrows():
-            sentence = row[1] if len(row) > 1 and pd.notna(row[1]) else row[0]
-            trials.append(sentence)
-
-        return trials
-    except Exception as e:
-        logger.error(f"解析CSV文件失败: {file_path}, 错误: {str(e)}")
-        return []
-
-
-def get_trials() -> Dict[str, List[str]]:
-    """获取所有试题数据"""
-    global _practice_trials, _formal_trials
-
-    # 如果已缓存则直接返回
-    if _practice_trials is not None and _formal_trials is not None:
-        return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials}
-
-    # 读取试题数据
-    _practice_trials = read_csv_trials(practice_trial_path)
-    _formal_trials = read_csv_trials(formal_trial_path)
-
-    logger.info(f"成功加载 {len(_practice_trials)} 个练习题和 {len(_formal_trials)} 个正式题")
-
-    return {"practiceTrials": _practice_trials, "formalTrials": _formal_trials}
-
-
-def find_or_create_user(
-    session: Session, name: str, school: str, grade: int, class_number: int
-) -> User:
-    """查找或创建用户 (向后兼容旧API)"""
-    # 尝试查找已存在的用户
-    query = select(User).where(
-        User.name == name,
-        User.school == school,
-        User.grade == grade,
-        User.class_number == class_number,
-    )
-    user = session.exec(query).first()
-
-    # 如果不存在则创建
-    if not user:
-        user = User(name=name, school=school, grade=grade, class_number=class_number)
-        session.add(user)
+        # 获取测试
+        test = session.get(ReadingFluencyTest, test_id)
+        if not test:
+            raise ValueError(f"测试不存在: ID={test_id}")
+        
+        # 获取所有待评测的音频记录
+        query = select(ReadingAudioRecord).where(
+            ReadingAudioRecord.test_id == test_id,  
+            ReadingAudioRecord.evaluation_status == "pending"
+        )
+        audio_records = session.exec(query).all()
+        
+        if not audio_records:
+            logger.info(f"测试 {test_id} 没有待评测的音频")
+            return {"success": True, "message": "没有待评测的音频", "evaluated_count": 0}
+        
+        # 更新测试状态
+        test.evaluation_status = "processing"
+        session.add(test)
         session.commit()
-        session.refresh(user)
-
-    return user
-
-
-# 同样修改直接保存试验数据的函数
-def save_trial_direct(session: Session, trial_data: TrialData) -> Trial:
-    """直接保存试验数据（已知用户ID），并判断答案正确性"""
-    # 检查用户是否存在
-    user = session.get(User, trial_data.user_id)
-    if not user:
-        raise ValueError(f"用户不存在: ID={trial_data.user_id}")
-
-    # 判断用户答案是否正确
-    is_correct = check_answer(trial_data.trial_id, trial_data.user_answer)
-
-    # 创建试验记录
-    trial = Trial(
-        user_id=trial_data.user_id,
-        test_session_id=trial_data.test_session_id,  # 可能为 None
-        trial_id=trial_data.trial_id,
-        user_answer=trial_data.user_answer,
-        is_correct=is_correct,  # 设置是否正确
-        response_time=trial_data.response_time,
-    )
-
-    session.add(trial)
-
-    # 如果有测试会话，更新进度和正确数量
-    if trial_data.test_session_id:
-        test_session = session.get(TestSession, trial_data.test_session_id)
-        if test_session:
-            test_session.progress += 1
-            if is_correct:
-                test_session.correct_count += 1
-            session.add(test_session)
-
-    session.commit()
-    session.refresh(trial)
-
-    return trial
-
-
-def get_test_session_results(session: Session, test_session_id: int) -> Dict[str, Any] | None:
-    """获取单次测试会话的结果"""
-    # 获取测试会话
-    test_session = session.get(TestSession, test_session_id)
-    if not test_session:
-        return None
-
-    # 获取用户
-    user = session.get(User, test_session.user_id) if test_session.user_id else None
-
-    # 获取所有试验记录
-    trials = get_session_trials(session, test_session_id)
-
-    # 计算统计信息
-    total_trials = len(trials)
-    correct_trials = sum(1 for trial in trials if trial.is_correct or trial.user_answer)
-    avg_response_time = (
-        sum(trial.response_time for trial in trials) / total_trials if total_trials > 0 else 0
-    )
-
-    # 构建结果
-    results = {
-        "testSession": test_session,
-        "user": user,
-        "trials": trials,
-        "stats": {
-            "totalTrials": total_trials,
-            "correctTrials": correct_trials,
-            "accuracy": (correct_trials / total_trials * 100) if total_trials > 0 else 0,
-            "averageResponseTime": avg_response_time,
-            "completionRate": (
-                (test_session.progress / test_session.total_questions * 100)
-                if test_session.total_questions > 0
-                else 0
-            ),
-            "totalTimeSeconds": test_session.total_time_seconds,
-        },
-    }
-
-    return results
-
-
-# 测试会话相关功能
-def create_test_session(session: Session, test_session_data: TestSessionCreate) -> TestSession:
-    """创建新的测试会话"""
-    # 检查用户是否存在
-    user = session.get(User, test_session_data.user_id)
-    if not user:
-        raise ValueError(f"用户不存在: ID={test_session_data.user_id}")
-
-    # 创建测试会话
-    test_session = TestSession(
-        user_id=test_session_data.user_id,
-        total_questions=test_session_data.total_questions,
-        start_time=datetime.now(),
-    )
-
-    session.add(test_session)
-    session.commit()
-    session.refresh(test_session)
-
-    logger.info(f"为用户 {user.name} 创建测试会话，ID: {test_session.id}")
-    return test_session
-
-
-def get_test_session(session: Session, test_session_id: int) -> Optional[TestSession]:
-    """获取测试会话信息"""
-    return session.get(TestSession, test_session_id)
-
-
-def update_test_session(
-    session: Session, test_session_id: int, update_data: TestSessionUpdate
-) -> Optional[TestSession]:
-    """更新测试会话信息"""
-    # 获取测试会话
-    test_session = session.get(TestSession, test_session_id)
-    if not test_session:
-        return None
-
-    # 更新字段
-    update_dict = update_data.dict(exclude_unset=True)
-
-    # 如果前端更新了 progress，但没有提供 correct_count，我们需要计算正确数量
-    if "progress" in update_dict and "correct_count" not in update_dict:
-        # 查询该会话中用户回答正确的试验记录数量
-        correct_trials_query = select(Trial).where(
-            Trial.test_session_id == test_session_id, Trial.is_correct == True
+        
+        logger.info(f"开始批量评测测试 {test_id} 的 {len(audio_records)} 个音频文件")
+        
+        # 并发评测音频（控制并发数以避免过载）
+        semaphore = asyncio.Semaphore(3)  # 最多同时评测3个音频
+        
+        async def evaluate_with_semaphore(audio_record_id):
+            async with semaphore:
+                return await evaluate_audio_record(session, audio_record_id)
+        
+        # 执行批量评测
+        tasks = [evaluate_with_semaphore(record.id) for record in audio_records]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 统计结果
+        success_count = sum(1 for result in results if result is True)
+        failed_count = len(results) - success_count
+        
+        # 更新测试的评测完成状态
+        if failed_count == 0:
+            test.evaluation_status = "completed"
+        else:
+            test.evaluation_status = "partial_completed"
+        
+        test.evaluation_completed_at = datetime.now()
+        
+        # 重新计算基于评测结果的字符数
+        completed_records_query = select(ReadingAudioRecord).where(
+            ReadingAudioRecord.test_id == test_id,
+            ReadingAudioRecord.evaluation_status == "completed"
         )
-        correct_trials = session.exec(correct_trials_query).all()
-        update_dict["correct_count"] = len(correct_trials)
-        logger.info(
-            f"根据试验记录计算会话 {test_session_id} 的正确答题数: {update_dict['correct_count']}"
+        completed_records = session.exec(completed_records_query).all()
+        
+        # 按轮次统计正确字符数
+        round1_correct = sum(
+            record.correct_character_count or 0 
+            for record in completed_records 
+            if record.round_number == 1
         )
-
-    # 更新会话字段
-    for key, value in update_dict.items():
-        setattr(test_session, key, value)
-
-    # 如果已完成且未设置结束时间，自动设置
-    if update_data.is_completed and not test_session.end_time:
-        test_session.end_time = datetime.now()
-        # 计算总用时（秒）
-        delta = test_session.end_time - test_session.start_time
-        test_session.total_time_seconds = int(delta.total_seconds())
-
-    session.add(test_session)
-    session.commit()
-    session.refresh(test_session)
-
-    return test_session
-
-
-def list_user_test_sessions(session: Session, user_id: int) -> List[TestSession]:
-    """获取用户的所有测试会话"""
-    query = select(TestSession).where(TestSession.user_id == user_id)
-    return list(session.exec(query).all())
-
-
-def complete_test_session(session: Session, test_session_id: int) -> Optional[TestSession]:
-    """完成测试会话"""
-    test_session = session.get(TestSession, test_session_id)
-    if not test_session:
-        return None
-
-    # 标记为完成并设置结束时间
-    test_session.is_completed = True
-    test_session.end_time = datetime.now()
-
-    # 计算总用时（秒）
-    delta = test_session.end_time - test_session.start_time
-    test_session.total_time_seconds = int(delta.total_seconds())
-
-    session.add(test_session)
-    session.commit()
-    session.refresh(test_session)
-
-    return test_session
-
-
-# 修改试验保存函数，支持判断是否正确
-def save_trial_with_session(session: Session, test_session_id: int, trial_data: TrialData) -> Trial:
-    """在指定测试会话中保存试验记录，并判断答案正确性"""
-    # 获取测试会话
-    test_session = session.get(TestSession, test_session_id)
-    if not test_session:
-        raise ValueError(f"测试会话不存在: ID={test_session_id}")
-
-    # 判断用户答案是否正确
-    is_correct = check_answer(trial_data.trial_id, trial_data.user_answer)
-
-    # 创建试验记录
-    trial = Trial(
-        user_id=trial_data.user_id,
-        test_session_id=test_session_id,
-        trial_id=trial_data.trial_id,
-        user_answer=trial_data.user_answer,
-        is_correct=is_correct,  # 设置是否正确
-        response_time=trial_data.response_time,
-    )
-
-    session.add(trial)
-
-    # 更新测试会话进度和正确数量
-    test_session.progress += 1
-    if is_correct:
-        test_session.correct_count += 1
-
-    session.add(test_session)
-    session.commit()
-    session.refresh(trial)
-
-    return trial
-
-
-# 修改原始保存方法也支持判断正确性
-def save_trial(session: Session, trial_data: UserTrialData) -> Trial:
-    """保存试验数据（支持传入用户信息，向后兼容）"""
-    # 查找或创建用户
-    user = find_or_create_user(
-        session=session,
-        name=trial_data.name,
-        school=trial_data.school,
-        grade=trial_data.grade,
-        class_number=trial_data.class_number,
-    )
-
-    # 判断用户答案是否正确
-    is_correct = check_answer(trial_data.trial_id, trial_data.user_answer)
-
-    # 创建试验记录
-    trial = Trial(
-        user_id=user.id,
-        trial_id=trial_data.trial_id,
-        user_answer=trial_data.user_answer,
-        is_correct=is_correct,  # 设置是否正确
-        response_time=trial_data.response_time,
-    )
-
-    session.add(trial)
-    session.commit()
-    session.refresh(trial)
-
-    return trial
-
-
-def get_user_results(session: Session, user_id: int) -> Dict[str, Any] | None:
-    """获取用户实验结果"""
-    # 查找用户
-    user = session.get(User, user_id)
-    if not user:
-        return None
-
-    # 查询用户所有试验记录
-    trials_query = select(Trial).where(Trial.user_id == user_id)
-    trials = session.exec(trials_query).all()
-
-    # 查询用户的所有测试会话
-    sessions_query = select(TestSession).where(TestSession.user_id == user_id)
-    test_sessions = session.exec(sessions_query).all()
-
-    # 计算结果统计
-    total_trials = len(trials)
-    if total_trials == 0:
+        round2_correct = sum(
+            record.correct_character_count or 0 
+            for record in completed_records 
+            if record.round_number == 2
+        )
+        
+        # 更新测试结果（使用评测得出的准确字数）
+        test.round1_character_count = round1_correct
+        test.round2_character_count = round2_correct
+        
+        if round1_correct > 0 or round2_correct > 0:
+            test.average_score = (round1_correct + round2_correct) / 2
+        
+        session.add(test)
+        session.commit()
+        
+        result_info = {
+            "success": True,
+            "test_id": test_id,
+            "total_audio_files": len(audio_records),
+            "evaluated_successfully": success_count,
+            "evaluation_failures": failed_count,
+            "round1_correct_chars": round1_correct,
+            "round2_correct_chars": round2_correct,
+            "average_score": test.average_score,
+            "evaluation_status": test.evaluation_status
+        }
+        
+        logger.info(f"批量评测完成: {result_info}")
+        return result_info
+        
+    except Exception as e:
+        logger.error(f"批量评测测试音频时发生异常: {test_id}, 错误: {str(e)}")
+        
+        # 更新测试状态为失败
+        try:
+            test = session.get(ReadingFluencyTest, test_id)
+            if test:
+                test.evaluation_status = "failed"
+                session.add(test)
+                session.commit()
+        except Exception as db_error:
+            logger.error(f"更新测试状态失败: {db_error}")
+        
         return {
-            "user": user,
-            "results": {
-                "totalTrials": 0,
-                "correctTrials": 0,
-                "accuracy": 0,
-                "averageResponseTime": 0,
-                "totalSessions": len(test_sessions),
-                "completedSessions": sum(1 for s in test_sessions if s.is_completed),
-            },
-            "trials": [],
-            "testSessions": test_sessions,
+            "success": False,
+            "test_id": test_id,
+            "error": str(e)
         }
 
-    correct_trials = sum(1 for trial in trials if trial.is_correct or trial.user_answer)
-    average_response_time = sum(trial.response_time for trial in trials) / total_trials
 
-    results = {
-        "user": user,
-        "results": {
-            "totalTrials": total_trials,
-            "correctTrials": correct_trials,
-            "accuracy": (correct_trials / total_trials) * 100,
-            "averageResponseTime": average_response_time,
-            "totalSessions": len(test_sessions),
-            "completedSessions": sum(1 for s in test_sessions if s.is_completed),
+def get_test_results(session: Session, test_id: int) -> Optional[Dict[str, Any]]:
+    """获取测试结果"""
+    # 获取测试
+    test = session.get(ReadingFluencyTest, test_id)
+    if not test:
+        return None
+    
+    # 获取用户信息
+    user = session.get(User, test.user_id) if test.user_id else None
+    
+    # 获取所有音频记录
+    query = select(ReadingAudioRecord).where(ReadingAudioRecord.test_id == test_id)
+    audio_records = session.exec(query).all()
+    
+    # 统计评测完成情况
+    total_audio_files = len(audio_records)
+    completed_evaluations = len([r for r in audio_records if r.evaluation_status == "completed"])
+    evaluation_completion_rate = (completed_evaluations / total_audio_files * 100) if total_audio_files > 0 else 0
+    
+    # 按轮次分组音频记录
+    round1_records = [r for r in audio_records if r.round_number == 1]
+    round2_records = [r for r in audio_records if r.round_number == 2]
+    
+    result = {
+        "test": {
+            "id": test.id,
+            "user_id": test.user_id,
+            "start_time": test.start_time,
+            "end_time": test.end_time,
+            "status": test.status,
+            "round1_duration": test.round1_duration,
+            "round1_character_count": test.round1_character_count,
+            "round1_completed": test.round1_completed,
+            "round2_duration": test.round2_duration,
+            "round2_character_count": test.round2_character_count,
+            "round2_completed": test.round2_completed,
+            "average_score": test.average_score,
+            "total_audio_files": test.total_audio_files,
+            "evaluation_status": test.evaluation_status,
+            "evaluation_completed_at": test.evaluation_completed_at,
+            "is_completed": test.is_completed,
+            "total_duration": test.total_duration,
+            "total_character_count": test.total_character_count
         },
-        "trials": trials,
-        "testSessions": test_sessions,
+        "user": {
+            "id": user.id if user else None,
+            "name": user.name if user else None,
+            "school": user.school if user else None,
+            "grade": user.grade if user else None,
+            "class_number": user.class_number if user else None
+        } if user else None,
+        "statistics": {
+            "total_audio_files": total_audio_files,
+            "completed_evaluations": completed_evaluations,
+            "evaluation_completion_rate": evaluation_completion_rate,
+            "round1_audio_count": len(round1_records),
+            "round2_audio_count": len(round2_records),
+            "average_total_score": sum(r.total_score or 0 for r in audio_records if r.total_score) / completed_evaluations if completed_evaluations > 0 else 0,
+            "average_phone_score": sum(r.phone_score or 0 for r in audio_records if r.phone_score) / completed_evaluations if completed_evaluations > 0 else 0,
+            "average_tone_score": sum(r.tone_score or 0 for r in audio_records if r.tone_score) / completed_evaluations if completed_evaluations > 0 else 0
+        },
+        "audio_records": [
+            {
+                "id": record.id,
+                "round_number": record.round_number,
+                "row_index": record.row_index,
+                "evaluation_status": record.evaluation_status,
+                "total_score": record.total_score,
+                "phone_score": record.phone_score,
+                "tone_score": record.tone_score,
+                "fluency_score": record.fluency_score,
+                "integrity_score": record.integrity_score,
+                "correct_character_count": record.correct_character_count,
+                "upload_time": record.upload_time,
+                "evaluation_result": json.loads(record.evaluation_result) if record.evaluation_result else None
+            } for record in audio_records
+        ]
     }
+    
+    return result
 
-    return results
 
-
-def get_session_trials(session: Session, test_session_id: int) -> List[Trial]:
-    """获取测试会话中的所有试验记录"""
-    query = select(Trial).where(Trial.test_session_id == test_session_id)
+def list_user_reading_tests(session: Session, user_id: int) -> List[ReadingFluencyTest]:
+    """获取用户的所有朗读流畅性测试"""
+    query = select(ReadingFluencyTest).where(ReadingFluencyTest.user_id == user_id)
     return list(session.exec(query).all())

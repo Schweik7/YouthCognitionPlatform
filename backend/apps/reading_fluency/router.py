@@ -1,172 +1,334 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, status, Form, File, UploadFile
+from fastapi.responses import JSONResponse
 from sqlmodel import Session
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 from database import get_session
 from .models import (
-    Trial,
-    TestSession,
-    TrialData,
-    UserTrialData,
-    ResultResponse,
-    TestSessionCreate,
-    TestSessionUpdate,
-    TestSessionResponse,
+    ReadingFluencyTest,
+    ReadingFluencyTestCreate,
+    ReadingFluencySubmission,
+    ReadingFluencyTestResponse,
+    AudioRecordResponse,
+    TestResultSummary
 )
 from .service import (
-    get_trials,
-    save_trial,
-    save_trial_direct,
-    save_trial_with_session,
-    get_user_results,
-    create_test_session,
-    get_test_session,
-    update_test_session,
-    list_user_test_sessions,
-    complete_test_session,
-    get_session_trials,
-    get_test_session_results,
+    get_character_data,
+    create_reading_fluency_test,
+    get_reading_fluency_test,
+    process_reading_submission,
+    batch_evaluate_test_audio,
+    get_test_results,
+    list_user_reading_tests
 )
+from .xfyun_sdk import XfyunSDKFactory
 
 # 创建路由
-router = APIRouter(tags=["阅读流畅性测试"])
+router = APIRouter(tags=["朗读流畅性测试"])
+
+# 初始化SDK（应该在应用启动时配置）
+try:
+    # 这里需要从配置文件或环境变量中获取真实的API凭证
+    XfyunSDKFactory.initialize(
+        app_id="your_app_id",  # 替换为真实的APP ID
+        api_key="your_api_key",  # 替换为真实的API Key  
+        api_secret="your_api_secret"  # 替换为真实的API Secret
+    )
+except Exception as e:
+    print(f"警告: 语音评测SDK初始化失败: {e}")
 
 
-@router.get("/trials", response_model=Dict[str, List[str]])
-async def get_trials_route():
-    """获取试题数据"""
+@router.get("/characters")
+async def get_characters():
+    """获取朗读字符表数据"""
     try:
-        return get_trials()
+        return {
+            "success": True,
+            "data": get_character_data(),
+            "total_rows": len(get_character_data()),
+            "chars_per_row": 10
+        }
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取试题数据失败: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取字符数据失败: {str(e)}"
         )
 
 
-@router.post("/save-trial", status_code=status.HTTP_201_CREATED)
-async def save_trial_route(trial_data: UserTrialData, session: Session = Depends(get_session)):
-    """保存试验数据（向后兼容，包含用户信息）"""
+@router.post("/tests", status_code=status.HTTP_201_CREATED)
+async def create_test(
+    test_data: ReadingFluencyTestCreate, 
+    session: Session = Depends(get_session)
+):
+    """创建朗读流畅性测试"""
     try:
-        trial = save_trial(session, trial_data)
-        return {"message": "数据保存成功", "id": trial.id}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存试验数据失败: {str(e)}"
-        )
-
-
-@router.post("/trials", status_code=status.HTTP_201_CREATED)
-async def create_trial_route(trial_data: TrialData, session: Session = Depends(get_session)):
-    """直接保存试验数据（新API）"""
-    try:
-        trial = save_trial_direct(session, trial_data)
-        return {"message": "数据保存成功", "id": trial.id}
+        test = create_reading_fluency_test(session, test_data)
+        return {
+            "success": True,
+            "message": "测试创建成功",
+            "test_id": test.id,
+            "test": {
+                "id": test.id,
+                "user_id": test.user_id,
+                "start_time": test.start_time,
+                "status": test.status
+            }
+        }
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存试验数据失败: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建测试失败: {str(e)}"
         )
 
 
-@router.get("/results/{user_id}", response_model=ResultResponse)
-async def get_results_route(user_id: int, session: Session = Depends(get_session)):
-    """获取指定用户的实验结果"""
+@router.get("/tests/{test_id}")
+async def get_test(test_id: int, session: Session = Depends(get_session)):
+    """获取朗读流畅性测试信息"""
+    test = get_reading_fluency_test(session, test_id)
+    if not test:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+    
+    return {
+        "success": True,
+        "test": {
+            "id": test.id,
+            "user_id": test.user_id,
+            "start_time": test.start_time,
+            "end_time": test.end_time,
+            "status": test.status,
+            "round1_duration": test.round1_duration,
+            "round1_character_count": test.round1_character_count,
+            "round1_completed": test.round1_completed,
+            "round2_duration": test.round2_duration,
+            "round2_character_count": test.round2_character_count,
+            "round2_completed": test.round2_completed,
+            "average_score": test.average_score,
+            "total_audio_files": test.total_audio_files,
+            "evaluation_status": test.evaluation_status,
+            "is_completed": test.is_completed,
+            "total_duration": test.total_duration,
+            "total_character_count": test.total_character_count
+        }
+    }
+
+
+
+@router.post("/tests/{test_id}/submit")
+async def submit_test(
+    test_id: int,
+    testType: str = Form(...),
+    results: str = Form(...),
+    session: Session = Depends(get_session),
+    files: List[UploadFile] = File(default=[])
+):
+    """提交朗读流畅性测试结果"""
     try:
-        results = get_user_results(session, user_id)
+        import json
+        
+        # 解析提交数据
+        results_data = json.loads(results)
+        submission_data = ReadingFluencySubmission(
+            testType=testType,
+            results=results_data
+        )
+        
+        # 音频文件已经通过单独接口上传，这里只处理测试结果
+        audio_files = {}  # 空字典，因为音频已单独上传
+        
+        # 处理提交
+        test = process_reading_submission(session, test_id, submission_data, audio_files)
+        
+        # 异步启动语音评测
+        asyncio.create_task(batch_evaluate_test_audio(session, test_id))
+        
+        return {
+            "success": True,
+            "message": "测试提交成功，语音评测正在后台处理",
+            "test_id": test.id,
+            "audio_files_count": len(audio_files),
+            "evaluation_status": "processing"
+        }
+        
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"JSON数据解析失败: {str(e)}"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"提交测试失败: {str(e)}"
+        )
+
+
+@router.post("/tests/{test_id}/upload-audio")
+async def upload_single_audio(
+    test_id: int,
+    round_number: int = Form(...),
+    row_index: int = Form(...),
+    session: Session = Depends(get_session),
+    audio_file: UploadFile = File(...)
+):
+    """上传单个音频文件并立即开始评测"""
+    try:
+        # 检查测试是否存在
+        test = get_reading_fluency_test(session, test_id)
+        if not test:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+        
+        # 读取音频数据
+        audio_data = await audio_file.read()
+        
+        # 生成文件名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"test_{test_id}_round{round_number}_row{row_index}_{timestamp}.webm"
+        
+        # 保存文件
+        from .service import save_audio_file
+        file_path = save_audio_file(audio_data, filename)
+        
+        # 创建音频记录
+        audio_record = ReadingAudioRecord(
+            test_id=test_id,
+            round_number=round_number,
+            row_index=row_index,
+            audio_file_path=file_path,
+            evaluation_status="pending"
+        )
+        
+        session.add(audio_record)
+        session.commit()
+        session.refresh(audio_record)
+        
+        # 异步启动评测
+        from .service import evaluate_audio_record
+        asyncio.create_task(evaluate_audio_record(session, audio_record.id))
+        
+        return {
+            "success": True,
+            "message": "音频上传成功，评测已开始",
+            "audio_record_id": audio_record.id,
+            "round_number": round_number,
+            "row_index": row_index
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"音频上传失败: {str(e)}"
+        )
+
+
+@router.post("/tests/{test_id}/evaluate")
+async def evaluate_test_audio(test_id: int, session: Session = Depends(get_session)):
+    """手动触发测试音频评测"""
+    try:
+        # 检查测试是否存在
+        test = get_reading_fluency_test(session, test_id)
+        if not test:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+        
+        # 执行批量评测
+        result = await batch_evaluate_test_audio(session, test_id)
+        
+        return {
+            "success": result["success"],
+            "message": "语音评测完成" if result["success"] else "语音评测失败",
+            "evaluation_result": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"语音评测失败: {str(e)}"
+        )
+
+
+@router.get("/tests/{test_id}/results")
+async def get_test_results_route(test_id: int, session: Session = Depends(get_session)):
+    """获取测试结果"""
+    try:
+        results = get_test_results(session, test_id)
         if not results:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
-        return results
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+        
+        return {
+            "success": True,
+            "results": results
+        }
+        
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取结果失败: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取测试结果失败: {str(e)}"
         )
 
 
-# 测试会话相关路由
-@router.post("/sessions", response_model=TestSessionResponse, status_code=status.HTTP_201_CREATED)
-async def create_session_route(
-    test_session_data: TestSessionCreate, session: Session = Depends(get_session)
-):
-    """创建新的测试会话"""
+@router.get("/users/{user_id}/tests")
+async def list_user_tests(user_id: int, session: Session = Depends(get_session)):
+    """获取用户的所有朗读流畅性测试"""
     try:
-        test_session = create_test_session(session, test_session_data)
-        return test_session
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        tests = list_user_reading_tests(session, user_id)
+        
+        test_list = []
+        for test in tests:
+            test_list.append({
+                "id": test.id,
+                "start_time": test.start_time,
+                "end_time": test.end_time,
+                "status": test.status,
+                "round1_completed": test.round1_completed,
+                "round2_completed": test.round2_completed,
+                "average_score": test.average_score,
+                "evaluation_status": test.evaluation_status,
+                "is_completed": test.is_completed
+            })
+        
+        return {
+            "success": True,
+            "tests": test_list,
+            "total_count": len(test_list)
+        }
+        
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"创建测试会话失败: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取用户测试列表失败: {str(e)}"
         )
 
 
-@router.get("/sessions/{test_session_id}", response_model=TestSessionResponse)
-async def get_session_route(test_session_id: int, session: Session = Depends(get_session)):
-    """获取测试会话信息"""
-    test_session = get_test_session(session, test_session_id)
-    if not test_session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
-    return test_session
-
-
-@router.put("/sessions/{test_session_id}", response_model=TestSessionResponse)
-async def update_session_route(
-    test_session_id: int, update_data: TestSessionUpdate, session: Session = Depends(get_session)
-):
-    """更新测试会话信息"""
-    test_session = update_test_session(session, test_session_id, update_data)
-    if not test_session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
-    return test_session
-
-
-@router.get("/users/{user_id}/sessions", response_model=List[TestSessionResponse])
-async def list_user_sessions_route(user_id: int, session: Session = Depends(get_session)):
-    """获取用户的所有测试会话"""
-    return list_user_test_sessions(session, user_id)
-
-
-@router.post("/sessions/{test_session_id}/complete", response_model=TestSessionResponse)
-async def complete_session_route(test_session_id: int, session: Session = Depends(get_session)):
-    """完成测试会话"""
-    test_session = complete_test_session(session, test_session_id)
-    if not test_session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
-    return test_session
-
-
-@router.post("/sessions/{test_session_id}/trials", status_code=status.HTTP_201_CREATED)
-async def create_session_trial_route(
-    test_session_id: int, trial_data: TrialData, session: Session = Depends(get_session)
-):
-    """在指定测试会话中保存试验记录"""
+@router.get("/tests/{test_id}/status")
+async def get_test_status(test_id: int, session: Session = Depends(get_session)):
+    """获取测试状态（用于轮询评测进度）"""
     try:
-        trial = save_trial_with_session(session, test_session_id, trial_data)
-        return {"message": "数据保存成功", "id": trial.id}
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        test = get_reading_fluency_test(session, test_id)
+        if not test:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+        
+        return {
+            "success": True,
+            "test_id": test.id,
+            "status": test.status,
+            "evaluation_status": test.evaluation_status,
+            "evaluation_completed_at": test.evaluation_completed_at,
+            "is_completed": test.is_completed,
+            "round1_completed": test.round1_completed,
+            "round2_completed": test.round2_completed,
+            "average_score": test.average_score
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        # raise
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存试验数据失败: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取测试状态失败: {str(e)}"
         )
-
-
-@router.get("/sessions/{test_session_id}/trials")
-async def get_session_trials_route(test_session_id: int, session: Session = Depends(get_session)):
-    """获取测试会话中的所有试验记录"""
-    test_session = get_test_session(session, test_session_id)
-    if not test_session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
-    return get_session_trials(session, test_session_id)
-
-
-@router.get("/sessions/{test_session_id}/results")
-async def get_session_results_route(test_session_id: int, session: Session = Depends(get_session)):
-    """获取测试会话的结果"""
-    results = get_test_session_results(session, test_session_id)
-    if not results:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
-    return results

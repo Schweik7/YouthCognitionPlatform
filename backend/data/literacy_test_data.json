@@ -1,0 +1,78 @@
+{
+  "character_groups": [
+    {
+      "group_id": 1,
+      "group_name": "第一组字",
+      "coefficient": 12.12,
+      "characters": ["大", "小", "二", "日", "人", "木", "上", "我", "中", "马", "山", "下"],
+      "description": "基础汉字，12个字"
+    },
+    {
+      "group_id": 2,
+      "group_name": "第二组字",
+      "coefficient": 8.70,
+      "characters": ["甲", "棉", "腿", "亚", "艺", "鹅", "宋", "盒"],
+      "description": "常用汉字，8个字"
+    },
+    {
+      "group_id": 3,
+      "group_name": "第三组字",
+      "coefficient": 17.20,
+      "characters": ["秋", "卫", "冷", "跑", "船", "睡", "喜", "雪", "现", "脸", "谢", "房", "磨", "海", "切", "准", "青"],
+      "description": "进阶汉字，17个字"
+    },
+    {
+      "group_id": 4,
+      "group_name": "第四组字",
+      "coefficient": 9.06,
+      "characters": ["谦", "矩", "臀", "诞", "苇", "铛", "捂", "鹏", "渣", "啥", "骏", "颖", "蕴", "耻", "脊", "勿", "桦", "缀", "梧", "垮", "吻", "惑", "搅", "栗", "簿", "绢", "吟", "舔"],
+      "description": "高级汉字，28个字"
+    },
+    {
+      "group_id": 5,
+      "group_name": "第五组字",
+      "coefficient": 0,
+      "characters": [],
+      "description": "待编辑组1"
+    },
+    {
+      "group_id": 6,
+      "group_name": "第六组字",
+      "coefficient": 0,
+      "characters": [],
+      "description": "待编辑组2"
+    },
+    {
+      "group_id": 7,
+      "group_name": "第七组字",
+      "coefficient": 0,
+      "characters": [],
+      "description": "待编辑组3"
+    },
+    {
+      "group_id": 8,
+      "group_name": "第八组字",
+      "coefficient": 0,
+      "characters": [],
+      "description": "待编辑组4"
+    },
+    {
+      "group_id": 9,
+      "group_name": "第九组字",
+      "coefficient": 0,
+      "characters": [],
+      "description": "待编辑组5"
+    },
+    {
+      "group_id": 10,
+      "group_name": "第十组字",
+      "coefficient": 0,
+      "characters": [],
+      "description": "待编辑组6"
+    }
+  ],
+  "test_config": {
+    "characters_per_round": 5,
+    "description": "每次出现5个字进行朗读"
+  }
+}
