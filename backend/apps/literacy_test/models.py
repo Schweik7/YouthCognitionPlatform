@@ -31,7 +31,7 @@ class LiteracyTest(BaseModel, table=True):
     total_score: Optional[float] = None  # 总得分
     
     # 各组得分详情
-    group_scores: Optional[str] = Field(default=None, sa_column_kwargs={"type_": Text})  # JSON格式存储各组得分
+    group_scores: Optional[str] = Field(default=None, sa_column=Text)  # JSON格式存储各组得分
     
     # 评测状态
     evaluation_status: str = Field(default="pending")
@@ -73,7 +73,7 @@ class LiteracyAudioRecord(BaseModel, table=True):
     evaluation_status: str = Field(default="pending")  # pending, processing, completed, failed
     evaluation_started_at: Optional[datetime] = None
     evaluation_completed_at: Optional[datetime] = None
-    error_message: Optional[str] = Field(default=None, sa_column_kwargs={"type_": Text})
+    error_message: Optional[str] = Field(default=None, sa_column=Text)
     
     # 关系
     test: Optional[LiteracyTest] = Relationship(back_populates="audio_records")

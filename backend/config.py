@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # 基础设置
     APP_NAME: str = "认知能力评估平台"
     API_PREFIX: str = "/api"
-    DEBUG: bool = True
+    DEBUG: bool = False
     PORT: int = 3000
 
     # 数据库设置

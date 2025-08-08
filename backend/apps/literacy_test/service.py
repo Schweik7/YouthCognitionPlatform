@@ -8,7 +8,8 @@ from database import get_session
 from config import UPLOAD_DIR
 from .models import LiteracyTest, LiteracyAudioRecord, TestStatus
 import uuid
-from apps.oral_reading_fluency.xfyun_sdk import evaluate_audio
+from apps.oral_reading_fluency.xfyun_sdk import XfyunSpeechEvaluationSDK
+from config import settings
 
 
 # 加载识字量测验数据
@@ -28,7 +29,9 @@ def get_character_groups() -> List[Dict[str, Any]]:
 
 def create_literacy_test(user_id: int) -> LiteracyTest:
     """创建新的识字量测验"""
-    with get_session() as session:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
         test = LiteracyTest(
             user_id=user_id,
             status=TestStatus.IN_PROGRESS
@@ -37,12 +40,24 @@ def create_literacy_test(user_id: int) -> LiteracyTest:
         session.commit()
         session.refresh(test)
         return test
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
 
 
 def get_literacy_test(test_id: int) -> Optional[LiteracyTest]:
     """获取识字量测验"""
-    with get_session() as session:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
         return session.get(LiteracyTest, test_id)
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
 
 
 def save_audio_record(
@@ -55,7 +70,9 @@ def save_audio_record(
     file_size: int
 ) -> LiteracyAudioRecord:
     """保存音频记录"""
-    with get_session() as session:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
         record = LiteracyAudioRecord(
             test_id=test_id,
             character=character,
@@ -69,6 +86,11 @@ def save_audio_record(
         session.commit()
         session.refresh(record)
         return record
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
 
 
 def save_evaluation_result_file(xml_result: str, detailed_analysis: dict, audio_record_id: int) -> str:
@@ -97,7 +119,9 @@ def save_evaluation_result_file(xml_result: str, detailed_analysis: dict, audio_
 
 async def evaluate_literacy_audio(audio_record_id: int):
     """异步评测识字量音频"""
-    with get_session() as session:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
         # 获取音频记录
         record = session.get(LiteracyAudioRecord, audio_record_id)
         if not record:
@@ -112,8 +136,15 @@ async def evaluate_literacy_audio(audio_record_id: int):
             # 构建音频文件完整路径
             audio_path = UPLOAD_DIR / record.audio_file_path
             
+            # 初始化SDK
+            sdk = XfyunSpeechEvaluationSDK(
+                app_id=settings.XFYUN_APP_ID,
+                api_key=settings.XFYUN_API_KEY,
+                api_secret=settings.XFYUN_API_SECRET
+            )
+            
             # 调用语音评测API
-            result = await evaluate_audio(
+            result = await sdk.evaluate_audio_file(
                 audio_file_path=str(audio_path),
                 text_content=record.character,  # 期望朗读的字符
                 category="read_word"  # 单字朗读
@@ -178,11 +209,18 @@ async def evaluate_literacy_audio(audio_record_id: int):
             record.error_message = str(e)
             record.evaluation_completed_at = datetime.now()
             session.commit()
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
 
 
 async def update_test_completion_status(test_id: int):
     """更新测验完成状态"""
-    with get_session() as session:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
         test = session.get(LiteracyTest, test_id)
         if not test:
             return
@@ -236,11 +274,18 @@ async def update_test_completion_status(test_id: int):
             test.evaluation_completed_at = datetime.now()
             
             session.commit()
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
 
 
 def get_test_results(test_id: int) -> Optional[Dict[str, Any]]:
     """获取测验结果"""
-    with get_session() as session:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
         test = session.get(LiteracyTest, test_id)
         if not test:
             return None
@@ -283,11 +328,18 @@ def get_test_results(test_id: int) -> Optional[Dict[str, Any]]:
                 for record in audio_records
             ]
         }
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
 
 
 def get_user_tests(user_id: int) -> List[Dict[str, Any]]:
     """获取用户的所有识字量测验"""
-    with get_session() as session:
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
         stmt = select(LiteracyTest).where(LiteracyTest.user_id == user_id).order_by(LiteracyTest.start_time.desc())
         tests = session.exec(stmt).all()
         
@@ -305,3 +357,8 @@ def get_user_tests(user_id: int) -> List[Dict[str, Any]]:
             }
             for test in tests
         ]
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass

@@ -15,7 +15,7 @@ from .service import (
     get_user_tests
 )
 
-router = APIRouter(prefix="/api/literacy", tags=["识字量测验"])
+router = APIRouter(tags=["识字量测验"])
 
 # 确保上传目录存在
 LITERACY_UPLOAD_DIR = UPLOAD_DIR / "literacy_test"
@@ -36,7 +36,7 @@ async def get_literacy_character_groups() -> Dict[str, Any]:
 
 
 @router.post("/start-test")
-async def start_literacy_test(user_id: int) -> Dict[str, Any]:
+async def start_literacy_test(user_id: int = Form(...)) -> Dict[str, Any]:
     """开始识字量测验"""
     try:
         test = create_literacy_test(user_id)

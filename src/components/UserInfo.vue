@@ -39,6 +39,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 
 const router = useRouter();
 const formRef = ref(null);
@@ -92,11 +93,31 @@ const submitForm = async () => {
 
     await formRef.value.validate(async (valid) => {
         if (valid) {
-            // 保存用户信息到本地存储
-            localStorage.setItem('userInfo', JSON.stringify(userForm));
+            try {
+                // 调用后端API创建或获取用户信息
+                const response = await fetch('/api/users/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(userForm)
+                });
 
-            // 导航到测试选择页面而不是直接到实验页面
-            router.push('/selection');
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // 后端直接返回用户对象，保存包含ID的完整用户信息到本地存储
+                    localStorage.setItem('userInfo', JSON.stringify(result));
+
+                    // 导航到测试选择页面
+                    router.push('/selection');
+                } else {
+                    throw new Error(result.detail || result.message || '创建用户失败');
+                }
+            } catch (error) {
+                console.error('创建用户失败:', error);
+                ElMessage.error('创建用户失败，请重试');
+            }
         }
     });
 };
