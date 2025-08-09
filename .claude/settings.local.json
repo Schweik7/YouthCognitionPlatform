@@ -25,7 +25,10 @@
       "mcp__context7__resolve-library-id",
       "Bash(claude mcp add:*)",
       "Bash(chmod:*)",
-      "Bash(/home/mengmeng/.local/bin/install-kimpanel:*)"
+      "Bash(/home/mengmeng/.local/bin/install-kimpanel:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

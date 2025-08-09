@@ -19,7 +19,7 @@
         <div v-for="group in characterGroups" :key="group.group_id" class="character-group">
           <div class="group-header">
             <h3>{{ group.group_name }}</h3>
-            <p>系数: {{ group.coefficient }} | 字数: {{ group.characters.length }}</p>
+            <!-- <p>系数: {{ group.coefficient }} | 字数: {{ group.characters.length }}</p> -->
           </div>
 
           <!-- 字符展示区域 -->
@@ -275,16 +275,25 @@ const uploadGroupAudio = async (audioBlob) => {
     const knownCharacters = getGroupKnownCharacters(group)
     const charactersText = knownCharacters.join('')
 
-    const formData = new FormData()
-    formData.append('test_id', testId.value)
-    formData.append('character', charactersText) // 将该组所有认识的字符作为一个整体
-    formData.append('group_id', group.group_id)
-    formData.append('coefficient', group.coefficient)
-    formData.append('audio_file', audioBlob, `group_${group.group_id}_${charactersText.substring(0, 5)}.mp3`)
+    // 转换音频数据为base64
+    const arrayBuffer = await audioBlob.arrayBuffer()
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    
+    const requestData = {
+      test_id: testId.value,
+      character: charactersText, // 将该组所有认识的字符作为一个整体
+      group_id: group.group_id,
+      coefficient: group.coefficient,
+      audio_data: base64Audio,
+      audio_filename: `group_${group.group_id}_${charactersText.substring(0, 5)}.mp3`
+    }
 
     const response = await fetch('/api/literacy/upload-audio', {
       method: 'POST',
-      body: formData
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
     })
 
     const result = await response.json()
@@ -310,6 +319,48 @@ const uploadGroupAudio = async (audioBlob) => {
     ElMessage.error('上传音频失败')
     currentRecordingGroup.value = null
     currentRecordingGroupName.value = ''
+  }
+}
+
+const uploadUnrecordedGroups = async () => {
+  try {
+    // 找出未录音的组
+    const unrecordedGroups = characterGroups.value.filter(group => 
+      !recordedGroups.value.has(group.group_id)
+    )
+    
+    for (const group of unrecordedGroups) {
+      // 获取该组所有字符（都标记为不认识）
+      const groupCharacters = group.characters.join('')
+      
+      const requestData = {
+        test_id: testId.value,
+        characters: groupCharacters,
+        group_id: group.group_id,
+        coefficient: group.coefficient,
+        is_empty: true  // 标记为空记录
+      }
+
+      const response = await fetch('/api/literacy/upload-empty-group', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        // 标记该组为已处理
+        recordedGroups.value.add(group.group_id)
+        console.log(`已标记未录音组：组 ${group.group_id}`)
+      } else {
+        console.error(`标记组 ${group.group_id} 失败:`, result.message)
+      }
+    }
+  } catch (error) {
+    console.error('处理未录音组失败:', error)
+    ElMessage.warning('处理未录音的组时出现错误，但测试将继续完成')
   }
 }
 
@@ -378,9 +429,9 @@ const startTest = async () => {
     const response = await fetch('/api/literacy/start-test', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: `user_id=${userInfo.value.id}`
+      body: JSON.stringify({ user_id: userInfo.value.id })
     })
     const result = await response.json()
     if (result.success) {
@@ -411,14 +462,39 @@ const finishTest = async () => {
       }
     )
     
-    // 等待一段时间让后端处理完评测
-    ElMessage.info('正在处理测试结果，请稍候...')
-    setTimeout(async () => {
-      await fetchTestResults()
-    }, 2000)
+    // 先为未录音的组上传空记录
+    ElMessage.info('正在处理未录音的组...')
+    await uploadUnrecordedGroups()
     
-  } catch {
-    // 用户取消
+    // 调用后端完成测试的API，传递不认识的字符列表
+    ElMessage.info('正在完成测试...')
+    
+    const unknownCharsArray = Array.from(unknownCharacters.value)
+    
+    const response = await fetch(`/api/literacy/test/${testId.value}/finish`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        unknown_characters: unknownCharsArray
+      })
+    })
+    
+    const result = await response.json()
+    if (result.success) {
+      ElMessage.success('测试完成')
+      // 等待一下再获取结果
+      setTimeout(async () => {
+        await fetchTestResults()
+      }, 1000)
+    } else {
+      throw new Error(result.message || '完成测试失败')
+    }
+    
+  } catch (error) {
+    console.error('完成测试失败:', error)
+    ElMessage.error('完成测试失败')
   }
 }
 
@@ -679,7 +755,7 @@ onUnmounted(() => {
   background: #f8f9fa;
   border: 2px solid #e4e7ed;
   border-radius: 12px;
-  padding: 15px;
+  padding: 8px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -728,10 +804,16 @@ onUnmounted(() => {
   background: #f0f9ff;
 }
 
-.character-card.recording {
+.character-card.recording:not(.unknown) {
   border-color: #f56c6c;
   background: #fef0f0;
   animation: pulse 1s infinite;
+}
+
+.character-card.recording.unknown {
+  border-color: #d3d3d3;
+  background: #f5f5f5;
+  animation: none;
 }
 
 .character-card.completed {
@@ -744,17 +826,19 @@ onUnmounted(() => {
   font-size: 36px;
   font-weight: normal;
   color: #303133;
-  margin-bottom: 8px;
   text-align: center;
   line-height: 1;
 }
 
 .character-status {
-  height: 20px;
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: auto;
 }
 
 .completed-icon {

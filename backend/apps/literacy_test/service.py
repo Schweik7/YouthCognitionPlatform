@@ -8,7 +8,7 @@ from database import get_session
 from config import UPLOAD_DIR
 from .models import LiteracyTest, LiteracyAudioRecord, TestStatus
 import uuid
-from apps.oral_reading_fluency.xfyun_sdk import XfyunSpeechEvaluationSDK
+from apps.oral_reading_fluency.xfyun_sdk import XfyunSpeechEvaluationSDK, XfyunSDKFactory
 from config import settings
 
 
@@ -62,30 +62,35 @@ def get_literacy_test(test_id: int) -> Optional[LiteracyTest]:
 
 def save_audio_record(
     test_id: int,
-    character: str,
+    characters: str,  # 多个字符组成的字符串
     group_id: int,
     coefficient: float,
     audio_file_path: str,
     audio_duration: float,
     file_size: int
-) -> LiteracyAudioRecord:
-    """保存音频记录"""
+) -> List[LiteracyAudioRecord]:
+    """保存音频记录，为每个字符创建独立记录"""
     session_gen = get_session()
     session = next(session_gen)
     try:
-        record = LiteracyAudioRecord(
-            test_id=test_id,
-            character=character,
-            group_id=group_id,
-            coefficient=coefficient,
-            audio_file_path=audio_file_path,
-            audio_duration=audio_duration,
-            file_size=file_size
-        )
-        session.add(record)
+        records = []
+        for char in characters:
+            record = LiteracyAudioRecord(
+                test_id=test_id,
+                character=char,  # 单个字符
+                group_id=group_id,
+                coefficient=coefficient,
+                audio_file_path=audio_file_path,
+                audio_duration=audio_duration,
+                file_size=file_size
+            )
+            session.add(record)
+            records.append(record)
+        
         session.commit()
-        session.refresh(record)
-        return record
+        for record in records:
+            session.refresh(record)
+        return records
     finally:
         try:
             next(session_gen)
@@ -117,66 +122,97 @@ def save_evaluation_result_file(xml_result: str, detailed_analysis: dict, audio_
     return str(file_path.relative_to(UPLOAD_DIR))
 
 
-async def evaluate_literacy_audio(audio_record_id: int):
+async def evaluate_literacy_audio(audio_record_ids: List[int]):
     """异步评测识字量音频"""
     session_gen = get_session()
     session = next(session_gen)
     try:
-        # 获取音频记录
-        record = session.get(LiteracyAudioRecord, audio_record_id)
-        if not record:
+        # 获取第一个音频记录来获取基本信息（所有记录应该有相同的音频文件）
+        first_record = session.get(LiteracyAudioRecord, audio_record_ids[0])
+        if not first_record:
             return
         
-        # 更新评测状态
-        record.evaluation_status = "processing"
-        record.evaluation_started_at = datetime.now()
+        # 获取所有相关记录
+        records = [session.get(LiteracyAudioRecord, record_id) for record_id in audio_record_ids]
+        records = [r for r in records if r]  # 过滤None值
+        
+        if not records:
+            return
+        
+        # 更新所有记录的评测状态
+        for record in records:
+            record.evaluation_status = "processing"
+            record.evaluation_started_at = datetime.now()
         session.commit()
         
         try:
             # 构建音频文件完整路径
-            audio_path = UPLOAD_DIR / record.audio_file_path
+            audio_path = UPLOAD_DIR / first_record.audio_file_path
             
-            # 初始化SDK
-            sdk = XfyunSpeechEvaluationSDK(
-                app_id=settings.XFYUN_APP_ID,
-                api_key=settings.XFYUN_API_KEY,
-                api_secret=settings.XFYUN_API_SECRET
-            )
+            # 获取所有需要评测的字符
+            all_characters = ''.join([record.character for record in records])
+            
+            # 获取SDK和创建评测请求
+            sdk = XfyunSDKFactory.get_sdk()
+            evaluation_request = XfyunSDKFactory.create_syllable_request(all_characters)
             
             # 调用语音评测API
             result = await sdk.evaluate_audio_file(
-                audio_file_path=str(audio_path),
-                text_content=record.character,  # 期望朗读的字符
-                category="read_word"  # 单字朗读
+                audio_path,
+                evaluation_request
             )
             
-            # 解析评测结果
-            is_correct = False
-            confidence_score = 0.0
-            
-            if result.get("success", False):
-                xml_result = result.get("data", "")
-                detailed_analysis = result.get("analysis", {})
+            if result.success:
+                # 为每个字符单独判断是否正确
+                for record in records:
+                    char = record.character
+                    is_correct = char in result.correct_characters
+                    confidence_score = 1.0 if is_correct else 0.0
+                    
+                    # 更新单个记录
+                    record.is_correct = is_correct
+                    record.confidence_score = confidence_score
+                    record.evaluation_status = "completed"
+                    record.evaluation_completed_at = datetime.now()
                 
-                # 保存详细结果到文件
+                # 保存详细结果到文件（只保存一份，代表整个组）
+                detailed_analysis = {
+                    "correct_characters": result.correct_characters,
+                    "total_characters": result.total_characters,
+                    "total_score": result.total_score,
+                    "target_characters": [r.character for r in records],
+                    "individual_results": [
+                        {
+                            "character": record.character,
+                            "is_correct": record.is_correct,
+                            "confidence_score": record.confidence_score
+                        }
+                        for record in records
+                    ],
+                    "xml_result": result.xml_result
+                }
                 result_file_path = save_evaluation_result_file(
-                    xml_result, detailed_analysis, audio_record_id
+                    result.xml_result, detailed_analysis, first_record.id
                 )
-                record.evaluation_result_path = result_file_path
                 
-                # 简单的正确性判断逻辑（可根据需要调整）
-                if detailed_analysis:
-                    total_score = detailed_analysis.get("total_score", 0)
-                    confidence_score = total_score / 100.0 if total_score else 0.0
-                    is_correct = total_score >= 60  # 60分以上认为正确
+                # 设置所有记录的结果文件路径
+                for record in records:
+                    record.evaluation_result_path = result_file_path
+                
             else:
-                # 评测失败
-                error_msg = result.get("error", "评测服务异常")
-                record.error_message = error_msg
+                # 评测失败，更新所有记录
+                error_msg = result.message or "评测服务异常"
+                
+                for record in records:
+                    record.is_correct = False
+                    record.confidence_score = 0.0
+                    record.evaluation_status = "failed"
+                    record.evaluation_completed_at = datetime.now()
+                    record.error_message = error_msg
                 
                 # 保存错误信息到文件
                 error_data = {
-                    "audio_record_id": audio_record_id,
+                    "audio_record_ids": audio_record_ids,
                     "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
                     "error_message": error_msg,
                     "evaluation_type": "literacy_test"
@@ -184,30 +220,27 @@ async def evaluate_literacy_audio(audio_record_id: int):
                 
                 results_dir = UPLOAD_DIR / "evaluation_results"
                 results_dir.mkdir(parents=True, exist_ok=True)
-                filename = f"literacy_error_{audio_record_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                filename = f"literacy_error_{first_record.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                 error_file_path = results_dir / filename
                 
                 with open(error_file_path, 'w', encoding='utf-8') as f:
                     json.dump(error_data, f, ensure_ascii=False, indent=2)
                 
-                record.evaluation_result_path = str(error_file_path.relative_to(UPLOAD_DIR))
-            
-            # 更新记录
-            record.is_correct = is_correct
-            record.confidence_score = confidence_score
-            record.evaluation_status = "completed" if result.get("success", False) else "failed"
-            record.evaluation_completed_at = datetime.now()
+                error_file_relative = str(error_file_path.relative_to(UPLOAD_DIR))
+                for record in records:
+                    record.evaluation_result_path = error_file_relative
             
             session.commit()
             
             # 检查是否所有音频都评测完成，如果是则更新测验状态
-            await update_test_completion_status(record.test_id)
+            await update_test_completion_status(first_record.test_id)
             
         except Exception as e:
-            # 处理异常
-            record.evaluation_status = "failed"
-            record.error_message = str(e)
-            record.evaluation_completed_at = datetime.now()
+            # 处理异常，更新所有记录
+            for record in records:
+                record.evaluation_status = "failed"
+                record.error_message = str(e)
+                record.evaluation_completed_at = datetime.now()
             session.commit()
     finally:
         try:
@@ -294,6 +327,38 @@ def get_test_results(test_id: int) -> Optional[Dict[str, Any]]:
         stmt = select(LiteracyAudioRecord).where(LiteracyAudioRecord.test_id == test_id)
         audio_records = session.exec(stmt).all()
         
+        # 按组聚合音频记录
+        groups_data = {}
+        for record in audio_records:
+            group_id = record.group_id
+            if group_id not in groups_data:
+                groups_data[group_id] = {
+                    "group_id": group_id,
+                    "coefficient": record.coefficient,
+                    "characters": [],
+                    "correct_count": 0,
+                    "total_count": 0,
+                    "group_score": 0.0,
+                    "evaluation_status": "pending",
+                    "audio_file_path": record.audio_file_path
+                }
+            
+            groups_data[group_id]["characters"].append({
+                "character": record.character,
+                "is_correct": record.is_correct,
+                "confidence_score": record.confidence_score
+            })
+            groups_data[group_id]["total_count"] += 1
+            
+            if record.is_correct:
+                groups_data[group_id]["correct_count"] += 1
+                groups_data[group_id]["group_score"] += record.coefficient
+            
+            # 更新组的评测状态
+            if record.evaluation_status in ["completed", "failed"]:
+                if groups_data[group_id]["evaluation_status"] == "pending":
+                    groups_data[group_id]["evaluation_status"] = record.evaluation_status
+        
         # 解析组得分
         group_scores = {}
         if test.group_scores:
@@ -314,19 +379,7 @@ def get_test_results(test_id: int) -> Optional[Dict[str, Any]]:
             "total_score": test.total_score,
             "group_scores": group_scores,
             "evaluation_status": test.evaluation_status,
-            "audio_records": [
-                {
-                    "id": record.id,
-                    "character": record.character,
-                    "group_id": record.group_id,
-                    "coefficient": record.coefficient,
-                    "is_correct": record.is_correct,
-                    "confidence_score": record.confidence_score,
-                    "evaluation_status": record.evaluation_status,
-                    "audio_file_path": record.audio_file_path
-                }
-                for record in audio_records
-            ]
+            "groups": list(groups_data.values())  # 按组返回数据
         }
     finally:
         try:
@@ -357,6 +410,146 @@ def get_user_tests(user_id: int) -> List[Dict[str, Any]]:
             }
             for test in tests
         ]
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
+
+
+def finish_test_manually(test_id: int, unknown_characters: List[str]) -> bool:
+    """手动完成测验，将未录音的字符标记为不认识"""
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        test = session.get(LiteracyTest, test_id)
+        if not test:
+            return False
+        
+        # 获取所有字符组数据
+        character_groups_data = load_literacy_test_data()
+        all_characters = []
+        character_to_group = {}  # 字符到组的映射
+        
+        for group in character_groups_data["character_groups"]:
+            if group["characters"]:  # 只处理有字符的组
+                for char in group["characters"]:
+                    all_characters.append(char)
+                    character_to_group[char] = {
+                        "group_id": group["group_id"],
+                        "coefficient": group["coefficient"]
+                    }
+        
+        # 获取已有的音频记录
+        stmt = select(LiteracyAudioRecord).where(LiteracyAudioRecord.test_id == test_id)
+        existing_records = session.exec(stmt).all()
+        
+        # 获取已录音的组ID（基于音频记录）
+        recorded_groups = {record.group_id for record in existing_records}
+        
+        # 找出未录音的组，将整个组的所有字符标记为不认识
+        for group in character_groups_data["character_groups"]:
+            if group["characters"] and group["group_id"] not in recorded_groups:
+                # 整个组未录音，将该组所有字符标记为不认识
+                for char in group["characters"]:
+                    dummy_record = LiteracyAudioRecord(
+                        test_id=test_id,
+                        character=char,
+                        group_id=group["group_id"],
+                        coefficient=group["coefficient"],
+                        audio_file_path="",  # 空路径表示未录音
+                        audio_duration=0.0,
+                        file_size=0,
+                        is_correct=False,  # 标记为不认识
+                        confidence_score=0.0,
+                        evaluation_status="not_recorded"  # 特殊状态表示未录音
+                    )
+                    session.add(dummy_record)
+        
+        # 对于手动标记的不认识字符，如果其组已录音但该字符没有录音记录，也要创建记录
+        recorded_characters = {record.character for record in existing_records}
+        for char in unknown_characters:
+            if char not in recorded_characters and char in character_to_group:
+                group_info = character_to_group[char]
+                dummy_record = LiteracyAudioRecord(
+                    test_id=test_id,
+                    character=char,
+                    group_id=group_info["group_id"],
+                    coefficient=group_info["coefficient"],
+                    audio_file_path="",  # 空路径表示未录音
+                    audio_duration=0.0,
+                    file_size=0,
+                    is_correct=False,  # 标记为不认识
+                    confidence_score=0.0,
+                    evaluation_status="manually_marked_unknown"  # 特殊状态表示手动标记不认识
+                )
+                session.add(dummy_record)
+        
+        # 更新测验状态为完成
+        test.status = TestStatus.COMPLETED
+        test.end_time = datetime.now()
+        
+        session.commit()
+        
+        # 计算最终分数将在session commit后同步计算
+        calculate_final_scores_sync(test_id)
+        
+        return True
+        
+    finally:
+        try:
+            next(session_gen)
+        except StopIteration:
+            pass
+
+
+def calculate_final_scores_sync(test_id: int):
+    """计算测验的最终分数"""
+    session_gen = get_session()
+    session = next(session_gen)
+    try:
+        test = session.get(LiteracyTest, test_id)
+        if not test:
+            return
+        
+        # 获取所有记录（包括真实录音和虚拟记录）
+        stmt = select(LiteracyAudioRecord).where(LiteracyAudioRecord.test_id == test_id)
+        all_records = session.exec(stmt).all()
+        
+        # 计算总分和统计
+        correct_count = sum(1 for record in all_records if record.is_correct)
+        total_count = len(all_records)
+        
+        # 按组统计得分
+        group_scores = {}
+        total_score = 0.0
+        
+        for record in all_records:
+            group_id = record.group_id
+            if group_id not in group_scores:
+                group_scores[group_id] = {
+                    "total_characters": 0,
+                    "correct_characters": 0,
+                    "coefficient": record.coefficient,
+                    "score": 0.0
+                }
+            
+            group_scores[group_id]["total_characters"] += 1
+            if record.is_correct:
+                group_scores[group_id]["correct_characters"] += 1
+                group_scores[group_id]["score"] += record.coefficient
+                total_score += record.coefficient
+        
+        # 更新测验记录
+        test.total_characters = total_count
+        test.correct_characters = correct_count
+        test.total_score = total_score
+        test.group_scores = json.dumps(group_scores, ensure_ascii=False)
+        test.evaluation_status = "completed"
+        test.evaluation_completed_at = datetime.now()
+        
+        session.commit()
+        
     finally:
         try:
             next(session_gen)

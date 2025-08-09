@@ -62,11 +62,9 @@ class EvaluationResponse(BaseModel):
     """评测响应结果"""
     success: bool = Field(default=False, description="是否成功")
     message: str = Field(default="", description="消息")
+    correct_characters: List[str] = Field(default_factory=list, description="正确朗读的字符")
+    total_characters: int = Field(default=0, description="总字符数")
     total_score: float = Field(default=0.0, description="总分")
-    phone_score: float = Field(default=0.0, description="声韵分")
-    tone_score: float = Field(default=0.0, description="调型分")
-    fluency_score: float = Field(default=0.0, description="流畅度")
-    integrity_score: float = Field(default=0.0, description="完整度")
     xml_result: str = Field(default="", description="详细XML结果")
     analysis_time: datetime = Field(default_factory=datetime.now, description="分析时间")
 
@@ -376,37 +374,42 @@ class XfyunSpeechEvaluationSDK:
             else:
                 xml_result = ""
             
-            # 基础解析（从XML中提取分数信息）
-            total_score = 0.0
-            phone_score = 0.0
-            tone_score = 0.0
-            fluency_score = 0.0
-            integrity_score = 0.0
+            # 解析正确朗读的字符
+            correct_characters = []
+            total_characters = 0
             
             if xml_result:
-                # 简单的XML解析来获取分数
                 import xml.etree.ElementTree as ET
                 try:
                     root = ET.fromstring(xml_result)
-                    # 查找评测结果节点
-                    read_syllable = root.find(".//rec_paper/read_syllable")
-                    if read_syllable is not None:
-                        total_score = float(read_syllable.get("total_score", 0))
-                        phone_score = float(read_syllable.get("phone_score", 0))
-                        tone_score = float(read_syllable.get("tone_score", 0))
-                        fluency_score = float(read_syllable.get("fluency_score", 0))
-                        integrity_score = float(read_syllable.get("integrity_score", 0))
+                    # 查找所有句子下的音节
+                    for sentence in root.findall(".//sentence"):
+                        for word in sentence.findall("word"):
+                            for syll in word.findall("syll"):
+                                # 只检查非静音节点
+                                if syll.get("rec_node_type") == "paper":
+                                    char = syll.get("content", "")
+                                    if char:  # 确保字符不为空
+                                        total_characters += 1
+                                        # dp_message为0表示正确朗读
+                                        if syll.get("dp_message") == "0":
+                                            correct_characters.append(char)
+                    
+                    # 计算总分（正确率）
+                    total_score = len(correct_characters) / total_characters * 100 if total_characters > 0 else 0
+                    
                 except ET.ParseError as e:
                     logger.warning(f"XML解析失败: {e}")
+                    total_score = 0.0
+            else:
+                total_score = 0.0
             
             return EvaluationResponse(
                 success=True,
                 message="评测成功",
+                correct_characters=correct_characters,
+                total_characters=total_characters,
                 total_score=total_score,
-                phone_score=phone_score,
-                tone_score=tone_score,
-                fluency_score=fluency_score,
-                integrity_score=integrity_score,
                 xml_result=xml_result
             )
             
