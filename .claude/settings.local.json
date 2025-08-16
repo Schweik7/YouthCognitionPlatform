@@ -28,7 +28,10 @@
       "Bash(/home/mengmeng/.local/bin/install-kimpanel:*)",
       "Bash(pkill:*)",
       "Bash(true)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "mcp__browsermcp__browser_navigate",
+      "mcp__browsermcp__browser_click",
+      "mcp__browsermcp__browser_screenshot"
     ],
     "deny": []
   }

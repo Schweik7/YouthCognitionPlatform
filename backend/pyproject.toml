@@ -28,6 +28,8 @@ dependencies = [
     "python-docx>=1.2.0",
     "pillow>=11.3.0",
     "websockets>=15.0.1",
+    "aiohttp>=3.12.15",
+    "playwright>=1.54.0",
 ]
 
 [project.optional-dependencies]
