@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(mkdir:*)",
@@ -31,7 +32,16 @@
       "Bash(find:*)",
       "mcp__browsermcp__browser_navigate",
       "mcp__browsermcp__browser_click",
-      "mcp__browsermcp__browser_screenshot"
+      "mcp__browsermcp__browser_screenshot",
+      "Bash(nginx:*)",
+      "Bash(systemctl stop:*)",
+      "Bash(ln:*)",
+      "Bash(systemctl start:*)",
+      "Bash(certbot certonly:*)",
+      "Bash(systemctl reload:*)",
+      "Bash(ENVIRONMENT=staging uv run python main.py)",
+      "Bash(pip install:*)",
+      "Bash(ENVIRONMENT=staging uv run main.py)"
     ],
     "deny": []
   }

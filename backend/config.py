@@ -1,11 +1,22 @@
 import os
 from pydantic_settings import BaseSettings
 from typing import Optional, List
+from enum import Enum
+
+
+class Environment(str, Enum):
+    """环境类型枚举"""
+    DEVELOPMENT = "development"
+    STAGING = "staging"  # 临时部署
+    PRODUCTION = "production"
 
 
 class Settings(BaseSettings):
     """应用配置类"""
 
+    # 环境设置
+    ENVIRONMENT: Environment = Environment.STAGING
+    
     # 基础设置
     APP_NAME: str = "认知能力评估平台"
     API_PREFIX: str = "/api"
@@ -25,8 +36,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
-    # CORS设置
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    # CORS设置 - 根据环境动态配置
+    CORS_ORIGINS: List[str] = []
 
     # 文件路径设置
     DATA_DIR: str = "data"
@@ -43,6 +54,27 @@ class Settings(BaseSettings):
         # 构建数据库URL
         if not self.DATABASE_URL:
             self.DATABASE_URL = f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        
+        # 根据环境配置CORS origins和其他设置
+        if self.ENVIRONMENT == Environment.DEVELOPMENT:
+            self.DEBUG = True
+            self.CORS_ORIGINS = ["http://localhost:3000", "http://localhost:5173"]
+            self.PORT = 3000
+        elif self.ENVIRONMENT == Environment.STAGING:
+            self.DEBUG = True  # 临时部署保持调试模式
+            self.CORS_ORIGINS = [
+                "https://eduscreen.psyventures.cn",
+                "http://eduscreen.psyventures.cn",
+                "http://localhost:5173"  # 开发时仍可访问
+            ]
+            self.PORT = 8001  # 临时部署端口
+        elif self.ENVIRONMENT == Environment.PRODUCTION:
+            self.DEBUG = False
+            self.CORS_ORIGINS = [
+                "https://eduscreen.psyventures.cn",
+                "http://eduscreen.psyventures.cn"
+            ]
+            self.PORT = 8001
 
     class Config:
         env_file = ".env"

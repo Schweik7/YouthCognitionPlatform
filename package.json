@@ -4,11 +4,15 @@
 	"description": "阅读流畅性实验平台",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
+		"dev": "vite --mode development",
+		"dev:staging": "vite --mode staging",
+		"build": "vite build --mode production",
+		"build:staging": "vite build --mode staging",
 		"preview": "vite preview",
 		"start:server": "cd backend && python main.py",
+		"start:server:staging": "cd backend && ENVIRONMENT=staging python main.py",
 		"start": "concurrently \"npm run dev\" \"npm run start:server\"",
+		"start:staging": "concurrently \"npm run dev:staging\" \"npm run start:server:staging\"",
 		"init": "mkdir -p src/components public server",
 		"setup": "npm run init && npm install"
 	},

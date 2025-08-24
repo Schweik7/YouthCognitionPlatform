@@ -14,10 +14,16 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5173,
+    host: true,
+    allowedHosts: ['eduscreen.psyventures.cn', 'localhost'],
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_APP_ENV === 'development' 
+          ? 'http://localhost:3000' 
+          : 'https://eduscreenapi.psyventures.cn',
         changeOrigin: true,
+        secure: process.env.VITE_APP_ENV !== 'development',
       }
     }
   },
