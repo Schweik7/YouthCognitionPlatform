@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 
 class RavenDirectDownloader:
-    def __init__(self, base_dir="backend/data/raven_test"):
+    def __init__(self, base_dir="data/raven_test"):
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
         
@@ -37,8 +37,12 @@ class RavenDirectDownloader:
             return False
     
     async def download_question_images(self, session, question_num):
-        """下载单个题目的所有图片（1个题目图片 + 6个选项图片）"""
-        print(f"\n📝 下载第 {question_num} 题的图片...")
+        """下载单个题目的所有图片"""
+        # 确定选项数量：1-36题为6个选项，37-72题为8个选项
+        options_count = 8 if question_num >= 37 else 6
+        total_images = 1 + options_count  # 1个题目 + N个选项
+        
+        print(f"\n📝 下载第 {question_num} 题的图片 ({options_count}个选项)...")
         
         success_count = 0
         
@@ -51,12 +55,10 @@ class RavenDirectDownloader:
             success_count += 1
         
         # 计算该题选项的起始编号
-        # 根据观察：第1题选项是1-6，第2题选项是7-12，第3题选项是13-18...
-        # 公式：起始编号 = (question_num - 1) * 6 + 1
-        start_answer_num = (question_num - 1) * 6 + 1
+        start_answer_num = self.calculate_answer_start_number(question_num)
         
-        # 下载6个选项图片
-        for option_index in range(6):
+        # 下载选项图片
+        for option_index in range(options_count):
             answer_num = start_answer_num + option_index
             answer_url = self.answer_url_template.format(answer_num)
             answer_filename = f"question_{question_num:02d}_option_{option_index + 1}.jpg"
@@ -65,18 +67,76 @@ class RavenDirectDownloader:
             if await self.download_image(session, answer_url, answer_path):
                 success_count += 1
         
-        print(f"  题目 {question_num}: {success_count}/7 张图片下载成功")
+        print(f"  题目 {question_num}: {success_count}/{total_images} 张图片下载成功")
         return success_count
+    
+    def calculate_answer_start_number(self, question_num):
+        """计算题目的答案选项起始编号"""
+        if question_num <= 36:
+            # 1-36题：每题6个选项
+            # 第1题：1-6，第2题：7-12，第3题：13-18...
+            return (question_num - 1) * 6 + 1
+        else:
+            # 37-72题：每题8个选项
+            # 前36题已经占用了36*6=216个编号
+            # 第37题：217-224，第38题：225-232...
+            return 36 * 6 + (question_num - 37) * 8 + 1
+    
+    def calculate_total_images(self, max_questions):
+        """计算总图片数量"""
+        total = 0
+        for q in range(1, max_questions + 1):
+            if q <= 36:
+                total += 7  # 1题目 + 6选项
+            else:
+                total += 9  # 1题目 + 8选项
+        return total
+    
+    async def redownload_questions_37_72(self):
+        """重新下载37-72题的答案选项图片（8个选项）"""
+        print(f"🔄 重新下载第37-72题的答案选项图片（8个选项）...")
+        
+        total_success = 0
+        questions_to_redownload = range(37, 73)  # 37到72题
+        
+        async with aiohttp.ClientSession() as session:
+            for question_num in questions_to_redownload:
+                print(f"\n📝 重新下载第 {question_num} 题的选项图片（8个选项）...")
+                
+                success_count = 0
+                start_answer_num = self.calculate_answer_start_number(question_num)
+                
+                # 下载8个选项图片
+                for option_index in range(8):
+                    answer_num = start_answer_num + option_index
+                    answer_url = self.answer_url_template.format(answer_num)
+                    answer_filename = f"question_{question_num:02d}_option_{option_index + 1}.jpg"
+                    answer_path = self.base_dir / answer_filename
+                    
+                    if await self.download_image(session, answer_url, answer_path):
+                        success_count += 1
+                
+                total_success += success_count
+                print(f"  题目 {question_num}: {success_count}/8 个选项图片下载成功")
+                
+                # 短暂暂停避免过于频繁的请求
+                await asyncio.sleep(0.5)
+        
+        print(f"\n🎉 重新下载完成！")
+        print(f"📊 成功下载: {total_success}/{36 * 8} 个选项图片")
+        return total_success
     
     async def download_all_questions(self, max_questions=72):
         """下载所有题目的图片"""
         print(f"🚀 开始下载瑞文智力测验图片...")
         print(f"目标题目数: {max_questions}")
         print(f"保存路径: {self.base_dir}")
-        print(f"预计总图片数: {max_questions * 7} 张")
+        
+        # 计算总图片数：1-36题每题7张(1+6)，37-72题每题9张(1+8)
+        total_images = self.calculate_total_images(max_questions)
+        print(f"预计总图片数: {total_images} 张")
         
         total_success = 0
-        total_images = max_questions * 7
         
         # 创建HTTP会话
         async with aiohttp.ClientSession() as session:
@@ -130,12 +190,15 @@ class RavenDirectDownloader:
             f.write("文件命名规则:\n")
             f.write("- 题目图片: question_XX_main.jpg\n")
             f.write("- 选项图片: question_XX_option_Y.jpg\n")
-            f.write("  其中 XX 是题目编号(01-72)，Y 是选项编号(1-6)\n\n")
+            f.write("  其中 XX 是题目编号(01-72)，Y 是选项编号\n")
+            f.write("  选项数量: 1-36题为6个选项，37-72题为8个选项\n\n")
             
             f.write("URL规律:\n")
             f.write("- 题目: https://minke8.cn/Assets/images/rw/question/{题目编号}.jpg\n")
             f.write("- 选项: https://minke8.cn/Assets/images/rw/answer/{选项编号}.jpg\n")
-            f.write("  选项编号计算: (题目编号-1)*6 + 选项序号\n")
+            f.write("  选项编号计算:\n")
+            f.write("    1-36题: (题目编号-1)*6 + 选项序号\n")
+            f.write("    37-72题: 216 + (题目编号-37)*8 + 选项序号\n")
         
         print(f"📄 下载报告已保存: {report_path}")
 
@@ -151,8 +214,9 @@ class RavenDirectDownloader:
             if not main_file.exists():
                 missing_files.append(str(main_file))
             
-            # 检查选项图片
-            for option_num in range(1, 7):
+            # 检查选项图片 - 根据题目确定选项数量
+            options_count = 8 if question_num >= 37 else 6
+            for option_num in range(1, options_count + 1):
                 option_file = self.base_dir / f"question_{question_num:02d}_option_{option_num}.jpg"
                 if not option_file.exists():
                     missing_files.append(str(option_file))
@@ -171,6 +235,17 @@ class RavenDirectDownloader:
 
 async def main():
     """主函数"""
+    downloader = RavenDirectDownloader()
+    
+    # 重新下载37-72题的选项图片（8个选项）
+    await downloader.redownload_questions_37_72()
+    
+    # 验证下载结果
+    await downloader.verify_downloads(max_questions=72)
+
+
+async def download_all():
+    """下载所有图片的函数"""
     downloader = RavenDirectDownloader()
     
     # 下载所有图片
