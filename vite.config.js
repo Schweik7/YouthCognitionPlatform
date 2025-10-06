@@ -19,11 +19,12 @@ export default defineConfig({
     allowedHosts: ['eduscreen.psyventures.cn', 'localhost'],
     proxy: {
       '/api': {
-        target: process.env.VITE_APP_ENV === 'development' 
-          ? 'http://localhost:3000' 
-          : 'https://eduscreenapi.psyventures.cn',
+        // 默认使用本地开发环境，除非明确设置为生产环境
+        target: process.env.NODE_ENV === 'production'
+          ? 'https://eduscreenapi.psyventures.cn'
+          : 'http://localhost:8001',
         changeOrigin: true,
-        secure: process.env.VITE_APP_ENV !== 'development',
+        secure: process.env.NODE_ENV === 'production',
       }
     }
   },

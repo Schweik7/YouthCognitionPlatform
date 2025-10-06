@@ -28,6 +28,11 @@
                         class="full-width"></el-input-number>
                 </el-form-item>
 
+                <el-form-item label="出生日期" prop="birth_date">
+                    <el-date-picker v-model="userForm.birth_date" type="date" placeholder="请选择出生日期"
+                        class="full-width" format="YYYY-MM-DD" value-format="YYYY-MM-DD"></el-date-picker>
+                </el-form-item>
+
                 <el-form-item>
                     <el-button type="primary" @click="submitForm" class="submit-btn">开始实验</el-button>
                 </el-form-item>
@@ -49,14 +54,16 @@ const userForm = reactive({
     name: '',
     school: '',
     grade: null,
-    class_number: null
+    class_number: null,
+    birth_date: null
 });
 
 const rules = {
     name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
     school: [{ required: true, message: '请输入学校', trigger: 'blur' }],
     grade: [{ required: true, message: '请输入年级', trigger: 'blur' }],
-    class_number: [{ required: true, message: '请输入班级', trigger: 'blur' }]
+    class_number: [{ required: true, message: '请输入班级', trigger: 'blur' }],
+    birth_date: [{ required: true, message: '请选择出生日期', trigger: 'change' }]
 };
 
 // 获取最近的学校信息

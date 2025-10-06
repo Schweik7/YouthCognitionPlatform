@@ -16,6 +16,7 @@ import CalculationExperiment from './components/CalculationExperiment.vue';
 import ReadingFluencyTest from './components/reading/ReadingFluencyTest.vue';
 import OralReadingFluencyTest from './components/oral-reading/OralReadingFluencyTest.vue';
 import LiteracyTest from './components/literacy/LiteracyTest.vue';
+import RavenExperiment from './components/RavenExperiment.vue';
 import UserInfo from './components/UserInfo.vue';
 import TestSelection from './components/TestSelection.vue';
 
@@ -30,7 +31,8 @@ const router = createRouter({
     { path: '/calculation-experiment', component: CalculationExperiment },
     { path: '/reading-fluency-test', component: ReadingFluencyTest },
     { path: '/oral-reading-fluency-test', component: OralReadingFluencyTest },
-    { path: '/literacy-test', component: LiteracyTest }
+    { path: '/literacy-test', component: LiteracyTest },
+    { path: '/raven-test', component: RavenExperiment }
   ]
 });
 

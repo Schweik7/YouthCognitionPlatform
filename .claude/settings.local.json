@@ -2,7 +2,14 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(fcitx-diagnose:*)"
+      "Bash(fcitx-diagnose:*)",
+      "Bash(lsof:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(curl:*)",
+      "Read(//etc/**)",
+      "Bash(printenv)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

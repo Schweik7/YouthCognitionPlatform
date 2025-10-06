@@ -28,7 +28,7 @@ async def get_recent_schools(session: Session = Depends(get_session)):
 async def create_user(user_data: UserCreate, session: Session = Depends(get_session)):
     """创建新用户"""
     try:
-        # 查找已存在的用户
+        # 查找已存在的用户（不包含birth_date，因为可能后续更新）
         query = select(User).where(
             User.name == user_data.name,
             User.school == user_data.school,
@@ -37,8 +37,13 @@ async def create_user(user_data: UserCreate, session: Session = Depends(get_sess
         )
         existing_user = session.exec(query).first()
 
-        # 如果已存在，则直接返回
+        # 如果已存在，更新birth_date（如果提供）
         if existing_user:
+            if user_data.birth_date and not existing_user.birth_date:
+                existing_user.birth_date = user_data.birth_date
+                session.add(existing_user)
+                session.commit()
+                session.refresh(existing_user)
             return existing_user
 
         # 创建新用户
@@ -47,6 +52,7 @@ async def create_user(user_data: UserCreate, session: Session = Depends(get_sess
             school=user_data.school,
             grade=user_data.grade,
             class_number=user_data.class_number,
+            birth_date=user_data.birth_date,
         )
 
         session.add(new_user)

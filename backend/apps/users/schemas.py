@@ -1,6 +1,6 @@
 from typing import List, Optional
 from sqlmodel import SQLModel
-from datetime import datetime
+from datetime import datetime, date
 
 
 class UserBase(SQLModel):
@@ -9,6 +9,7 @@ class UserBase(SQLModel):
     school: str
     grade: int
     class_number: int
+    birth_date: Optional[date] = None
 
 
 class UserCreate(UserBase):

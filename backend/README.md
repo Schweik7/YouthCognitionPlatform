@@ -65,10 +65,10 @@ cd backend
 ```bash
 # 安装 uv (如果尚未安装)
 pip install uv
-
+uv sync
 # 创建虚拟环境并安装依赖
 # uv venv
-uv pip install -r pyproject.toml
+# uv pip install -r pyproject.toml
 
 # 激活虚拟环境
 # 在 Windows 上
@@ -99,19 +99,6 @@ ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'meng1234
 FLUSH PRIVILEGES;
 ```
 
-
-
-### 4. 初始化数据库和数据
-
-```bash
-python init_db.py
-```
-
-### 5. 启动应用
-
-```bash
-python run.py
-```
 
 应用将在 http://localhost:3000 上启动，API 文档可在 http://localhost:3000/api/docs 访问。
 
