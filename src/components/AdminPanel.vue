@@ -62,11 +62,70 @@
               min-width="110"
               show-overflow-tooltip
             />
+            <el-table-column
+              v-if="key === 'oral_reading_fluency' || key === 'literacy'"
+              label="录音"
+              width="110"
+              fixed="right"
+            >
+              <template #default="{ row }">
+                <el-button type="primary" link size="small" @click="openRecordings(key, row)">
+                  查看录音
+                </el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
       </el-tabs>
       <el-empty v-else description="暂无数据，请调整筛选条件后查询" />
     </el-card>
+
+    <!-- 录音查看 / 在线评分 -->
+    <el-dialog v-model="recDialog" :title="recTitle" width="920px" top="5vh">
+      <div v-loading="recLoading">
+        <div class="rec-toolbar">
+          <span v-if="recData">
+            考生：{{ recData.user.name }}（{{ recData.user.school }} {{ recData.user.grade }}年级{{ recData.user.class_number }}班）
+            · 共 {{ recData.total }} 条录音
+          </span>
+          <el-button type="success" size="small" :disabled="!recData || !recData.total" @click="downloadAllAudio">
+            下载全部录音(ZIP)
+          </el-button>
+        </div>
+
+        <div class="rec-body" v-if="recData">
+          <!-- 左侧：录音条目 + 播放器 -->
+          <div class="rec-items">
+            <el-table :data="recData.items" border size="small" max-height="60vh">
+              <el-table-column prop="title" label="题目" width="120" />
+              <el-table-column prop="stimulus" label="内容" min-width="160" show-overflow-tooltip />
+              <el-table-column label="播放" min-width="240">
+                <template #default="{ row }">
+                  <audio v-if="row.has_file" controls preload="none" :src="row.audio_url" style="width: 100%; height: 32px;"></audio>
+                  <span v-else class="muted">无录音</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="评测" width="110">
+                <template #default="{ row }">
+                  <span v-if="row.is_correct === true" class="ok">正确</span>
+                  <span v-else-if="row.is_correct === false" class="bad">错误</span>
+                  <span v-else-if="row.total_score != null">{{ row.total_score }}</span>
+                  <span v-else class="muted">{{ row.evaluation_status }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <!-- 右侧：全量题目参考 -->
+          <div class="rec-questions">
+            <div class="rec-questions-title">全部题目</div>
+            <ol>
+              <li v-for="(q, i) in recData.questions" :key="i">{{ q }}</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -129,6 +188,45 @@ const fetchResults = async () => {
   }
 };
 
+// ----- 录音查看 -----
+const recDialog = ref(false);
+const recLoading = ref(false);
+const recData = ref(null);
+const recTitle = ref('录音查看');
+const recCtx = ref({ test: '', testId: null });
+
+const openRecordings = async (key, row) => {
+  const test = key === 'oral_reading_fluency' ? 'oral' : 'literacy';
+  const testId = row.__test_id__;
+  recCtx.value = { test, testId };
+  recTitle.value = `${tests[key].label} - 录音查看 / 在线评分`;
+  recDialog.value = true;
+  recLoading.value = true;
+  recData.value = null;
+  try {
+    const response = await fetch(`/api/admin/audio/recordings?test=${test}&test_id=${testId}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || '获取录音失败');
+    }
+    recData.value = await response.json();
+  } catch (e) {
+    ElMessage.error(e.message || '获取录音失败');
+  } finally {
+    recLoading.value = false;
+  }
+};
+
+const downloadAllAudio = () => {
+  const { test, testId } = recCtx.value;
+  const url = `/api/admin/audio/download-all?test=${test}&test_id=${testId}`;
+  const a = document.createElement('a');
+  a.href = url;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
 const download = (testType) => {
   const params = buildParams();
   params.append('format', format.value);
@@ -176,4 +274,41 @@ onMounted(fetchResults);
   align-items: center;
   gap: 8px;
 }
+.rec-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #606266;
+  font-size: 14px;
+}
+.rec-body {
+  display: flex;
+  gap: 16px;
+}
+.rec-items {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rec-questions {
+  flex: 0 0 200px;
+  border-left: 1px solid #ebeef5;
+  padding-left: 12px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.rec-questions-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.rec-questions ol {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.9;
+}
+.muted { color: #c0c4cc; }
+.ok { color: #67c23a; }
+.bad { color: #f56c6c; }
 </style>

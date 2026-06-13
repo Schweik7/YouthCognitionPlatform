@@ -1,49 +1,10 @@
 <template>
   <div class="result-container">
-    <h2>测试结果</h2>
-
-    <el-card class="result-card">
-      <div class="result-item total-score">
-        <div class="result-label">总得分:</div>
-        <div class="result-value">{{ testResults.totalScore }} / {{ testResults.maxPossibleScore }}</div>
-      </div>
-      <div class="result-item">
-        <div class="result-label">得分率:</div>
-        <div class="result-value">{{ formatPercentage(testResults.scorePercentage) }}%</div>
-      </div>
-      <div class="result-item">
-        <div class="result-label">共完成题目:</div>
-        <div class="result-value">{{ testResults.completedProblems }} / {{ totalProblems }}</div>
-      </div>
-      <div class="result-item">
-        <div class="result-label">正确数量:</div>
-        <div class="result-value">{{ testResults.correctProblems }}</div>
-      </div>
-      <div class="result-item">
-        <div class="result-label">错误数量:</div>
-        <div class="result-value">{{ testResults.completedProblems - testResults.correctProblems }}</div>
-      </div>
-      <div class="result-item">
-        <div class="result-label">正确率:</div>
-        <div class="result-value">{{ formatPercentage(testResults.accuracy) }}%</div>
-      </div>
-      <div class="result-item">
-        <div class="result-label">平均反应时间:</div>
-        <div class="result-value">{{ formatResponseTime(testResults.averageResponseTime) }}毫秒</div>
-      </div>
-      <div class="result-item">
-        <div class="result-label">总用时:</div>
-        <div class="result-value">{{ formatTime(testDuration - remainingTime) }}</div>
-      </div>
+    <el-card class="result-card thanks-card">
+      <div class="thanks-icon">🎉</div>
+      <h2>测试已完成</h2>
+      <p class="thanks-text">感谢你的作答！</p>
     </el-card>
-
-    <!-- 题型分析 -->
-    <TypeStats 
-      v-if="gradeLevel <= 6 && showTypeAnalysis"
-      :grade-level="gradeLevel"
-      :type-stats="typeStats"
-      :format-percentage="formatPercentage"
-    />
 
     <div class="action-buttons">
       <el-button type="primary" @click="$emit('go-to-selection')">返回测试选择</el-button>
@@ -53,8 +14,6 @@
 </template>
 
 <script setup>
-import TypeStats from './TypeStats.vue'
-
 defineProps({
   testResults: {
     type: Object,
@@ -114,6 +73,21 @@ defineEmits(['go-to-selection', 'restart-test'])
 
 .result-card {
   margin-bottom: 30px;
+}
+
+.thanks-card {
+  padding: 40px 20px;
+}
+
+.thanks-icon {
+  font-size: 56px;
+  margin-bottom: 10px;
+}
+
+.thanks-text {
+  font-size: 18px;
+  color: #606266;
+  margin-top: 10px;
 }
 
 .result-item {

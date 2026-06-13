@@ -4,24 +4,51 @@
 支持按起止日期、学校、用户名筛选，并可导出为 CSV / XLSX。
 """
 import io
+import os
+import zipfile
+from pathlib import Path
 from datetime import datetime, timedelta, date
 from typing import Optional, List, Dict, Any
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlmodel import Session, select
 
 from database import get_session
+from config import UPLOAD_DIR
 from apps.users.models import User
 from apps.reading_fluency.models import TestSession as ReadingSession
 from apps.attention_test.models import AttentionTestSession
 from apps.calculation_test.models import CalculationTestSession
-from apps.literacy_test.models import LiteracyTest
-from apps.oral_reading_fluency.models import OralReadingFluencyTest
+from apps.literacy_test.models import LiteracyTest, LiteracyAudioRecord
+from apps.oral_reading_fluency.models import OralReadingFluencyTest, OralReadingAudioRecord
 from apps.raven_test.models import RavenTestSession
+from apps.oral_reading_fluency.service import CHARACTER_ROWS
 
 router = APIRouter(tags=["后台管理"])
+
+# 后端根目录（config 中 UPLOAD_DIR = <backend>/uploads）
+BACKEND_DIR = Path(UPLOAD_DIR).parent
+
+
+def _resolve_audio_path(stored: Optional[str]) -> Optional[Path]:
+    """把数据库中存储的音频路径解析为真实存在的文件路径。
+
+    朗读流畅性存的是 "uploads/oral_reading_fluency/xxx.mp3"（相对后端根目录），
+    识字量存的是相对 UPLOAD_DIR 的路径（如 "literacy_test/xxx.mp3"）。
+    """
+    if not stored:
+        return None
+    candidates = [
+        Path(stored),
+        BACKEND_DIR / stored,
+        Path(UPLOAD_DIR) / stored,
+    ]
+    for c in candidates:
+        if c.is_file():
+            return c
+    return None
 
 # 通用用户列（所有测试共有）
 _COMMON_COLUMNS = ["姓名", "学校", "年级", "班级", "出生日期", "测试时间", "结束时间", "状态"]
@@ -180,6 +207,11 @@ def _build_dataset(
             }
             for attr, label in cfg["metrics"]:
                 row[label] = _fmt(getattr(obj, attr, None))
+            # 朗读流畅性 / 识字量：附带测试与用户 ID，供前端拉取录音（不作为表格列展示）
+            if key in ("oral_reading_fluency", "literacy"):
+                row["__test_id__"] = obj.id
+                row["__user_id__"] = user.id
+                row["__has_audio__"] = True
             rows.append(row)
 
         result[key] = {"label": cfg["label"], "columns": columns, "rows": rows}
@@ -274,5 +306,161 @@ async def export_results(
     return StreamingResponse(
         io.BytesIO(csv_bytes),
         media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 录音相关：朗读流畅性 / 识字量 在线播放、查看题目、下载
+# ---------------------------------------------------------------------------
+
+def _oral_items(session: Session, test_id: int) -> List[Dict[str, Any]]:
+    """朗读流畅性某次测试的全部录音条目"""
+    records = session.exec(
+        select(OralReadingAudioRecord)
+        .where(OralReadingAudioRecord.test_id == test_id)
+        .order_by(OralReadingAudioRecord.round_number, OralReadingAudioRecord.row_index)  # type: ignore
+    ).all()
+    items = []
+    for r in records:
+        row_chars = CHARACTER_ROWS[r.row_index] if 0 <= r.row_index < len(CHARACTER_ROWS) else ""
+        items.append({
+            "record_id": r.id,
+            "title": f"第{r.round_number}轮 · 第{r.row_index + 1}行",
+            "stimulus": row_chars,
+            "has_file": _resolve_audio_path(r.audio_file_path) is not None,
+            "audio_url": f"/api/admin/audio/file?test=oral&record_id={r.id}",
+            "evaluation_status": r.evaluation_status,
+            "total_score": r.total_score,
+            "correct_character_count": r.correct_character_count,
+        })
+    return items
+
+
+def _literacy_items(session: Session, test_id: int) -> List[Dict[str, Any]]:
+    """识字量某次测试的全部录音条目"""
+    records = session.exec(
+        select(LiteracyAudioRecord)
+        .where(LiteracyAudioRecord.test_id == test_id)
+        .order_by(LiteracyAudioRecord.group_id, LiteracyAudioRecord.id)  # type: ignore
+    ).all()
+    items = []
+    for r in records:
+        items.append({
+            "record_id": r.id,
+            "title": r.character,
+            "stimulus": r.character,
+            "group_id": r.group_id,
+            "has_file": _resolve_audio_path(r.audio_file_path) is not None,
+            "audio_url": f"/api/admin/audio/file?test=literacy&record_id={r.id}",
+            "evaluation_status": r.evaluation_status,
+            "is_correct": r.is_correct,
+            "confidence_score": r.confidence_score,
+        })
+    return items
+
+
+@router.get("/audio/recordings")
+async def get_recordings(
+    test: str = Query(..., pattern="^(oral|literacy)$"),
+    test_id: int = Query(...),
+    session: Session = Depends(get_session),
+):
+    """获取某次朗读流畅性/识字量测试的全部录音条目（含题目，用于在线播放与评分）"""
+    if test == "oral":
+        test_obj = session.get(OralReadingFluencyTest, test_id)
+        items = _oral_items(session, test_id)
+        # 朗读流畅性题目为全部字行
+        questions = list(CHARACTER_ROWS)
+    else:
+        test_obj = session.get(LiteracyTest, test_id)
+        items = _literacy_items(session, test_id)
+        questions = [it["stimulus"] for it in items]
+    if not test_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+
+    user = session.get(User, test_obj.user_id) if test_obj.user_id else None
+    return {
+        "success": True,
+        "test": test,
+        "test_id": test_id,
+        "user": {
+            "name": user.name if user else "",
+            "school": user.school if user else "",
+            "grade": user.grade if user else "",
+            "class_number": user.class_number if user else "",
+        },
+        "questions": questions,
+        "items": items,
+        "total": len(items),
+    }
+
+
+def _get_audio_record(session: Session, test: str, record_id: int):
+    if test == "oral":
+        return session.get(OralReadingAudioRecord, record_id)
+    return session.get(LiteracyAudioRecord, record_id)
+
+
+@router.get("/audio/file")
+async def get_audio_file(
+    test: str = Query(..., pattern="^(oral|literacy)$"),
+    record_id: int = Query(...),
+    session: Session = Depends(get_session),
+):
+    """在线播放/下载单条录音文件"""
+    record = _get_audio_record(session, test, record_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="录音记录不存在")
+    path = _resolve_audio_path(record.audio_file_path)
+    if not path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="录音文件不存在")
+    media = "audio/mpeg" if path.suffix.lower() == ".mp3" else "application/octet-stream"
+    return FileResponse(str(path), media_type=media, filename=path.name)
+
+
+@router.get("/audio/download-all")
+async def download_all_audio(
+    test: str = Query(..., pattern="^(oral|literacy)$"),
+    test_id: int = Query(...),
+    session: Session = Depends(get_session),
+):
+    """打包下载某次测试的全部录音（ZIP）"""
+    if test == "oral":
+        test_obj = session.get(OralReadingFluencyTest, test_id)
+        records = session.exec(
+            select(OralReadingAudioRecord).where(OralReadingAudioRecord.test_id == test_id)
+        ).all()
+        def arcname(r):
+            return f"round{r.round_number}_row{r.row_index + 1}_{Path(r.audio_file_path or '').name}"
+    else:
+        test_obj = session.get(LiteracyTest, test_id)
+        records = session.exec(
+            select(LiteracyAudioRecord).where(LiteracyAudioRecord.test_id == test_id)
+        ).all()
+        def arcname(r):
+            base = Path(r.audio_file_path or "").name or f"record_{r.id}.mp3"
+            return f"{r.group_id}_{r.character}_{base}"
+
+    if not test_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+
+    user = session.get(User, test_obj.user_id) if test_obj.user_id else None
+    buf = io.BytesIO()
+    count = 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for r in records:
+            path = _resolve_audio_path(r.audio_file_path)
+            if path:
+                zf.write(str(path), arcname(r))
+                count += 1
+    if count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="该测试没有可下载的录音文件")
+    buf.seek(0)
+    uname = (user.name if user else "user").replace("/", "_")
+    filename = f"recordings_{test}_{uname}_{test_id}.zip"
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

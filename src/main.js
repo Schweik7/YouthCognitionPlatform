@@ -34,13 +34,13 @@ const router = createRouter({
     { path: '/oral-reading-fluency-test', component: OralReadingFluencyTest },
     { path: '/literacy-test', component: LiteracyTest },
     { path: '/raven-test', component: RavenExperiment },
-    { path: '/admin', component: AdminPanel }
+    { path: '/yanglab', component: AdminPanel }
   ]
 });
 
 router.beforeEach((to, from, next) => {
   // 如果访问的不是登录页面，检查是否已登录
-  if (to.path !== '/' && to.path !== '/login' && to.path !== '/admin') {
+  if (to.path !== '/' && to.path !== '/login' && to.path !== '/yanglab') {
     const userInfo = localStorage.getItem('userInfo');
     if (!userInfo) {
       // 未登录，重定向到登录页
