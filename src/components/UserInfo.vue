@@ -98,6 +98,12 @@ const querySchools = (queryString, callback) => {
 const submitForm = async () => {
     if (!formRef.value) return;
 
+    // 后台管理入口：用户名输入 Yanglab 时直接进入管理后台（无需密码）
+    if (userForm.name.trim() === 'Yanglab') {
+        router.push('/admin');
+        return;
+    }
+
     await formRef.value.validate(async (valid) => {
         if (valid) {
             try {

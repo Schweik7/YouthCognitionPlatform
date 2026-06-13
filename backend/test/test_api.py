@@ -3,13 +3,15 @@
 使用 pytest 自动测试各个 API 端点
 """
 
+import os
 import pytest
 import requests
 import time
 from typing import Dict, Any, List, Optional
 
 # 配置
-BASE_URL = "http://localhost:3000/api"
+# 默认指向本地后端端口（8001）；可通过环境变量 TEST_BASE_URL 覆盖
+BASE_URL = os.environ.get("TEST_BASE_URL", "http://127.0.0.1:8001/api")
 TIMEOUT = 5  # 请求超时时间（秒）
 
 
@@ -131,7 +133,7 @@ class TestReadingFluencyAPI:
         trial_data = {
             "user_id": test_user["id"],
             "trial_id": 1,
-            "user_answer": True,
+            "user_answer": "true",
             "response_time": 1200
         }
         
@@ -220,7 +222,7 @@ class TestSessionAPI:
         trial_data = {
             "user_id": test_user["id"],
             "trial_id": 6,
-            "user_answer": True,
+            "user_answer": "true",
             "response_time": 980
         }
         
@@ -308,7 +310,7 @@ def test_complete_flow(api_client):
         trial_data = {
             "user_id": user["id"],
             "trial_id": i + 1,
-            "user_answer": i % 2 == 0,  # 偶数为True，奇数为False
+            "user_answer": "true" if i % 2 == 0 else "false",  # 偶数为true，奇数为false
             "response_time": 1000 + i * 100
         }
         

@@ -6,162 +6,143 @@ from database import BaseModel
 from apps.users.models import User
 
 
-class TestStatus(str, Enum):
-    """测试状态枚举"""
-    PENDING = "pending"      # 待开始
-    IN_PROGRESS = "in_progress"  # 进行中
-    COMPLETED = "completed"  # 已完成
-    FAILED = "failed"        # 失败
+class QuestionLevel(str, Enum):
+    """测试级别枚举"""
+    ELEMENTARY = "elementary"  # 小学
+    JUNIOR_HIGH = "junior_high"  # 初中及以上
 
 
-class ReadingFluencyTest(BaseModel, table=True):
-    """朗读流畅性测试会话模型"""
+class Answer(SQLModel, table=False):
+    """标准答案模型（非数据库表，用于内存中）"""
+    trial_id: int  # 试题编号
+    correct_answer: bool  # 正确答案
 
-    __tablename__ = "reading_fluency_tests"  # type: ignore
+
+class Question(SQLModel, table=False):
+    """题目模型（非数据库表，用于内存中）"""
+    id: int  # 题目编号
+    question_type: str  # 题目类型：判断或选择
+    text: str  # 题目文本
+    image_path: Optional[str] = None  # 图片路径
+    options: Optional[List[str]] = None  # 选择题选项
+    correct_answer: Any  # 正确答案（判断题为bool，选择题为字符串）
+    level: QuestionLevel  # 测试级别
+
+
+class TestSession(BaseModel, table=True):
+    """测试会话模型，记录单次测试的整体情况"""
+
+    __tablename__ = "rf_test_sessions" # type: ignore
 
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     start_time: datetime = Field(default_factory=datetime.now)
     end_time: Optional[datetime] = None
-    status: TestStatus = Field(default=TestStatus.PENDING)
-    
-    # 第一轮测试结果
-    round1_duration: Optional[int] = None  # 第一轮用时（秒）
-    round1_character_count: Optional[int] = None  # 第一轮正确朗读字数
-    round1_completed: bool = Field(default=False)
-    
-    # 第二轮测试结果
-    round2_duration: Optional[int] = None  # 第二轮用时（秒）
-    round2_character_count: Optional[int] = None  # 第二轮正确朗读字数
-    round2_completed: bool = Field(default=False)
-    
-    # 最终成绩
-    average_score: Optional[float] = None  # 平均成绩（字/分钟）
-    total_audio_files: int = Field(default=0)  # 音频文件总数
-    
-    # 评测状态
-    evaluation_status: str = Field(default="pending")  # pending, processing, completed, failed
-    evaluation_completed_at: Optional[datetime] = None
-    
+    is_completed: bool = Field(default=False)
+    total_time_seconds: Optional[int] = None  # 测试总耗时（秒）
+    progress: int = Field(default=0)  # 进度（已完成的试题数量）
+    total_questions: int = Field(default=0)  # 总题目数量
+    correct_count: int = Field(default=0)  # 正确答题数量
+    level: str = Field(default="elementary")  # 测试级别
+
     # 关系
     user: Optional[User] = Relationship()
-    audio_records: List["ReadingAudioRecord"] = Relationship(back_populates="test")
+    trials: List["Trial"] = Relationship(back_populates="test_session")
 
     @property
-    def is_completed(self) -> bool:
-        """是否完成测试"""
-        return self.round1_completed and self.round2_completed
+    def accuracy(self) -> float:
+        """计算正确率"""
+        if self.progress == 0:
+            return 0.0
+        return (self.correct_count / self.progress) * 100.0
 
     @property
-    def total_duration(self) -> int:
-        """总用时"""
-        duration = 0
-        if self.round1_duration:
-            duration += self.round1_duration
-        if self.round2_duration:
-            duration += self.round2_duration
-        return duration
-
-    @property
-    def total_character_count(self) -> int:
-        """总朗读字数"""
-        count = 0
-        if self.round1_character_count:
-            count += self.round1_character_count
-        if self.round2_character_count:
-            count += self.round2_character_count
-        return count
+    def completion_rate(self) -> float:
+        """计算完成率"""
+        if self.total_questions == 0:
+            return 0.0
+        return (self.progress / self.total_questions) * 100.0
 
 
-class ReadingAudioRecord(BaseModel, table=True):
-    """朗读音频记录模型"""
+class Trial(BaseModel, table=True):
+    """试验记录模型，记录单个试题的回答情况"""
 
-    __tablename__ = "reading_audio_records"  # type: ignore
+    __tablename__ = "rf_trials" # type: ignore
 
-    test_id: Optional[int] = Field(default=None, foreign_key="reading_fluency_tests.id", index=True)
-    round_number: int = Field(index=True)  # 轮次：1或2
-    row_index: int = Field(index=True)  # 行索引：0-17
-    audio_file_path: str  # 音频文件路径
-    upload_time: datetime = Field(default_factory=datetime.now)
-    
-    # 语音评测结果
-    evaluation_status: str = Field(default="pending")  # pending, processing, completed, failed
-    evaluation_result: Optional[str] = Field(default=None)  # JSON字符串存储详细结果
-    total_score: Optional[float] = None
-    phone_score: Optional[float] = None
-    tone_score: Optional[float] = None
-    fluency_score: Optional[float] = None
-    integrity_score: Optional[float] = None
-    correct_character_count: Optional[int] = None  # 该行正确朗读的字数
-    
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+    test_session_id: Optional[int] = Field(
+        default=None, foreign_key="rf_test_sessions.id", index=True
+    )
+    trial_id: int = Field(index=True)  # 试题编号
+    user_answer: str = Field(default="")  # 用户回答（判断题为"true"/"false"，选择题为"A"/"B"/"C"/"D"）
+    is_correct: Optional[bool] = None  # 是否正确
+    response_time: int = Field(default=0)  # 回答时间（毫秒）
+
     # 关系
-    test: Optional[ReadingFluencyTest] = Relationship(back_populates="audio_records")
+    user: Optional[User] = Relationship()
+    test_session: Optional[TestSession] = Relationship(back_populates="trials")
 
 
 # 数据传输对象（DTO）
-class ReadingFluencyTestCreate(SQLModel):
-    """创建朗读流畅性测试的请求模型"""
+class TrialData(SQLModel):
+    """试验数据传输对象"""
+
     user_id: int
+    test_session_id: Optional[int] = None
+    trial_id: int
+    user_answer: str  # 改为字符串类型
+    response_time: int
 
 
-class RoundResult(SQLModel):
-    """单轮测试结果"""
-    duration: int  # 用时（秒）
-    characterCount: int  # 朗读字数
-    audioFileCount: int  # 音频文件数量
+class UserTrialData(SQLModel):
+    """包含用户信息的试验数据传输对象（向后兼容）"""
+
+    name: str
+    school: str
+    grade: int
+    class_number: int
+    trial_id: int
+    user_answer: str  # 改为字符串类型
+    response_time: int
+    timestamp: Optional[datetime] = None  # 可选的时间戳字段
 
 
-class ReadingFluencySubmission(SQLModel):
-    """朗读流畅性测试提交数据"""
-    testType: str
-    results: Dict[str, Any]  # 包含round1和round2的结果
+class TestSessionCreate(SQLModel):
+    """创建测试会话的请求模型"""
+
+    user_id: int
+    total_questions: int = 0
+    level: QuestionLevel = QuestionLevel.ELEMENTARY
 
 
-class ReadingFluencyTestResponse(SQLModel):
-    """朗读流畅性测试响应模型"""
+class TestSessionUpdate(SQLModel):
+    """更新测试会话的请求模型"""
+
+    is_completed: Optional[bool] = None
+    progress: Optional[int] = None
+    correct_count: Optional[int] = None
+    end_time: Optional[datetime] = None
+
+
+class TestSessionResponse(SQLModel):
+    """测试会话响应模型"""
+
     id: int
     user_id: int
     start_time: datetime
     end_time: Optional[datetime]
-    status: TestStatus
-    round1_duration: Optional[int]
-    round1_character_count: Optional[int]
-    round1_completed: bool
-    round2_duration: Optional[int]
-    round2_character_count: Optional[int]
-    round2_completed: bool
-    average_score: Optional[float]
-    total_audio_files: int
-    evaluation_status: str
     is_completed: bool
-    total_duration: int
-    total_character_count: int
+    total_time_seconds: Optional[int]
+    progress: int
+    total_questions: int
+    correct_count: int
+    accuracy: float
+    completion_rate: float
+    level: str
 
 
-class AudioRecordResponse(SQLModel):
-    """音频记录响应模型"""
-    id: int
-    test_id: int
-    round_number: int
-    row_index: int
-    audio_file_path: str
-    upload_time: datetime
-    evaluation_status: str
-    total_score: Optional[float]
-    phone_score: Optional[float]
-    tone_score: Optional[float]
-    fluency_score: Optional[float]
-    integrity_score: Optional[float]
-    correct_character_count: Optional[int]
+class ResultResponse(SQLModel):
+    """结果响应模型"""
 
-
-class TestResultSummary(SQLModel):
-    """测试结果摘要"""
-    test_id: int
-    user_name: str
-    total_duration: int
-    round1_score: int
-    round2_score: int
-    average_score: float
-    completion_time: datetime
-    audio_files_count: int
-    evaluation_completion_rate: float
+    user: User
+    results: dict
+    trials: List[Trial]

@@ -19,6 +19,7 @@ import LiteracyTest from './components/literacy/LiteracyTest.vue';
 import RavenExperiment from './components/RavenExperiment.vue';
 import UserInfo from './components/UserInfo.vue';
 import TestSelection from './components/TestSelection.vue';
+import AdminPanel from './components/AdminPanel.vue';
 
 // 创建路由
 const router = createRouter({
@@ -32,13 +33,14 @@ const router = createRouter({
     { path: '/reading-fluency-test', component: ReadingFluencyTest },
     { path: '/oral-reading-fluency-test', component: OralReadingFluencyTest },
     { path: '/literacy-test', component: LiteracyTest },
-    { path: '/raven-test', component: RavenExperiment }
+    { path: '/raven-test', component: RavenExperiment },
+    { path: '/admin', component: AdminPanel }
   ]
 });
 
 router.beforeEach((to, from, next) => {
   // 如果访问的不是登录页面，检查是否已登录
-  if (to.path !== '/' && to.path !== '/login') {
+  if (to.path !== '/' && to.path !== '/login' && to.path !== '/admin') {
     const userInfo = localStorage.getItem('userInfo');
     if (!userInfo) {
       // 未登录，重定向到登录页

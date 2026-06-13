@@ -30,6 +30,7 @@ dependencies = [
     "websockets>=15.0.1",
     "aiohttp>=3.12.15",
     "playwright>=1.54.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]

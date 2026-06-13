@@ -21,6 +21,7 @@ from apps.literacy_test.router import router as literacy_test_router
 from apps.attention_test.router import router as attention_test_router
 from apps.calculation_test.router import router as calculation_router  # 新增计算流畅性测试路由
 from apps.raven_test.router import router as raven_test_router  # 新增瑞文智力测验路由
+from apps.admin.router import router as admin_router  # 后台管理路由
 
 # 未来可以导入其他测试系统的路由
 
@@ -58,6 +59,7 @@ app.include_router(
 )  # 新增计算流畅性测试路由
 app.include_router(literacy_test_router, prefix=f"{settings.API_PREFIX}/literacy")  # 新增识字量测验路由
 app.include_router(raven_test_router, prefix=f"{settings.API_PREFIX}/raven-test")  # 新增瑞文智力测验路由
+app.include_router(admin_router, prefix=f"{settings.API_PREFIX}/admin")  # 后台管理路由
 
 # 未来可以注册其他测试系统的路由
 
