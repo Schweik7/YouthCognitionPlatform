@@ -40,8 +40,18 @@
             <el-radio-button label="xlsx">XLSX</el-radio-button>
             <el-radio-button label="csv">CSV</el-radio-button>
           </el-radio-group>
-          <el-button type="success" size="small" @click="download('all')">下载全部</el-button>
-          <el-button size="small" @click="download(activeTab)" v-if="activeTab">下载当前测试</el-button>
+          <el-radio-group v-model="scope" size="small">
+            <el-radio-button label="summary">仅记录表</el-radio-button>
+            <el-radio-button label="detail">含明细宽表</el-radio-button>
+          </el-radio-group>
+          <el-button type="success" size="small" @click="download({ testType: 'all' })">下载全部</el-button>
+          <el-button size="small" @click="download({ testType: activeTab })" v-if="activeTab">下载当前测试</el-button>
+          <el-button
+            type="primary"
+            size="small"
+            v-if="activeTab && selectedCount"
+            @click="download({ testType: activeTab, selected: true })"
+          >下载选中({{ selectedCount }})</el-button>
         </div>
       </div>
 
@@ -53,7 +63,13 @@
           :name="key"
           :label="`${tests[key].label} (${tests[key].rows.length})`"
         >
-          <el-table :data="tests[key].rows" border stripe max-height="520" size="small">
+          <el-table
+            :data="tests[key].rows"
+            border stripe max-height="520" size="small"
+            row-key="__test_id__"
+            @selection-change="(rows) => onSelectionChange(key, rows)"
+          >
+            <el-table-column type="selection" width="42" reserve-selection />
             <el-table-column
               v-for="col in tests[key].columns"
               :key="col"
@@ -62,14 +78,16 @@
               min-width="110"
               show-overflow-tooltip
             />
-            <el-table-column
-              v-if="key === 'oral_reading_fluency' || key === 'literacy'"
-              label="录音"
-              width="110"
-              fixed="right"
-            >
+            <el-table-column label="操作" width="170" fixed="right">
               <template #default="{ row }">
-                <el-button type="primary" link size="small" @click="openRecordings(key, row)">
+                <el-button type="primary" link size="small" @click="openDetail(key, row)">
+                  查看明细
+                </el-button>
+                <el-button
+                  v-if="key === 'oral_reading_fluency' || key === 'literacy'"
+                  type="primary" link size="small"
+                  @click="openRecordings(key, row)"
+                >
                   查看录音
                 </el-button>
               </template>
@@ -126,6 +144,35 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 明细：具体操作数据 -->
+    <el-dialog v-model="detailDialog" :title="detailTitle" width="900px" top="6vh">
+      <div v-loading="detailLoading">
+        <div class="rec-toolbar" v-if="detailData">
+          <span>
+            考生：{{ detailData.user.name }}（{{ detailData.user.school }}
+            {{ detailData.user.grade }}年级{{ detailData.user.class_number }}班）
+            · 共 {{ detailData.total }} 条明细
+          </span>
+        </div>
+        <el-table
+          v-if="detailData"
+          :data="detailData.rows"
+          border stripe size="small" max-height="65vh"
+        >
+          <el-table-column type="index" label="#" width="50" />
+          <el-table-column
+            v-for="col in detailData.columns"
+            :key="col"
+            :prop="col"
+            :label="col"
+            min-width="90"
+            show-overflow-tooltip
+          />
+        </el-table>
+        <el-empty v-if="detailData && !detailData.rows.length" description="该测试暂无明细数据" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -140,7 +187,15 @@ const dateRange = ref([]);
 const school = ref('');
 const name = ref('');
 const format = ref('xlsx');
+const scope = ref('summary');
 const loading = ref(false);
+
+// 各测试类型当前勾选的会话 ID
+const selections = reactive({});
+const selectedCount = computed(() => (selections[activeTab.value] || []).length);
+const onSelectionChange = (key, rows) => {
+  selections[key] = rows.map((r) => r.__test_id__);
+};
 
 const tests = reactive({});
 const total = ref(0);
@@ -217,6 +272,31 @@ const openRecordings = async (key, row) => {
   }
 };
 
+// ----- 明细查看 -----
+const detailDialog = ref(false);
+const detailLoading = ref(false);
+const detailData = ref(null);
+const detailTitle = ref('明细');
+
+const openDetail = async (key, row) => {
+  detailTitle.value = `${tests[key].label} - 具体操作明细`;
+  detailDialog.value = true;
+  detailLoading.value = true;
+  detailData.value = null;
+  try {
+    const response = await fetch(`/api/admin/detail?test_type=${key}&test_id=${row.__test_id__}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || '获取明细失败');
+    }
+    detailData.value = await response.json();
+  } catch (e) {
+    ElMessage.error(e.message || '获取明细失败');
+  } finally {
+    detailLoading.value = false;
+  }
+};
+
 const downloadAllAudio = () => {
   const { test, testId } = recCtx.value;
   const url = `/api/admin/audio/download-all?test=${test}&test_id=${testId}`;
@@ -227,10 +307,19 @@ const downloadAllAudio = () => {
   document.body.removeChild(a);
 };
 
-const download = (testType) => {
+const download = ({ testType = 'all', selected = false } = {}) => {
   const params = buildParams();
   params.append('format', format.value);
+  params.append('scope', scope.value);
   params.append('test_type', testType || 'all');
+  if (selected && testType && testType !== 'all') {
+    const ids = selections[testType] || [];
+    if (!ids.length) {
+      ElMessage.warning('请先勾选要下载的记录');
+      return;
+    }
+    params.append('ids', ids.join(','));
+  }
   const url = `/api/admin/export?${params.toString()}`;
   // 触发浏览器下载
   const a = document.createElement('a');

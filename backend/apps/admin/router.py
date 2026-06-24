@@ -18,12 +18,12 @@ from sqlmodel import Session, select
 from database import get_session
 from config import UPLOAD_DIR
 from apps.users.models import User
-from apps.reading_fluency.models import TestSession as ReadingSession
-from apps.attention_test.models import AttentionTestSession
-from apps.calculation_test.models import CalculationTestSession
+from apps.reading_fluency.models import TestSession as ReadingSession, Trial as ReadingTrial
+from apps.attention_test.models import AttentionTestSession, AttentionRecord
+from apps.calculation_test.models import CalculationTestSession, CalculationProblem
 from apps.literacy_test.models import LiteracyTest, LiteracyAudioRecord
 from apps.oral_reading_fluency.models import OralReadingFluencyTest, OralReadingAudioRecord
-from apps.raven_test.models import RavenTestSession
+from apps.raven_test.models import RavenTestSession, RavenAnswer
 from apps.oral_reading_fluency.service import CHARACTER_ROWS
 
 router = APIRouter(tags=["后台管理"])
@@ -140,10 +140,97 @@ TEST_REGISTRY: Dict[str, Dict[str, Any]] = {
 }
 
 
+# 明细（具体操作数据）注册表：key -> 配置
+# model: 明细表模型；fk: 指向会话的外键属性名；order: 排序字段；metrics: [(属性, 列名)]
+DETAIL_REGISTRY: Dict[str, Dict[str, Any]] = {
+    "reading_fluency": {
+        "model": ReadingTrial,
+        "fk": "test_session_id",
+        "order": ["trial_id"],
+        "metrics": [
+            ("trial_id", "试题编号"),
+            ("user_answer", "用户回答"),
+            ("is_correct", "是否正确"),
+            ("response_time", "回答时间(ms)"),
+        ],
+    },
+    "oral_reading_fluency": {
+        "model": OralReadingAudioRecord,
+        "fk": "test_id",
+        "order": ["round_number", "row_index"],
+        "metrics": [
+            ("round_number", "轮次"),
+            ("row_index", "行索引"),
+            ("correct_character_count", "正确字数"),
+            ("total_score", "总分"),
+            ("fluency_score", "流畅度"),
+            ("evaluation_status", "评测状态"),
+        ],
+    },
+    "attention_test": {
+        "model": AttentionRecord,
+        "fk": "test_session_id",
+        "order": ["row_index", "col_index"],
+        "metrics": [
+            ("row_index", "行"),
+            ("col_index", "列"),
+            ("symbol", "符号"),
+            ("is_target", "是否目标"),
+            ("is_correct", "是否正确"),
+            ("response_time", "响应时间(ms)"),
+        ],
+    },
+    "calculation": {
+        "model": CalculationProblem,
+        "fk": "test_session_id",
+        "order": ["problem_index"],
+        "metrics": [
+            ("problem_index", "题号"),
+            ("problem_text", "题目"),
+            ("problem_type", "类型"),
+            ("correct_answer", "正确答案"),
+            ("user_answer", "用户答案"),
+            ("is_correct", "是否正确"),
+            ("response_time", "回答时间(ms)"),
+            ("score", "得分"),
+        ],
+    },
+    "literacy": {
+        "model": LiteracyAudioRecord,
+        "fk": "test_id",
+        "order": ["group_id", "id"],
+        "metrics": [
+            ("character", "字"),
+            ("group_id", "组"),
+            ("coefficient", "系数"),
+            ("is_correct", "是否正确"),
+            ("confidence_score", "置信度"),
+            ("evaluation_status", "评测状态"),
+            ("audio_duration", "时长(秒)"),
+        ],
+    },
+    "raven": {
+        "model": RavenAnswer,
+        "fk": "test_session_id",
+        "order": ["question_id"],
+        "metrics": [
+            ("question_id", "题号"),
+            ("group_name", "组"),
+            ("user_answer", "用户答案"),
+            ("correct_answer", "正确答案"),
+            ("is_correct", "是否正确"),
+            ("response_time", "回答时间(ms)"),
+        ],
+    },
+}
+
+
 def _fmt(value) -> Any:
     """格式化单元格值，便于 JSON / 表格展示"""
     if value is None:
         return ""
+    if isinstance(value, bool):
+        return "是" if value else "否"
     if isinstance(value, datetime):
         return value.strftime("%Y-%m-%d %H:%M:%S")
     if isinstance(value, date):
@@ -165,6 +252,45 @@ def _parse_range(start_date: Optional[str], end_date: Optional[str]):
     return start_dt, end_dt
 
 
+def _query_sessions(
+    session: Session,
+    key: str,
+    start_dt: datetime,
+    end_dt: datetime,
+    school: Optional[str],
+    name: Optional[str],
+    ids: Optional[List[int]] = None,
+):
+    """查询某测试类型的会话（含用户），返回 [(obj, user), ...]"""
+    Model = TEST_REGISTRY[key]["model"]
+    stmt = (
+        select(Model, User)
+        .join(User, Model.user_id == User.id)
+        .where(Model.start_time >= start_dt, Model.start_time < end_dt)
+    )
+    if school:
+        stmt = stmt.where(User.school.contains(school))  # type: ignore
+    if name:
+        stmt = stmt.where(User.name.contains(name))  # type: ignore
+    if ids:
+        stmt = stmt.where(Model.id.in_(ids))  # type: ignore
+    stmt = stmt.order_by(Model.start_time.desc())  # type: ignore
+    return session.exec(stmt).all()
+
+
+def _common_cells(obj, user) -> Dict[str, Any]:
+    return {
+        "姓名": user.name,
+        "学校": user.school,
+        "年级": user.grade,
+        "班级": user.class_number,
+        "出生日期": _fmt(user.birth_date),
+        "测试时间": _fmt(obj.start_time),
+        "结束时间": _fmt(getattr(obj, "end_time", None)),
+        "状态": _status_text(obj),
+    }
+
+
 def _build_dataset(
     session: Session,
     start_dt: datetime,
@@ -172,50 +298,85 @@ def _build_dataset(
     school: Optional[str],
     name: Optional[str],
     only_type: Optional[str] = None,
+    ids: Optional[List[int]] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """构建各测试类型的列与行数据"""
+    """构建各测试类型的会话汇总（每个会话一行）"""
     result: Dict[str, Dict[str, Any]] = {}
     for key, cfg in TEST_REGISTRY.items():
         if only_type and only_type != "all" and key != only_type:
             continue
-        Model = cfg["model"]
-        stmt = (
-            select(Model, User)
-            .join(User, Model.user_id == User.id)
-            .where(Model.start_time >= start_dt, Model.start_time < end_dt)
-        )
-        if school:
-            stmt = stmt.where(User.school.contains(school))  # type: ignore
-        if name:
-            stmt = stmt.where(User.name.contains(name))  # type: ignore
-        stmt = stmt.order_by(Model.start_time.desc())  # type: ignore
-
         metric_labels = [label for _, label in cfg["metrics"]]
         columns = _COMMON_COLUMNS + metric_labels
         rows: List[Dict[str, Any]] = []
 
-        for obj, user in session.exec(stmt).all():
-            row = {
-                "姓名": user.name,
-                "学校": user.school,
-                "年级": user.grade,
-                "班级": user.class_number,
-                "出生日期": _fmt(user.birth_date),
-                "测试时间": _fmt(obj.start_time),
-                "结束时间": _fmt(getattr(obj, "end_time", None)),
-                "状态": _status_text(obj),
-            }
+        for obj, user in _query_sessions(session, key, start_dt, end_dt, school, name, ids):
+            row = _common_cells(obj, user)
             for attr, label in cfg["metrics"]:
                 row[label] = _fmt(getattr(obj, attr, None))
-            # 朗读流畅性 / 识字量：附带测试与用户 ID，供前端拉取录音（不作为表格列展示）
+            # 会话 ID，供前端查看明细 / 录音、勾选导出（不作为表格列展示）
+            row["__test_id__"] = obj.id
+            row["__user_id__"] = user.id
             if key in ("oral_reading_fluency", "literacy"):
-                row["__test_id__"] = obj.id
-                row["__user_id__"] = user.id
                 row["__has_audio__"] = True
             rows.append(row)
 
         result[key] = {"label": cfg["label"], "columns": columns, "rows": rows}
     return result
+
+
+def _detail_items(session: Session, key: str, test_id: int) -> List[Any]:
+    """获取某次会话的明细条目（已排序）"""
+    dcfg = DETAIL_REGISTRY[key]
+    Model = dcfg["model"]
+    stmt = select(Model).where(getattr(Model, dcfg["fk"]) == test_id)
+    for o in dcfg["order"]:
+        stmt = stmt.order_by(getattr(Model, o))  # type: ignore
+    return session.exec(stmt).all()
+
+
+def _build_detail_dataset(
+    session: Session,
+    start_dt: datetime,
+    end_dt: datetime,
+    school: Optional[str],
+    name: Optional[str],
+    only_type: Optional[str] = None,
+    ids: Optional[List[int]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """构建宽表：通用列 + 会话汇总列 + 明细列，每条明细一行（无明细则保留汇总行）"""
+    result: Dict[str, Dict[str, Any]] = {}
+    for key, scfg in TEST_REGISTRY.items():
+        if only_type and only_type != "all" and key != only_type:
+            continue
+        dcfg = DETAIL_REGISTRY[key]
+        session_labels = [label for _, label in scfg["metrics"]]
+        detail_labels = ["明细·" + label for _, label in dcfg["metrics"]]
+        columns = _COMMON_COLUMNS + session_labels + detail_labels
+        rows: List[Dict[str, Any]] = []
+
+        for obj, user in _query_sessions(session, key, start_dt, end_dt, school, name, ids):
+            base = _common_cells(obj, user)
+            for attr, label in scfg["metrics"]:
+                base[label] = _fmt(getattr(obj, attr, None))
+            items = _detail_items(session, key, obj.id)
+            if not items:
+                rows.append({**base, **{dl: "" for dl in detail_labels}})
+                continue
+            for it in items:
+                row = dict(base)
+                for attr, label in dcfg["metrics"]:
+                    row["明细·" + label] = _fmt(getattr(it, attr, None))
+                rows.append(row)
+
+        result[key] = {"label": scfg["label"], "columns": columns, "rows": rows}
+    return result
+
+
+def _parse_ids(ids: Optional[str]) -> Optional[List[int]]:
+    if not ids:
+        return None
+    out = [int(p) for p in ids.split(",") if p.strip().isdigit()]
+    return out or None
 
 
 @router.get("/results")
@@ -250,9 +411,11 @@ async def export_results(
     name: Optional[str] = Query(None),
     format: str = Query("xlsx", pattern="^(csv|xlsx)$"),
     test_type: str = Query("all", description="测试类型 key，或 all 表示全部"),
+    scope: str = Query("summary", pattern="^(summary|detail)$", description="summary=仅记录表，detail=含明细宽表"),
+    ids: Optional[str] = Query(None, description="仅导出指定会话 ID（逗号分隔），需配合具体 test_type"),
     session: Session = Depends(get_session),
 ):
-    """导出测试结果为 CSV 或 XLSX"""
+    """导出测试结果为 CSV 或 XLSX；scope=detail 时导出含具体操作数据的宽表"""
     if test_type != "all" and test_type not in TEST_REGISTRY:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="未知的测试类型")
     try:
@@ -260,7 +423,13 @@ async def export_results(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="日期格式应为 YYYY-MM-DD")
 
-    data = _build_dataset(session, start_dt, end_dt, school, name, only_type=test_type)
+    # 勾选导出仅在指定单一测试类型时生效
+    id_list = _parse_ids(ids) if test_type != "all" else None
+
+    if scope == "detail":
+        data = _build_detail_dataset(session, start_dt, end_dt, school, name, only_type=test_type, ids=id_list)
+    else:
+        data = _build_dataset(session, start_dt, end_dt, school, name, only_type=test_type, ids=id_list)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     if format == "xlsx":
@@ -283,7 +452,17 @@ async def export_results(
         )
 
     # CSV
-    if test_type == "all":
+    if test_type == "all" and scope == "detail":
+        # 明细宽表多类型：纵向拼接，列取并集，加测试类型列
+        frames = []
+        for key, ds in data.items():
+            if not ds["rows"]:
+                continue
+            df_part = pd.DataFrame(ds["rows"], columns=ds["columns"])
+            df_part.insert(0, "测试类型", ds["label"])
+            frames.append(df_part)
+        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    elif test_type == "all":
         # 合并为长格式：通用列 + 测试类型 + 结果摘要
         records: List[Dict[str, Any]] = []
         for key, ds in data.items():
@@ -308,6 +487,43 @@ async def export_results(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.get("/detail")
+async def get_detail(
+    test_type: str = Query(..., description="测试类型 key"),
+    test_id: int = Query(..., description="会话 ID"),
+    session: Session = Depends(get_session),
+):
+    """在线查看某次会话的具体操作明细数据"""
+    if test_type not in DETAIL_REGISTRY:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="未知的测试类型")
+    cfg = TEST_REGISTRY[test_type]
+    Model = cfg["model"]
+    obj = session.get(Model, test_id)
+    if not obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试不存在")
+    user = session.get(User, obj.user_id) if obj.user_id else None
+
+    dcfg = DETAIL_REGISTRY[test_type]
+    columns = [label for _, label in dcfg["metrics"]]
+    rows: List[Dict[str, Any]] = []
+    for it in _detail_items(session, test_type, test_id):
+        rows.append({label: _fmt(getattr(it, attr, None)) for attr, label in dcfg["metrics"]})
+
+    return {
+        "success": True,
+        "label": cfg["label"],
+        "user": {
+            "name": user.name if user else "",
+            "school": user.school if user else "",
+            "grade": user.grade if user else "",
+            "class_number": user.class_number if user else "",
+        },
+        "columns": columns,
+        "rows": rows,
+        "total": len(rows),
+    }
 
 
 # ---------------------------------------------------------------------------
