@@ -10,7 +10,11 @@ engine = create_engine(
     settings.DATABASE_URL,  # type: ignore
     # echo=settings.DEBUG,
     echo=False,
-    pool_pre_ping=True,
+    pool_pre_ping=True,      # 取连接前先探活，避免 MySQL 断开后返回失效连接
+    pool_recycle=1800,       # 早于 MySQL 默认 wait_timeout(8h)/中间设备回收连接
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
 )
 
 
@@ -29,7 +33,12 @@ class BaseModel(SQLModel):
 # 会话上下文管理器
 def get_session():
     with Session(engine) as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            # 请求处理出错时回滚，避免脏事务被连接池复用
+            session.rollback()
+            raise
 
 
 # 创建所有数据库表

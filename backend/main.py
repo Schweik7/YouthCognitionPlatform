@@ -82,19 +82,16 @@ async def serve_spa(request: Request):
 @app.on_event("startup")
 def on_startup():
     """应用启动时执行"""
-    # 开发模式下重建数据库表
-    if settings.DEBUG:
-        logger.info("开发模式：重建数据库表")
+    # 只有显式设置 RECREATE_DB=true 才会清空并重建数据表，其余情况一律只补建缺失的表，
+    # 避免重启导致已采集的测试数据丢失。
+    if settings.RECREATE_DB:
+        logger.warning("RECREATE_DB=true：即将删除并重建所有数据表！")
         recreate_db_and_tables()
-        logger.info("数据库表重建完成")
-        
-        # 初始化开发数据
         init_dev_data()
-        logger.info("开发数据初始化完成")
+        logger.info("数据库表重建完成")
     else:
-        # 生产模式下只创建不存在的表
         create_db_and_tables()
-        logger.info("数据库表创建完成")
+        logger.info("数据库表检查/创建完成（未删除任何已有数据）")
     logger.info(f"应用启动成功，访问地址: http://localhost:{settings.PORT}")
 
 
@@ -108,7 +105,14 @@ if __name__ == "__main__":
     # 直接运行此文件时启动服务器
     try:
         logger.info(f"启动服务器 - 端口: {settings.PORT}")
-        uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True,log_level="debug")
+        # 仅开发环境启用热重载：线上热重载会因文件改动随机重启，中断正在进行的测试
+        uvicorn.run(
+            "main:app",
+            host="0.0.0.0",
+            port=settings.PORT,
+            reload=settings.DEBUG,
+            log_level="debug" if settings.DEBUG else "info",
+        )
     except KeyboardInterrupt:
         logger.info("用户中断，应用正在关闭...")
     except Exception as e:

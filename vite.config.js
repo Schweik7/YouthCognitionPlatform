@@ -20,9 +20,10 @@ export default defineConfig({
     proxy: {
       '/api': {
         // 默认使用本地开发环境，除非明确设置为生产环境
+        // 本地后端端口可用 BACKEND_PORT 覆盖；8003 为本项目专用端口（8001 已被其他项目占用）
         target: process.env.NODE_ENV === 'production'
           ? 'https://eduscreenapi.psyventures.cn'
-          : 'http://localhost:8001',
+          : `http://localhost:${process.env.BACKEND_PORT || 8003}`,
         changeOrigin: true,
         secure: process.env.NODE_ENV === 'production',
       }

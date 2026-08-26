@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     PORT: int = 3000
 
+    # 危险操作开关：仅当显式设置为 True 时，启动阶段才会删除并重建所有数据表。
+    # 默认 False，避免线上/临时部署重启时清空数据库。
+    RECREATE_DB: bool = False
+
     # 数据库设置
     DB_USER: str = "meng"
     DB_PASSWORD: str = "meng123456"
@@ -61,20 +65,26 @@ class Settings(BaseSettings):
             self.CORS_ORIGINS = ["http://localhost:3000", "http://localhost:5173"]
             self.PORT = 3000
         elif self.ENVIRONMENT == Environment.STAGING:
-            self.DEBUG = True  # 临时部署保持调试模式
+            self.DEBUG = False  # 临时部署也承载真实数据，不能开启会重建数据库的调试模式
             self.CORS_ORIGINS = [
                 "https://eduscreen.psyventures.cn",
                 "http://eduscreen.psyventures.cn",
                 "http://localhost:5173"  # 开发时仍可访问
             ]
-            self.PORT = 8001  # 临时部署端口
+            self.PORT = 8003  # 临时部署端口
         elif self.ENVIRONMENT == Environment.PRODUCTION:
             self.DEBUG = False
             self.CORS_ORIGINS = [
                 "https://eduscreen.psyventures.cn",
                 "http://eduscreen.psyventures.cn"
             ]
-            self.PORT = 8001
+            self.PORT = 8003
+
+        # 显式传入或环境变量中的 PORT 优先于按环境推导的默认端口
+        if "PORT" in data:
+            self.PORT = int(data["PORT"])
+        elif os.getenv("PORT"):
+            self.PORT = int(os.environ["PORT"])
 
     class Config:
         env_file = ".env"
