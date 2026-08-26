@@ -2,6 +2,22 @@
   <el-header class="top-nav-bar">
     <div class="nav-container">
       <div class="nav-left">
+        <div class="nav-brand" @click="goHome">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect x="2" y="2" width="28" height="28" rx="9" fill="url(#navbm)" />
+            <path d="M10 21V13.5c0-1.7 1.4-3 3.1-3 1.3 0 2.4.8 2.9 2 .5-1.2 1.6-2 2.9-2 1.7 0 3.1 1.3 3.1 3V21"
+                  fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
+            <circle cx="16" cy="24.5" r="1.7" fill="#fff" />
+            <defs>
+              <linearGradient id="navbm" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#7d95ff" />
+                <stop offset="100%" stop-color="#3a56d4" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span>中小学生学习困难筛查线上平台</span>
+        </div>
+        <span class="nav-divider"></span>
         <el-button link @click="goHome" class="nav-button">
           <el-icon><House /></el-icon>
           首页
@@ -128,10 +144,14 @@ const logout = () => {
 
 <style scoped>
 .top-nav-bar {
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-bottom: 1px solid #e4e7ed;
-  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(19, 26, 43, .02), var(--sh-xs);
+  height: 64px;
   padding: 0;
 }
 
@@ -140,31 +160,65 @@ const logout = () => {
   justify-content: space-between;
   align-items: center;
   height: 100%;
-  max-width: 1200px;
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 clamp(16px, 3vw, 28px);
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 8px;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: background-color .2s ease;
+}
+
+.nav-brand:hover { background: var(--brand-50); }
+
+.nav-brand svg {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: block;
+}
+
+.nav-brand span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-900);
+  white-space: nowrap;
+}
+
+.nav-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+  margin: 0 6px;
 }
 
 .nav-button {
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: #606266;
+  gap: 6px;
+  color: var(--ink-500);
   font-size: 14px;
-  padding: 8px 16px;
-  border-radius: 4px;
-  transition: all 0.3s;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--r-full);
+  transition: all .2s ease;
 }
 
 .nav-button:hover {
-  background-color: #f5f7fa;
-  color: #409eff;
+  background-color: var(--brand-50);
+  color: var(--brand-600);
 }
 
 .nav-right {
@@ -175,20 +229,24 @@ const logout = () => {
 .user-avatar-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: var(--surface);
+  transition: all .2s ease;
 }
 
 .user-avatar-container:hover {
-  background-color: #f5f7fa;
+  border-color: var(--brand-300);
+  box-shadow: var(--sh-sm);
 }
 
 .username {
   font-size: 14px;
-  color: #606266;
+  font-weight: 600;
+  color: var(--ink-700);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -197,12 +255,17 @@ const logout = () => {
 
 .dropdown-icon {
   font-size: 12px;
-  color: #909399;
+  color: var(--ink-300);
 }
 
 .el-dropdown-menu__item {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .nav-brand span { display: none; }
+  .nav-divider { display: none; }
 }
 </style>

@@ -637,58 +637,97 @@ watch(() => props.problems, (newProblems) => {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: clamp(10px, 2vw, 18px) 0 20px;
 }
 
+/* ---------- 五年级提示 ---------- */
+.grade5-notice { margin-bottom: 18px; }
+
+.grade5-notice :deep(.el-alert) {
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, rgba(139, 92, 246, .08), rgba(76, 111, 255, .06));
+  border: 1px solid rgba(139, 92, 246, .18);
+}
+
+.notice-content {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--ink-700);
+}
+
+/* ---------- 顶部状态条 ---------- */
 .test-header {
+  position: sticky;
+  top: 64px;
+  z-index: 30;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  padding: 0 10px;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 14px 22px;
+  background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
 }
 
 .test-info {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
 }
 
 .test-info span:first-child {
-  font-size: 20px;
-  font-weight: bold;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink-900);
 }
 
 .progress-text {
-  font-size: 16px;
-  color: #666;
+  font-size: 13.5px;
+  color: var(--ink-400);
+  font-variant-numeric: tabular-nums;
 }
 
 .test-timer {
-  font-size: 24px;
-  font-weight: bold;
-  color: #409EFF;
-  background-color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f8f56;
+  background: var(--success-soft);
+  padding: 8px 20px;
+  border-radius: var(--r-full);
+  box-shadow: none;
 }
 
+/* ---------- 题目网格 ---------- */
 .problems-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-bottom: 40px;
+  gap: 16px;
+  margin-bottom: 36px;
 }
 
 .problem-item {
-  background-color: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  padding: 18px 20px;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-  margin-bottom: 4px;
+  background-color: var(--surface);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-xs);
+  padding: 14px 20px;
+  transition: all .24s ease;
+  border: 1.5px solid var(--line);
+}
+
+.problem-item:hover {
+  border-color: var(--brand-300);
+  box-shadow: var(--sh-sm);
+}
+
+.problem-item.completed {
+  border-color: rgba(23, 178, 106, .55);
+  background: linear-gradient(135deg, rgba(23, 178, 106, .05), var(--surface) 60%);
 }
 
 .problem-content {
@@ -696,19 +735,16 @@ watch(() => props.problems, (newProblems) => {
   grid-template-columns: 1fr 1fr;
   align-items: center;
   min-height: 70px;
-  padding: 8px 0;
+  padding: 6px 0;
   width: 100%;
   gap: 0;
 }
 
-.problem-item.completed {
-  border-color: #67C23A;
-  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.3);
-}
-
+/* 题干（保持原有排版与字号） */
 .problem-text {
   font-size: 22px;
   font-weight: 500;
+  color: var(--ink-900);
   display: flex;
   align-items: center;
   white-space: nowrap;
@@ -724,8 +760,10 @@ watch(() => props.problems, (newProblems) => {
   margin: 0 0 0 8px;
   font-size: 22px;
   font-weight: 500;
+  color: var(--ink-400);
 }
 
+/* ---------- 作答区 ---------- */
 .answer-area {
   display: flex;
   justify-content: flex-start;
@@ -744,27 +782,31 @@ watch(() => props.problems, (newProblems) => {
 
 .answer-input {
   width: 100%;
-  height: 50px;
+  height: 48px;
   font-size: 20px;
+  font-family: var(--font-num);
   text-align: center;
-  border: 2px dashed #ddd;
-  border-radius: 6px;
-  background-color: #fafafa;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  background-color: var(--surface-alt);
   outline: none;
-  transition: all 0.3s ease;
-  font-weight: 500;
+  transition: all .24s ease;
+  font-weight: 600;
   letter-spacing: 1px;
+  color: var(--ink-900);
 }
 
 .answer-input:focus {
-  border-color: #409EFF;
-  background-color: white;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  border-style: solid;
+  border-color: var(--hue-calc);
+  background-color: #fff;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, .14);
 }
 
 .answer-input.filled {
-  border-color: #67C23A;
-  background-color: #f0f9ff;
+  border-style: solid;
+  border-color: var(--success);
+  background-color: var(--success-soft);
 }
 
 .answer-box-fraction {
@@ -774,10 +816,7 @@ watch(() => props.problems, (newProblems) => {
   min-height: 70px;
 }
 
-.whole-number-box {
-  width: 50px;
-  height: 50px;
-}
+.whole-number-box { width: 50px; height: 48px; }
 
 .fraction-box {
   display: flex;
@@ -787,58 +826,37 @@ watch(() => props.problems, (newProblems) => {
 }
 
 .numerator-box,
-.denominator-box {
-  width: 50px;
-  height: 45px;
-}
+.denominator-box { width: 50px; height: 42px; }
 
 .fraction-input {
   width: 100%;
   height: 100%;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 1px;
 }
 
-/* 隐藏数字输入框的箭头 */
+/* 隐藏数字输入框箭头 */
 .fraction-input::-webkit-outer-spin-button,
-.fraction-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.fraction-input[type="number"] {
-  -moz-appearance: textfield;
-}
-
+.fraction-input::-webkit-inner-spin-button,
 .answer-input::-webkit-outer-spin-button,
 .answer-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.answer-input[type="number"] {
-  -moz-appearance: textfield;
-}
+.fraction-input[type="number"],
+.answer-input[type="number"] { -moz-appearance: textfield; }
 
 .fraction-box .fraction-line {
   width: 55px;
   height: 2px;
-  background-color: #333;
-  margin: 2px 0;
+  background-color: var(--ink-900);
+  margin: 3px 0;
+  border-radius: var(--r-full);
 }
 
-/* 五年级小数输入样式 */
-.grade5-notice {
-  margin-bottom: 20px;
-}
-
-.notice-content {
-  font-size: 16px;
-  line-height: 1.6;
-  color: #666;
-}
-
+/* ---------- 小数作答（五年级） ---------- */
 .answer-box-decimal {
   width: 100%;
   max-width: 250px;
@@ -850,50 +868,47 @@ watch(() => props.problems, (newProblems) => {
   justify-content: center;
   gap: 4px;
   padding: 8px;
-  border: 2px dashed #ddd;
-  border-radius: 6px;
-  background-color: #fafafa;
-  transition: all 0.3s ease;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  background-color: var(--surface-alt);
+  transition: all .24s ease;
 }
 
 .decimal-input-container:focus-within {
-  border-color: #409EFF;
-  background-color: white;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  border-style: solid;
+  border-color: var(--hue-calc);
+  background-color: #fff;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, .14);
 }
 
 .decimal-integer {
   width: 60px;
-  height: 35px;
+  height: 36px;
   font-size: 18px;
+  font-family: var(--font-num);
   text-align: center;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: white;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background-color: #fff;
   outline: none;
+  color: var(--ink-900);
 }
 
 .decimal-integer.filled {
-  border-color: #67C23A;
-  background-color: #f0f9ff;
+  border-color: var(--success);
+  background-color: var(--success-soft);
 }
 
 .decimal-point {
   font-size: 20px;
   font-weight: bold;
-  color: #333;
+  color: var(--ink-700);
   margin: 0 2px;
 }
 
-.decimal-part {
-  display: flex;
-  align-items: center;
-}
+.decimal-part { display: flex; align-items: center; }
 
-.decimal-digits {
-  display: flex;
-  gap: 2px;
-}
+.decimal-digits { display: flex; gap: 3px; }
 
 .decimal-digit {
   position: relative;
@@ -902,55 +917,56 @@ watch(() => props.problems, (newProblems) => {
 }
 
 .digit-input {
-  width: 25px;
-  height: 35px;
+  width: 26px;
+  height: 36px;
   font-size: 16px;
+  font-family: var(--font-num);
   text-align: center;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  background-color: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background-color: #fff;
   outline: none;
-  transition: all 0.2s ease;
+  transition: all .2s ease;
+  color: var(--ink-900);
 }
 
 .digit-input:focus {
-  border-color: #409EFF;
-  box-shadow: 0 0 0 1px rgba(64, 158, 255, 0.3);
+  border-color: var(--hue-calc);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, .16);
 }
 
 .repeating-dot {
   position: absolute;
-  top: -8px;
+  top: -9px;
   left: 50%;
   transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  background-color: #409EFF;
+  width: 5px;
+  height: 5px;
+  background-color: var(--hue-calc);
   border-radius: 50%;
   animation: pulse 1.5s infinite;
 }
 
 .decimal-digit.has-dot .digit-input {
-  border-color: #409EFF;
-  background-color: #f0f9ff;
+  border-color: var(--hue-calc);
+  background-color: rgba(139, 92, 246, .07);
 }
 
-/* 循环节范围内的数字样式 */
+/* 循环节范围 */
 .decimal-digit.in-repeat .digit-input {
-  background-color: #fff7e6;
-  border-color: #f56c6c;
-  color: #f56c6c;
-  font-weight: bold;
+  background-color: var(--warning-soft);
+  border-color: var(--warning);
+  color: #b8730b;
+  font-weight: 700;
 }
 
 .decimal-digit.in-repeat .digit-input:focus {
-  border-color: #f56c6c;
-  box-shadow: 0 0 0 1px rgba(245, 108, 108, 0.3);
+  border-color: var(--warning);
+  box-shadow: 0 0 0 3px rgba(245, 165, 36, .2);
 }
 
-/* 循环节边界点样式 */
 .decimal-digit.repeat-boundary .repeating-dot {
-  background-color: #f56c6c;
+  background-color: var(--warning);
   width: 6px;
   height: 6px;
   top: -10px;
@@ -958,38 +974,23 @@ watch(() => props.problems, (newProblems) => {
 }
 
 .decimal-digit.repeat-boundary .digit-input {
-  border-color: #f56c6c;
+  border-color: var(--warning);
   border-width: 2px;
-  background-color: #fff0f0;
+  background-color: var(--warning-soft);
 }
 
 @keyframes pulse-red {
-  0% {
-    transform: translateX(-50%) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: translateX(-50%) scale(1.2);
-    opacity: 0.7;
-  }
-  100% {
-    transform: translateX(-50%) scale(1);
-    opacity: 1;
-  }
+  0% { transform: translateX(-50%) scale(1); opacity: 1; }
+  50% { transform: translateX(-50%) scale(1.2); opacity: .7; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
 }
 
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: translateX(-50%) scale(1.2);
-  }
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50% { opacity: .7; transform: translateX(-50%) scale(1.2); }
 }
 
-/* 分数显示样式 */
+/* ---------- 分数与符号（题干内渲染） ---------- */
 :deep(.fraction-display) {
   display: inline-flex;
   flex-direction: column;
@@ -1000,7 +1001,7 @@ watch(() => props.problems, (newProblems) => {
   position: relative;
   font-size: 20px;
   min-width: 30px;
-  background: white;
+  background: transparent;
 }
 
 :deep(.fraction-numerator) {
@@ -1016,7 +1017,7 @@ watch(() => props.problems, (newProblems) => {
   display: block;
   width: 25px;
   height: 2px;
-  background-color: #333 !important;
+  background-color: var(--ink-900) !important;
   margin: 3px auto;
   border-radius: 0;
   flex-shrink: 0;
@@ -1031,7 +1032,6 @@ watch(() => props.problems, (newProblems) => {
   font-weight: 500;
 }
 
-/* 数学符号样式 */
 :deep(.math-symbol) {
   font-family: 'Times New Roman', 'Arial Unicode MS', sans-serif;
   font-size: 22px;
@@ -1039,28 +1039,41 @@ watch(() => props.problems, (newProblems) => {
   display: inline-block;
   margin: 0 6px;
   padding: 0;
+  color: var(--ink-500);
 }
 
+/* ---------- 提交 ---------- */
 .submit-section {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  margin-top: 8px;
 }
 
+.submit-section :deep(.el-button) {
+  min-width: 260px;
+  height: 52px;
+  font-size: 17px;
+  letter-spacing: .08em;
+}
+
+/* ---------- 沙漏 ---------- */
 .timer-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 84px;
+  right: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, .9);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-sm);
+  z-index: 40;
 }
 
-.hourglass-container {
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
-}
+.hourglass-container { display: flex; justify-content: center; }
 
 .hourglass {
   position: relative;
@@ -1073,7 +1086,7 @@ watch(() => props.problems, (newProblems) => {
   top: 0;
   width: 30px;
   height: 25px;
-  background-color: #409EFF;
+  background-color: var(--hue-calc);
   clip-path: polygon(0 0, 100% 0, 50% 100%, 0 0);
 }
 
@@ -1082,47 +1095,38 @@ watch(() => props.problems, (newProblems) => {
   bottom: 0;
   width: 30px;
   height: 0;
-  background-color: #E6E6E6;
+  background-color: var(--line);
   clip-path: polygon(0 100%, 100% 100%, 50% 0, 0 100%);
 }
 
 @media (max-width: 768px) {
-  .problems-grid {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-  
+  .problems-grid { grid-template-columns: 1fr; gap: 12px; }
+
   .test-header {
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
     text-align: center;
   }
-  
-  .test-timer {
-    font-size: 20px;
-    padding: 8px 16px;
-  }
-  
-  .problem-item {
-    padding: 15px;
-  }
-  
+
+  .test-timer { font-size: 20px; padding: 6px 16px; }
+
+  .problem-item { padding: 14px; }
+
   .problem-content {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
   }
-  
+
   .problem-text {
     justify-content: center;
     text-align: center;
     padding-right: 0;
   }
-  
-  .answer-area {
-    justify-content: center;
-    padding-left: 0;
-  }
+
+  .answer-area { justify-content: center; padding-left: 0; }
+
+  .timer-container { top: 72px; right: 12px; padding: 8px; }
 }
 </style>

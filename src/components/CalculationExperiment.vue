@@ -609,22 +609,24 @@ onUnmounted(() => {
 <style scoped>
 .experiment-page {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background:
+    radial-gradient(1000px 520px at 8% -10%, rgba(139, 92, 246, .10), transparent 60%),
+    radial-gradient(900px 460px at 98% 0%, rgba(76, 111, 255, .08), transparent 58%),
+    var(--canvas);
 }
 
 .experiment-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: calc(100vh - 60px);
-  padding: 10px;
+  min-height: calc(100vh - 64px);
+  padding: clamp(14px, 2vw, 26px) clamp(12px, 2vw, 20px) 44px;
 }
 
 .content-area {
   width: 100%;
-  max-width: 800px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 20px;
   box-sizing: border-box;
 }
 
@@ -632,12 +634,16 @@ onUnmounted(() => {
   position: fixed;
   top: 0;
   left: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 10px;
+  background-color: rgba(19, 26, 43, .88);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  padding: 12px 14px;
   z-index: 1000;
-  border-radius: 0 0 5px 0;
+  border-radius: 0 0 var(--r-md) 0;
+  box-shadow: var(--sh-md);
 }
+
+.debug-panel h3 { color: #fff; font-size: 13px; margin-bottom: 8px; opacity: .75; }
 
 .debug-controls {
   display: flex;

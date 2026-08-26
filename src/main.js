@@ -6,6 +6,8 @@ import 'element-plus/dist/index.css';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 // 导入jsPsych的CSS
 import 'jspsych/css/jspsych.css';
+// 导入全局设计系统（色彩/字体/组件质感）
+import './styles/design-system.css';
 // 导入数字格式化样式
 import './styles/numberFormat.css';
 import App from './App.vue';

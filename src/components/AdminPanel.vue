@@ -1,9 +1,13 @@
 <template>
-  <div class="admin-container">
+  <div class="admin-page">
+    <div class="admin-container">
     <el-card>
       <template #header>
         <div class="header">
-          <h2>测试结果后台管理</h2>
+          <div class="header-title">
+            <span class="header-mark"></span>
+            <h2>测试结果后台管理</h2>
+          </div>
           <el-button text @click="goHome">返回首页</el-button>
         </div>
       </template>
@@ -173,6 +177,7 @@
         <el-empty v-if="detailData && !detailData.rows.length" description="该测试暂无明细数据" />
       </div>
     </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -333,71 +338,169 @@ onMounted(fetchResults);
 </script>
 
 <style scoped>
-.admin-container {
-  max-width: 1200px;
-  margin: 20px auto;
-  padding: 0 16px;
+.admin-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 520px at 12% -10%, rgba(76, 111, 255, .10), transparent 60%),
+    radial-gradient(900px 460px at 96% 2%, rgba(18, 179, 168, .08), transparent 58%),
+    var(--canvas);
+  padding: 1px 0 40px;
 }
+
+.admin-container {
+  max-width: 1320px;
+  margin: 28px auto;
+  padding: 0 clamp(14px, 2vw, 22px);
+}
+
+.admin-container :deep(.el-card) {
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
+}
+
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-mark {
+  width: 5px;
+  height: 22px;
+  border-radius: var(--r-full);
+  background: linear-gradient(180deg, var(--brand-400), var(--brand-600));
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* 筛选区 */
 .filter-form {
-  margin-bottom: 8px;
+  margin-bottom: 14px;
+  padding: 18px 20px 4px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
 }
+
+.filter-form :deep(.el-form-item__label) {
+  font-size: 13px;
+  color: var(--ink-500);
+}
+
+/* 导出条 */
 .export-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--brand-50), rgba(18, 179, 168, .05));
+  border: 1px solid var(--brand-100);
+  border-radius: var(--r-md);
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
+
 .range-info {
-  color: #909399;
+  color: var(--ink-500);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
+
 .export-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
+
+/* 表格与分页 */
+.admin-container :deep(.el-tabs__item) {
+  font-weight: 600;
+  color: var(--ink-500);
+}
+
+.admin-container :deep(.el-tabs__item.is-active) { color: var(--brand-600); }
+
+.admin-container :deep(.el-table) {
+  border-radius: var(--r-md);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 弹窗内容 */
 .rec-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  background: var(--surface-alt);
+  border-radius: var(--r-md);
   gap: 12px;
   flex-wrap: wrap;
-  color: #606266;
+  color: var(--ink-700);
   font-size: 14px;
 }
+
 .rec-body {
   display: flex;
   gap: 16px;
 }
+
 .rec-items {
   flex: 1 1 auto;
   min-width: 0;
 }
+
 .rec-questions {
-  flex: 0 0 200px;
-  border-left: 1px solid #ebeef5;
-  padding-left: 12px;
+  flex: 0 0 210px;
+  border-left: 1px solid var(--line);
+  padding-left: 14px;
   max-height: 60vh;
   overflow: auto;
 }
+
 .rec-questions-title {
-  font-weight: 600;
-  margin-bottom: 8px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--ink-900);
+  font-size: 13px;
+  letter-spacing: .04em;
 }
+
 .rec-questions ol {
   margin: 0;
   padding-left: 20px;
-  line-height: 1.9;
+  line-height: 1.95;
+  color: var(--ink-500);
+  font-size: 13px;
 }
-.muted { color: #c0c4cc; }
-.ok { color: #67c23a; }
-.bad { color: #f56c6c; }
+
+.muted { color: var(--ink-300); }
+
+.ok {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.bad {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .rec-body { flex-direction: column; }
+  .rec-questions { flex: none; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+}
 </style>

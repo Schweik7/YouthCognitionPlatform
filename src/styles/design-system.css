@@ -1,0 +1,295 @@
+/* =============================================================
+   学习力测评平台 · 设计系统
+   统一色彩 / 字体 / 间距 / 阴影 / 组件质感
+   仅影响视觉呈现，不涉及任何测验文本与材料
+   ============================================================= */
+
+:root {
+  /* ---------- 品牌色 ---------- */
+  --brand-600: #3a56d4;
+  --brand-500: #4c6fff;
+  --brand-400: #7d95ff;
+  --brand-300: #a8b9ff;
+  --brand-100: #e4eaff;
+  --brand-50: #f1f4ff;
+
+  /* ---------- 模块辅助色（对应六大测评模块） ---------- */
+  --hue-reading: #4c6fff;   /* 阅读流畅性 */
+  --hue-oral: #f0743a;      /* 朗读流畅性 */
+  --hue-attention: #12b3a8; /* 注意力筛查 */
+  --hue-calc: #8b5cf6;      /* 计算流畅性 */
+  --hue-literacy: #e0518c;  /* 识字量 */
+  --hue-raven: #f0a92c;     /* 图形推理 */
+
+  /* ---------- 功能色 ---------- */
+  --success: #17b26a;
+  --success-soft: #e6f7ef;
+  --warning: #f5a524;
+  --warning-soft: #fef4e2;
+  --danger: #f04438;
+  --danger-soft: #feecea;
+  --info: #4c6fff;
+  --info-soft: #eef2ff;
+
+  /* ---------- 中性色 ---------- */
+  --ink-900: #131a2b;
+  --ink-700: #2c3752;
+  --ink-500: #5a6784;
+  --ink-400: #7e8aa3;
+  --ink-300: #a6b0c3;
+  --line: #e6eaf3;
+  --line-soft: #eff2f8;
+  --surface: #ffffff;
+  --surface-alt: #f8fafd;
+  --canvas: #f4f6fb;
+
+  /* ---------- 圆角 ---------- */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 30px;
+  --r-full: 999px;
+
+  /* ---------- 阴影 ---------- */
+  --sh-xs: 0 1px 2px rgba(19, 26, 43, .05);
+  --sh-sm: 0 2px 8px rgba(19, 26, 43, .06);
+  --sh-md: 0 8px 24px rgba(19, 26, 43, .08);
+  --sh-lg: 0 18px 46px rgba(19, 26, 43, .10);
+  --sh-brand: 0 10px 26px rgba(76, 111, 255, .26);
+
+  /* ---------- 间距 ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 44px;
+  --sp-8: 64px;
+
+  /* ---------- 字体 ---------- */
+  --font-ui: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', 'Source Han Sans SC',
+             -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-num: 'DIN Alternate', 'SF Pro Display', 'Helvetica Neue', var(--font-ui);
+  --font-stim: 'Kaiti SC', 'KaiTi', 'STKaiti', 'PingFang SC', var(--font-ui);
+
+  /* ---------- Element Plus 主题映射 ---------- */
+  --el-color-primary: var(--brand-500);
+  --el-color-primary-light-3: var(--brand-400);
+  --el-color-primary-light-5: var(--brand-300);
+  --el-color-primary-light-7: var(--brand-100);
+  --el-color-primary-light-8: var(--brand-50);
+  --el-color-primary-light-9: var(--brand-50);
+  --el-color-primary-dark-2: var(--brand-600);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--danger);
+  --el-color-error: var(--danger);
+  --el-color-info: var(--ink-400);
+  --el-text-color-primary: var(--ink-900);
+  --el-text-color-regular: var(--ink-700);
+  --el-text-color-secondary: var(--ink-500);
+  --el-text-color-placeholder: var(--ink-300);
+  --el-border-color: var(--line);
+  --el-border-color-light: var(--line-soft);
+  --el-border-color-lighter: var(--line-soft);
+  --el-fill-color-blank: var(--surface);
+  --el-bg-color: var(--surface);
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-font-family: var(--font-ui);
+}
+
+/* =============================================================
+   基础排版
+   ============================================================= */
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--ink-700);
+  background-color: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: .01em;
+}
+
+h1, h2, h3, h4, h5 {
+  color: var(--ink-900);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  margin: 0;
+}
+
+/* 数字统一使用等宽表格数字，避免计时/成绩跳动 */
+.tabular, .el-statistic__number {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+::selection { background: var(--brand-100); color: var(--brand-600); }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #d3dae8;
+  border: 3px solid transparent;
+  border-radius: var(--r-full);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #bcc6da; background-clip: content-box; }
+
+/* =============================================================
+   页面骨架：所有测评页共用的背景与容器
+   ============================================================= */
+.page-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 520px at 12% -8%, rgba(76, 111, 255, .10), transparent 62%),
+    radial-gradient(900px 480px at 96% 4%, rgba(18, 179, 168, .09), transparent 60%),
+    var(--canvas);
+}
+
+.page-wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-5) var(--sp-8);
+}
+
+.page-wrap--narrow { max-width: 880px; }
+.page-wrap--wide { max-width: 1320px; }
+
+/* 通用卡片面板 */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
+}
+
+/* =============================================================
+   Element Plus 组件质感统一
+   ============================================================= */
+.el-button {
+  font-weight: 600;
+  border-radius: 10px;
+  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.el-button--large { border-radius: 12px; padding: 14px 26px; font-size: 16px; }
+.el-button--primary {
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+  border-color: transparent;
+  box-shadow: var(--sh-brand);
+}
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background: linear-gradient(135deg, var(--brand-400), var(--brand-500));
+  border-color: transparent;
+}
+.el-button--success {
+  background: linear-gradient(135deg, #22c37a, var(--success));
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(23, 178, 106, .24);
+}
+.el-button--warning {
+  background: linear-gradient(135deg, #ffbc4b, var(--warning));
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(245, 165, 36, .24);
+}
+.el-button:not(.is-link):not(.is-text):hover { transform: translateY(-1px); }
+.el-button:not(.is-link):not(.is-text):active { transform: translateY(0); }
+.el-button.is-disabled,
+.el-button.is-disabled:hover { transform: none; box-shadow: none; opacity: .55; }
+
+.el-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
+  overflow: hidden;
+}
+.el-card__header { border-bottom: 1px solid var(--line-soft); padding: 20px 24px; }
+.el-card__body { padding: 24px; }
+
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--line) inset;
+  transition: box-shadow .18s ease;
+}
+.el-input__wrapper:hover { box-shadow: 0 0 0 1px var(--brand-300) inset; }
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--brand-500) inset, 0 0 0 4px var(--brand-50);
+}
+.el-form-item__label { color: var(--ink-700); font-weight: 600; }
+
+.el-tag { border-radius: var(--r-full); font-weight: 600; border: none; }
+
+.el-table th.el-table__cell {
+  background: var(--surface-alt);
+  color: var(--ink-500);
+  font-weight: 600;
+}
+.el-table__cell { border-color: var(--line-soft); }
+
+.el-dialog { border-radius: var(--r-lg); overflow: hidden; }
+.el-dialog__header { padding: 22px 24px 0; }
+.el-dialog__title { font-weight: 700; color: var(--ink-900); }
+
+.el-message { border-radius: var(--r-full); box-shadow: var(--sh-md); border: none; }
+.el-progress-bar__outer { border-radius: var(--r-full); }
+.el-progress-bar__inner { border-radius: var(--r-full); }
+
+/* =============================================================
+   共享装饰件
+   ============================================================= */
+/* 章节标题：小标签 + 主标题 + 说明 */
+.sec-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--r-full);
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+/* 计时药丸 */
+.time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  background: var(--success-soft);
+  color: #0f8f56;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 700;
+}
+.time-pill.is-warning {
+  background: var(--warning-soft);
+  color: #b8730b;
+  animation: pill-blink 1.4s ease-in-out infinite;
+}
+@keyframes pill-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .62; }
+}
+
+/* 无障碍：尊重减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

@@ -122,37 +122,50 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .test-header {
   display: flex;
   justify-content: space-between;
-  width: 100%;
-  margin-bottom: 20px;
   align-items: center;
+  width: 100%;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-xs);
 }
 
 .test-info {
-  font-weight: bold;
-  font-size: 18px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
 }
 
 .test-timer {
-  font-size: 24px;
-  font-weight: bold;
-  color: #409EFF;
-  background-color: white;
-  padding: 5px 15px;
-  border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f8f56;
+  background: var(--success-soft);
+  padding: 6px 18px;
+  border-radius: var(--r-full);
+  box-shadow: none;
 }
 
 .problem-card {
   width: 100%;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 30px;
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
+  padding: clamp(30px, 5vw, 52px);
   margin-bottom: 20px;
   display: flex;
   flex-direction: column;
@@ -160,33 +173,47 @@ defineExpose({
 }
 
 .problem-text {
-  font-size: 32px;
-  font-weight: bold;
-  margin-bottom: 30px;
+  font-family: var(--font-num);
+  font-size: clamp(34px, 5vw, 44px);
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: .04em;
+  margin-bottom: 34px;
   text-align: center;
 }
 
 .answer-input {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  max-width: 300px;
+  max-width: 340px;
 }
 
+.answer-input :deep(.el-input__inner) {
+  text-align: center;
+  font-family: var(--font-num);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* 沙漏计时 */
 .timer-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 84px;
+  right: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, .9);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-sm);
+  z-index: 40;
 }
 
-.hourglass-container {
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
-}
+.hourglass-container { display: flex; justify-content: center; }
 
 .hourglass {
   position: relative;
@@ -199,7 +226,7 @@ defineExpose({
   top: 0;
   width: 30px;
   height: 25px;
-  background-color: #409EFF;
+  background-color: var(--hue-calc);
   clip-path: polygon(0 0, 100% 0, 50% 100%, 0 0);
 }
 
@@ -208,21 +235,13 @@ defineExpose({
   bottom: 0;
   width: 30px;
   height: 0;
-  background-color: #E6E6E6;
+  background-color: var(--line);
   clip-path: polygon(0 100%, 100% 100%, 50% 0, 0 100%);
 }
 
 @media (max-width: 768px) {
-  .problem-text {
-    font-size: 28px;
-  }
-
-  .test-timer {
-    font-size: 20px;
-  }
-
-  .problem-card {
-    padding: 20px;
-  }
+  .problem-card { padding: 26px 20px; }
+  .test-timer { font-size: 20px; }
+  .timer-container { top: 72px; right: 12px; padding: 8px; }
 }
 </style>

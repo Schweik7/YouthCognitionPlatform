@@ -64,74 +64,90 @@ defineEmits(['go-to-selection', 'restart-test'])
 .result-container {
   text-align: center;
   width: 100%;
+  max-width: 620px;
+  margin: clamp(20px, 6vh, 64px) auto;
 }
 
 .result-container h2 {
-  color: #409EFF;
-  margin-bottom: 20px;
+  color: var(--ink-900);
+  margin-bottom: 12px;
+  font-size: clamp(23px, 2.8vw, 29px);
 }
 
-.result-card {
-  margin-bottom: 30px;
-}
+.result-card { margin-bottom: 28px; }
 
 .thanks-card {
-  padding: 40px 20px;
+  padding: clamp(34px, 5vw, 54px) 24px;
+  background:
+    radial-gradient(600px 300px at 50% -30%, rgba(139, 92, 246, .12), transparent 70%),
+    var(--surface);
 }
 
 .thanks-icon {
-  font-size: 56px;
-  margin-bottom: 10px;
+  font-size: 60px;
+  margin-bottom: 14px;
+  animation: pop 0.6s cubic-bezier(.22, 1.2, .3, 1) both;
+}
+
+@keyframes pop {
+  0% { transform: scale(.4); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .thanks-text {
-  font-size: 18px;
-  color: #606266;
+  font-size: 17px;
+  color: var(--ink-500);
   margin-top: 10px;
 }
 
 .result-item {
   display: flex;
   justify-content: space-between;
-  padding: 15px 0;
-  border-bottom: 1px solid #ebeef5;
+  align-items: center;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
-.result-item:last-child {
-  border-bottom: none;
-}
+.result-item:last-child { border-bottom: none; }
 
 .result-label {
-  font-weight: bold;
-  color: #606266;
+  font-weight: 600;
+  color: var(--ink-500);
+  font-size: 14px;
 }
 
 .result-value {
-  color: #303133;
-  font-weight: bold;
+  color: var(--ink-900);
+  font-weight: 700;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
 }
 
 .total-score {
-  background-color: #f0f9eb;
-  padding: 15px;
-  border-radius: 4px;
-  margin: 10px 0;
+  background: linear-gradient(135deg, rgba(139, 92, 246, .10), rgba(76, 111, 255, .07));
+  padding: 16px;
+  border-radius: var(--r-md);
+  margin: 12px 0;
+  border-bottom: none;
 }
 
 .total-score .result-label {
-  color: #67C23A;
-  font-size: 1.1em;
+  color: var(--ink-700);
+  font-size: 15px;
 }
 
 .total-score .result-value {
-  color: #67C23A;
-  font-size: 1.2em;
+  color: var(--hue-calc);
+  font-size: 26px;
 }
 
 .action-buttons {
   display: flex;
   justify-content: center;
-  gap: 20px;
-  margin-top: 30px;
+  gap: 16px;
+  margin-top: 26px;
 }
+
+.action-buttons :deep(.el-button) { min-width: 170px; }
 </style>

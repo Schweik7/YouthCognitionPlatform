@@ -960,40 +960,45 @@ watch(remainingTime, (newVal) => {
 });
 </script>
 
-<style>
-/* 全局样式 */
+<style scoped>
+/* ---------- 页面骨架 ---------- */
 .experiment-page {
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background:
+    radial-gradient(1000px 520px at 8% -10%, rgba(76, 111, 255, .10), transparent 60%),
+    radial-gradient(900px 460px at 98% 0%, rgba(18, 179, 168, .08), transparent 58%),
+    var(--canvas);
 }
 
 .experiment-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: calc(100vh - 60px);
-  padding: 20px;
+  min-height: calc(100vh - 64px);
+  padding: clamp(18px, 3vw, 32px) 18px 48px;
 }
 
 .content-area {
   width: 100%;
-  max-width: 800px;
+  max-width: 840px;
   margin: 0 auto;
-  padding: 20px;
-  box-sizing: border-box;
 }
 
-/* 调试面板 */
+/* ---------- 调试面板 ---------- */
 .debug-panel {
   position: fixed;
   top: 0;
   left: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 10px;
+  background-color: rgba(19, 26, 43, .88);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  padding: 12px 14px;
   z-index: 1000;
-  border-radius: 0 0 5px 0;
+  border-radius: 0 0 var(--r-md) 0;
+  box-shadow: var(--sh-md);
 }
+
+.debug-panel h3 { color: #fff; font-size: 13px; margin-bottom: 8px; opacity: .75; }
 
 .debug-controls {
   display: flex;
@@ -1002,148 +1007,225 @@ watch(remainingTime, (newVal) => {
   flex-wrap: wrap;
 }
 
-/* 指导语样式 */
-.instruction {
-  max-width: 700px;
-  margin: 0 auto;
+/* ---------- 级别选择 ---------- */
+.level-selection {
+  max-width: 660px;
+  margin: clamp(20px, 6vh, 64px) auto;
+  text-align: center;
+  padding: clamp(34px, 5vw, 56px) clamp(24px, 4vw, 48px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
+}
+
+.level-selection h2 {
+  color: var(--ink-900);
+  margin-bottom: 12px;
+  font-size: clamp(24px, 3vw, 31px);
+}
+
+.level-selection p {
+  margin: 12px 0 6px;
+  font-size: 15px;
+  color: var(--ink-500);
+}
+
+.level-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.level-buttons .el-button {
+  padding: 18px 32px;
+  font-size: 16px;
+  min-width: 190px;
+  height: auto;
+}
+
+/* ---------- 指导语卡片 ---------- */
+.content-area > .instruction {
+  max-width: 760px;
+  margin: clamp(12px, 3vh, 32px) auto;
+  padding: clamp(28px, 4vw, 46px) clamp(24px, 4vw, 52px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
   text-align: left;
-  line-height: 1.6;
+  line-height: 1.95;
+  font-size: 16px;
+  color: var(--ink-700);
 }
 
 .instruction h2 {
+  position: relative;
   text-align: center;
-  color: #409EFF;
-  margin-bottom: 20px;
+  color: var(--ink-900);
+  font-size: clamp(22px, 2.6vw, 28px);
+  margin-bottom: 28px;
+  padding-bottom: 18px;
 }
 
+.instruction h2::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 54px;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, var(--brand-400), var(--brand-600));
+}
+
+.content-area > .instruction p { margin: 0 0 14px; }
+
 .key-instruction {
-  margin: 20px 0;
-  padding: 15px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-  font-weight: bold;
+  margin: 24px 0;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, var(--brand-50), rgba(18, 179, 168, .07));
+  border: 1px solid var(--brand-100);
+  border-radius: var(--r-md);
+  font-weight: 600;
+  color: var(--ink-900);
+  line-height: 2.1;
+}
+
+.key-instruction > div:first-child {
+  color: var(--brand-600);
+  font-size: 13px;
+  letter-spacing: .1em;
+  margin-bottom: 4px;
 }
 
 .continue-btn {
-  margin: 20px auto;
+  margin: 32px auto 0;
   display: block;
-  min-width: 120px;
-  font-weight: bold;
+  min-width: 190px;
+  font-weight: 700;
+  letter-spacing: .08em;
 }
 
-/* 试题样式 */
+/* ---------- 试题 ---------- */
 .trial-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 20px;
+  max-width: 760px;
+  margin: clamp(12px, 3vh, 28px) auto;
+  padding: clamp(28px, 4vw, 44px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
 }
 
 .trial-header {
   display: flex;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
   align-items: center;
 }
 
 .trial-number {
-  font-weight: bold;
-  font-size: 18px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink-500);
+  padding: 6px 14px;
+  background: var(--surface-alt);
+  border-radius: var(--r-full);
+  font-variant-numeric: tabular-nums;
 }
 
 .trial-timer {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
   font-size: 20px;
-  font-weight: bold;
-  color: #409EFF;
-  background-color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  font-weight: 700;
+  color: #0f8f56;
+  background: var(--success-soft);
+  padding: 6px 16px;
+  border-radius: var(--r-full);
 }
 
+/* 题干 */
 .sentence {
-  font-size: 20px;
-  line-height: 1.5;
-  margin: 20px 0;
+  font-family: var(--font-stim);
+  font-size: clamp(22px, 2.6vw, 27px);
+  line-height: 1.9;
+  margin: 18px 0;
   text-align: center;
+  color: var(--ink-900);
+  letter-spacing: .03em;
 }
 
 .answer {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 15px 0;
+  margin: 12px 0 4px;
 }
 
 .answer-label {
-  font-size: 24px;
-  padding: 0 5px;
+  font-size: 26px;
+  padding: 0 4px;
+  color: var(--ink-300);
 }
 
 .answer-mark {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: bold;
 }
 
-.correct-mark {
-  color: #67C23A;
-}
+.correct-mark { color: var(--success); }
+.wrong-mark { color: var(--danger); }
 
-.wrong-mark {
-  color: #F56C6C;
-}
-
-.answer-animation {
-  animation: pop-in 0.3s ease;
-}
+.answer-animation { animation: pop-in .3s ease; }
 
 @keyframes pop-in {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-
-  50% {
-    transform: scale(1.2);
-    opacity: 0.7;
-  }
-
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); opacity: .7; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
+/* 判断按钮 */
 .answer-buttons {
   display: flex;
   justify-content: center;
-  gap: 20px;
-  margin-top: 20px;
+  gap: 18px;
+  margin-top: 26px;
 }
 
 .answer-btn {
-  padding: 10px 20px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  min-width: 168px;
+  padding: 16px 26px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
   background-color: #fff;
-  font-size: 16px;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-ui);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all .24s cubic-bezier(.22, .8, .3, 1);
   position: relative;
   overflow: hidden;
 }
 
 .answer-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
+  box-shadow: var(--sh-md);
 }
 
 .answer-btn::after {
@@ -1155,83 +1237,104 @@ watch(remainingTime, (newVal) => {
   top: 0;
   left: 0;
   pointer-events: none;
-  background-image: radial-gradient(circle, #000 10%, transparent 10.01%);
+  background-image: radial-gradient(circle, currentColor 10%, transparent 10.01%);
   background-repeat: no-repeat;
   background-position: 50%;
   transform: scale(10, 10);
   opacity: 0;
-  transition: transform 0.5s, opacity 0.5s;
+  transition: transform .5s, opacity .5s;
 }
 
 .answer-btn:active::after {
   transform: scale(0, 0);
-  opacity: 0.1;
+  opacity: .12;
   transition: 0s;
 }
 
 .correct-btn {
-  color: #67C23A;
-  border-color: #c2e7b0;
+  color: var(--success);
+  border-color: rgba(23, 178, 106, .38);
 }
 
 .correct-btn:hover {
-  background-color: #f0f9eb;
-  border-color: #85ce61;
+  background-color: var(--success-soft);
+  border-color: var(--success);
 }
 
 .wrong-btn {
-  color: #F56C6C;
-  border-color: #fbc4c4;
+  color: var(--danger);
+  border-color: rgba(240, 68, 56, .34);
 }
 
 .wrong-btn:hover {
-  background-color: #fef0f0;
-  border-color: #f78989;
+  background-color: var(--danger-soft);
+  border-color: var(--danger);
 }
 
 .correct-btn.selected {
-  background-color: #f0f9eb;
-  color: #67C23A;
-  border-color: #67C23A;
-  font-weight: bold;
-  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.2);
+  background-color: var(--success-soft);
+  border-color: var(--success);
+  box-shadow: 0 8px 20px rgba(23, 178, 106, .22);
 }
 
 .wrong-btn.selected {
-  background-color: #fef0f0;
-  color: #F56C6C;
-  border-color: #F56C6C;
-  font-weight: bold;
-  box-shadow: 0 2px 8px rgba(245, 108, 108, 0.2);
+  background-color: var(--danger-soft);
+  border-color: var(--danger);
+  box-shadow: 0 8px 20px rgba(240, 68, 56, .2);
 }
 
+/* 练习讲解 */
 .explanation {
-  background-color: #f0f7ff;
-  padding: 15px;
-  border-radius: 4px;
-  margin: 20px 0;
+  background: linear-gradient(135deg, var(--brand-50), rgba(18, 179, 168, .06));
+  border: 1px solid var(--brand-100);
+  padding: 18px 22px;
+  border-radius: var(--r-md);
+  margin: 22px 0;
   width: 100%;
+  color: var(--ink-700);
+  line-height: 1.9;
+}
+
+.explanation p { margin: 0; }
+
+.trial-container .instruction {
+  width: 100%;
+  text-align: center;
+  color: var(--ink-500);
+  font-size: 15px;
 }
 
 .key-guide {
-  background-color: #f5f7fa;
-  padding: 10px;
-  border-radius: 4px;
-  margin: 10px 0;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line-soft);
+  padding: 14px 24px;
+  border-radius: var(--r-md);
+  margin: 12px 0 0;
+  font-weight: 600;
+  color: var(--ink-700);
 }
 
-/* 计时器和沙漏 */
+/* ---------- 沙漏计时 ---------- */
 .timer-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 84px;
+  right: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, .9);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-sm);
+  z-index: 90;
 }
 
 .hourglass-container {
-  margin-top: 10px;
   display: flex;
   justify-content: center;
 }
@@ -1247,7 +1350,7 @@ watch(remainingTime, (newVal) => {
   top: 0;
   width: 30px;
   height: 25px;
-  background-color: #409EFF;
+  background-color: var(--brand-500);
   clip-path: polygon(0 0, 100% 0, 50% 100%, 0 0);
 }
 
@@ -1256,127 +1359,125 @@ watch(remainingTime, (newVal) => {
   bottom: 0;
   width: 30px;
   height: 0;
-  background-color: #E6E6E6;
+  background-color: var(--line);
   clip-path: polygon(0 100%, 100% 100%, 50% 0, 0 100%);
 }
 
-/* 级别选择 */
-.level-selection {
-  max-width: 600px;
-  margin: 0 auto;
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.level-selection h2 {
-  color: #409EFF;
-  margin-bottom: 20px;
-  font-size: 28px;
-}
-
-.level-selection p {
-  margin: 20px 0;
-  font-size: 16px;
-  color: #606266;
-}
-
-.level-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-  margin-top: 30px;
-}
-
-.level-buttons .el-button {
-  padding: 15px 30px;
-  font-size: 16px;
-  min-width: 150px;
-}
-
-/* 题目图片 */
+/* ---------- 题目图片 ---------- */
 .question-image {
-  margin: 20px 0;
+  margin: 18px 0;
   text-align: center;
 }
 
 .question-image img {
   max-width: 100%;
   max-height: 300px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  box-shadow: var(--sh-sm);
 }
 
-/* 选择题样式 */
+/* ---------- 选择题 ---------- */
 .choice-question {
   width: 100%;
-  margin: 20px 0;
+  margin: 16px 0 0;
 }
 
 .choice-options {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  margin-top: 20px;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .choice-btn {
   display: flex;
   align-items: center;
-  padding: 15px 20px;
-  border: 2px solid #dcdfe6;
-  border-radius: 8px;
+  padding: 16px 20px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
   background-color: #fff;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all .24s cubic-bezier(.22, .8, .3, 1);
   text-align: left;
   width: 100%;
   min-height: 64px;
   box-sizing: border-box;
+  font-family: var(--font-ui);
 }
 
 .choice-btn:hover {
-  border-color: #409EFF;
-  background-color: #f5f7fa;
+  border-color: var(--brand-400);
+  background-color: var(--brand-50);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  box-shadow: 0 8px 20px rgba(76, 111, 255, .14);
 }
 
 .choice-btn.selected {
-  border-color: #409EFF;
-  background-color: #ecf5ff;
-  color: #409EFF;
-  font-weight: bold;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.25);
+  border-color: var(--brand-500);
+  background-color: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 700;
+  box-shadow: 0 8px 22px rgba(76, 111, 255, .2);
 }
 
 .option-label {
-  font-weight: bold;
-  font-size: 16px;
-  margin-right: 12px;
+  width: 28px;
+  height: 28px;
+  margin-right: 14px;
   flex-shrink: 0;
-  color: #409EFF;
-  line-height: 1.4;
   display: flex;
   align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.choice-btn.selected .option-label {
+  background: var(--brand-500);
+  color: #fff;
 }
 
 .option-text {
   flex: 1;
-  line-height: 1.5;
-  font-size: 15px;
+  line-height: 1.7;
+  font-size: 16px;
+  color: inherit;
   display: flex;
   align-items: center;
   min-height: 24px;
 }
 
-/* 实验结束 */
+/* ---------- 结束页 ---------- */
 .experiment-end {
   text-align: center;
-  padding: 40px;
+  max-width: 560px;
+  margin: clamp(24px, 8vh, 80px) auto;
+  padding: clamp(36px, 5vw, 60px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
 }
 
 .experiment-end h2 {
-  color: #409EFF;
-  margin-bottom: 20px;
+  color: var(--ink-900);
+  margin-bottom: 12px;
+  font-size: 28px;
+}
+
+.experiment-end p {
+  color: var(--ink-500);
+  font-size: 16px;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .answer-buttons { flex-direction: column; width: 100%; }
+  .answer-btn { width: 100%; }
+  .timer-container { top: 72px; right: 12px; padding: 8px; }
 }
 </style>

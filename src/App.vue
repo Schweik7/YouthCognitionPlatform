@@ -18,29 +18,21 @@ import zhCn from 'element-plus/dist/locale/zh-cn.mjs';
 <style>
 .app-container {
   width: 100%;
-  min-height: 5vh;
-  padding: 10px;
-  box-sizing: border-box;
+  min-height: 100vh;
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity .28s ease, transform .28s ease;
 }
 
-.fade-enter-from,
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 .fade-leave-to {
   opacity: 0;
-}
-
-body {
-  margin: 0;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background-color: #f5f7fa;
-}
-
-/* 重置样式 */
-* {
-  box-sizing: border-box;
+  transform: translateY(-6px);
 }
 </style>
