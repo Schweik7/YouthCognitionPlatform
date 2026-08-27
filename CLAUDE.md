@@ -115,6 +115,12 @@ pip install -e .
 - **Production Build**: Frontend builds to `/dist`, served by FastAPI as static files
 - **Environment**: Python 3.10+, Node.js 16+, MySQL 8.0+
 
+## Design System
+
+UI 规范见 `docs/design-system.md`：设计令牌（色彩/字体/圆角/阴影/间距）、5 套可选主题色、
+Logo 与顶栏、按钮与表单、页面骨架、测评页专用件、后台三段式数据表结构与复刻清单。
+新增页面或测验前先读它；令牌定义在 `src/styles/design-system.css`。
+
 ## File Locations
 
 - **Backend Entry**: `backend/main.py` or `backend/run.py`

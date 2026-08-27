@@ -40,9 +40,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
-    # 后台管理员账号（可通过环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 覆盖）
+    # 后台管理员账号：默认值仅供本地开发，线上必须用环境变量
+    # ADMIN_USERNAME / ADMIN_PASSWORD 覆盖（部署机放在 /etc/eduscreen/backend.env）
     ADMIN_USERNAME: str = "Yanglab"
-    ADMIN_PASSWORD: str = "Yanglab@2025"
+    ADMIN_PASSWORD: str = "change-me-in-env"
     ADMIN_TOKEN_EXPIRE_MINUTES: int = 60 * 12  # 后台登录有效期
 
     # CORS设置 - 根据环境动态配置
