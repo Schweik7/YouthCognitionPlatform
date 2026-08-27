@@ -99,6 +99,10 @@ async def register_user(data: UserRegister, session: Session = Depends(get_sessi
     if not student_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请填写学号")
 
+    gender = (data.gender or "").strip()
+    if gender not in ("男", "女"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请选择性别")
+
     try:
         if session.exec(select(User).where(User.student_id == student_id)).first():
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该学号已登记，请直接用学号登录")
@@ -117,6 +121,8 @@ async def register_user(data: UserRegister, session: Session = Depends(get_sessi
             existing.student_id = student_id
             if data.birth_date and not existing.birth_date:
                 existing.birth_date = data.birth_date
+            if not existing.gender:
+                existing.gender = gender
             session.add(existing)
             session.commit()
             session.refresh(existing)
@@ -127,6 +133,7 @@ async def register_user(data: UserRegister, session: Session = Depends(get_sessi
             school=data.school,
             grade=data.grade,
             class_number=data.class_number,
+            gender=gender,
             birth_date=data.birth_date,
             student_id=student_id,
         )

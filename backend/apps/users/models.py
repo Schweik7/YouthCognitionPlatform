@@ -13,6 +13,8 @@ class User(BaseModel, table=True):
     grade: int = Field(index=True)
     class_number: int = Field(index=True)
     birth_date: Optional[date] = Field(default=None, index=True)  # 出生日期
+    # 性别：登记时选择，取值 "男" / "女"
+    gender: Optional[str] = Field(default=None, index=True, max_length=8)
     # 学号（可选）：登记一次后凭学号快速登录，历史用户没有学号也不受影响
     student_id: Optional[str] = Field(default=None, index=True, unique=True, max_length=64)
     # 测验序号：本次是该学生的第几次测验，登录时填写，便于前后测数据比对

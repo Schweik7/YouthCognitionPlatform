@@ -53,7 +53,7 @@ def _resolve_audio_path(stored: Optional[str]) -> Optional[Path]:
     return None
 
 # 统一的表格结构：用户信息 -> 测试信息 -> 任务指标（各测试自定义）
-_USER_COLUMNS = ["姓名", "学号", "学校", "年级", "班级", "出生日期"]
+_USER_COLUMNS = ["姓名", "学号", "性别", "学校", "年级", "班级", "出生日期"]
 _TEST_COLUMNS = ["测验序号", "登录时间", "测试时间", "结束时间", "状态"]
 _COMMON_COLUMNS = _USER_COLUMNS + _TEST_COLUMNS
 
@@ -299,6 +299,7 @@ def _common_cells(obj, user) -> Dict[str, Any]:
         # 用户信息
         "姓名": user.name,
         "学号": getattr(user, "student_id", None) or "",
+        "性别": getattr(user, "gender", None) or "",
         "学校": user.school,
         "年级": user.grade,
         "班级": user.class_number,

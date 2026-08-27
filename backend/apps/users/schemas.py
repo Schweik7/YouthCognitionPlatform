@@ -9,6 +9,7 @@ class UserBase(SQLModel):
     school: str
     grade: int
     class_number: int
+    gender: Optional[str] = None
     birth_date: Optional[date] = None
 
 

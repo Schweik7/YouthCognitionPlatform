@@ -84,11 +84,21 @@
                             </el-form-item>
                         </div>
 
-                        <el-form-item label="出生日期" prop="birth_date">
-                            <el-date-picker v-model="registerForm.birth_date" type="date" placeholder="请选择出生日期"
-                                class="full-width" size="large" format="YYYY-MM-DD"
-                                value-format="YYYY-MM-DD"></el-date-picker>
-                        </el-form-item>
+                        <div class="form-row">
+                            <el-form-item label="性别" prop="gender">
+                                <el-select v-model="registerForm.gender" placeholder="请选择性别" class="full-width"
+                                    size="large">
+                                    <el-option label="男" value="男"></el-option>
+                                    <el-option label="女" value="女"></el-option>
+                                </el-select>
+                            </el-form-item>
+
+                            <el-form-item label="出生日期" prop="birth_date">
+                                <el-date-picker v-model="registerForm.birth_date" type="date" placeholder="请选择出生日期"
+                                    class="full-width" size="large" format="YYYY-MM-DD"
+                                    value-format="YYYY-MM-DD"></el-date-picker>
+                            </el-form-item>
+                        </div>
 
                         <el-form-item label="学校" prop="school">
                             <el-autocomplete v-model="registerForm.school" :fetch-suggestions="querySchools"
@@ -160,6 +170,7 @@ const loginForm = reactive({
 const registerForm = reactive({
     student_id: '',
     name: '',
+    gender: '',
     school: '',
     grade: null,
     class_number: null,
@@ -185,6 +196,7 @@ const loginRules = {
 const registerRules = {
     student_id: [{ required: true, message: '请输入学号', trigger: 'blur' }],
     name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+    gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
     school: [{ required: true, message: '请输入学校', trigger: 'blur' }],
     grade: [{ required: true, message: '请输入年级', trigger: 'blur' }],
     class_number: [{ required: true, message: '请输入班级', trigger: 'blur' }],
@@ -311,6 +323,7 @@ const submitRegister = async () => {
                 body: JSON.stringify({
                     student_id: registerForm.student_id.trim(),
                     name: registerForm.name,
+                    gender: registerForm.gender,
                     school: registerForm.school,
                     grade: registerForm.grade,
                     class_number: registerForm.class_number,

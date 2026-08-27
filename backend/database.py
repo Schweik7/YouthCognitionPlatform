@@ -56,6 +56,7 @@ def ensure_schema_upgrades():
     pending = {
         "users": {
             "student_id": "VARCHAR(64) NULL",
+            "gender": "VARCHAR(8) NULL",
             "test_round": "INT NULL",
             "last_login_at": "DATETIME NULL",
         },
