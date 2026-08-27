@@ -44,6 +44,37 @@ def get_session():
 # 创建所有数据库表
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+    ensure_schema_upgrades()
+
+
+def ensure_schema_upgrades():
+    """为已存在的表补齐新增列（create_all 不会修改已有表结构）"""
+    from sqlalchemy import inspect, text
+    from logger_config import logger
+
+    # 列名 -> DDL 片段
+    pending = {
+        "users": {
+            "student_id": "VARCHAR(64) NULL",
+            "test_round": "INT NULL",
+            "last_login_at": "DATETIME NULL",
+        },
+    }
+
+    inspector = inspect(engine)
+    for table, columns in pending.items():
+        if not inspector.has_table(table):
+            continue
+        existing = {c["name"] for c in inspector.get_columns(table)}
+        for column, ddl in columns.items():
+            if column in existing:
+                continue
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {ddl}"))
+                logger.info(f"已为表 {table} 新增列 {column}")
+            except Exception:
+                logger.exception(f"为表 {table} 新增列 {column} 失败")
 
 
 # 开发模式：重建数据库表

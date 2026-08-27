@@ -24,60 +24,93 @@
         <main class="cover-main">
             <!-- 左：主视觉 -->
             <section class="cover-hero">
-                <h1 class="hero-title">中小学生学习困难筛查线上平台</h1>
                 <div class="hero-art">
                     <HeroIllustration />
                 </div>
-                <ul class="module-chips">
-                    <li><i class="dot dot-reading"></i>阅读流畅性测试</li>
-                    <li><i class="dot dot-oral"></i>朗读流畅性测试</li>
-                    <li><i class="dot dot-attention"></i>注意力筛查测试</li>
-                    <li><i class="dot dot-calc"></i>计算流畅性测试</li>
-                    <li><i class="dot dot-literacy"></i>识字量测验</li>
-                    <li><i class="dot dot-raven"></i>图形推理测试</li>
-                </ul>
             </section>
 
-            <!-- 右：信息填写 -->
+            <!-- 右：账号登录 / 注册 -->
             <section class="cover-form">
                 <div class="form-card">
-                    <div class="form-head">
-                        <span class="sec-eyebrow">STEP 1</span>
-                        <h2>请填写您的基本信息</h2>
+                    <div class="auth-switch">
+                        <button type="button" :class="['switch-btn', { active: mode === 'login' }]"
+                            @click="mode = 'login'">快速登录</button>
+                        <button type="button" :class="['switch-btn', { active: mode === 'register' }]"
+                            @click="mode = 'register'">首次登记</button>
                     </div>
 
-                    <el-form ref="formRef" :model="userForm" :rules="rules" label-position="top" class="info-form">
+                    <!-- 登录 -->
+                    <el-form v-if="mode === 'login'" ref="loginRef" :model="loginForm" :rules="loginRules"
+                        label-position="top" class="info-form" @submit.prevent>
                         <div class="form-row">
-                            <el-form-item label="姓名" prop="name">
-                                <el-input v-model="userForm.name" placeholder="请输入你的姓名" size="large"></el-input>
+                            <el-form-item label="学号" prop="student_id">
+                                <el-input v-model="loginForm.student_id" placeholder="请输入学号" size="large"
+                                    @keyup.enter="submitLogin"></el-input>
                             </el-form-item>
 
-                            <el-form-item label="出生日期" prop="birth_date">
-                                <el-date-picker v-model="userForm.birth_date" type="date" placeholder="请选择出生日期"
-                                    class="full-width" size="large" format="YYYY-MM-DD" value-format="YYYY-MM-DD"></el-date-picker>
+                            <el-form-item label="姓名" prop="name">
+                                <el-input v-model="loginForm.name" placeholder="请输入姓名" size="large"
+                                    @keyup.enter="submitLogin"></el-input>
                             </el-form-item>
                         </div>
 
+                        <el-form-item label="测验序号" prop="test_round">
+                            <el-input-number v-model="loginForm.test_round" :min="1" :max="20" placeholder="本次是第几次测验"
+                                class="full-width" size="large" controls-position="right"></el-input-number>
+                        </el-form-item>
+
+                        <el-form-item class="submit-item">
+                            <el-button type="primary" size="large" class="submit-btn" :loading="loading"
+                                @click="submitLogin">进入测评</el-button>
+                        </el-form-item>
+
+                        <p class="form-tip">第一次使用？<a href="javascript:void(0)" @click="mode = 'register'">先去登记</a></p>
+                    </el-form>
+
+                    <!-- 注册 -->
+                    <el-form v-else ref="registerRef" :model="registerForm" :rules="registerRules" label-position="top"
+                        class="info-form" @submit.prevent>
+                        <div class="form-row">
+                            <el-form-item label="学号" prop="student_id">
+                                <el-input v-model="registerForm.student_id" placeholder="请输入学号"
+                                    size="large"></el-input>
+                            </el-form-item>
+
+                            <el-form-item label="姓名" prop="name">
+                                <el-input v-model="registerForm.name" placeholder="请输入你的姓名" size="large"></el-input>
+                            </el-form-item>
+                        </div>
+
+                        <el-form-item label="出生日期" prop="birth_date">
+                            <el-date-picker v-model="registerForm.birth_date" type="date" placeholder="请选择出生日期"
+                                class="full-width" size="large" format="YYYY-MM-DD"
+                                value-format="YYYY-MM-DD"></el-date-picker>
+                        </el-form-item>
+
                         <el-form-item label="学校" prop="school">
-                            <el-autocomplete v-model="userForm.school" :fetch-suggestions="querySchools" placeholder="请输入或选择学校"
-                                class="full-width" size="large"></el-autocomplete>
+                            <el-autocomplete v-model="registerForm.school" :fetch-suggestions="querySchools"
+                                placeholder="请输入或选择学校" class="full-width" size="large"></el-autocomplete>
                         </el-form-item>
 
                         <div class="form-row">
                             <el-form-item label="年级" prop="grade">
-                                <el-input-number v-model="userForm.grade" :min="1" :max="12" placeholder="请输入年级"
+                                <el-input-number v-model="registerForm.grade" :min="1" :max="12" placeholder="请输入年级"
                                     class="full-width" size="large" controls-position="right"></el-input-number>
                             </el-form-item>
 
                             <el-form-item label="班级" prop="class_number">
-                                <el-input-number v-model="userForm.class_number" :min="1" :max="30" placeholder="请输入班级"
-                                    class="full-width" size="large" controls-position="right"></el-input-number>
+                                <el-input-number v-model="registerForm.class_number" :min="1" :max="30"
+                                    placeholder="请输入班级" class="full-width" size="large"
+                                    controls-position="right"></el-input-number>
                             </el-form-item>
                         </div>
 
                         <el-form-item class="submit-item">
-                            <el-button type="primary" size="large" @click="submitForm" class="submit-btn">开始实验</el-button>
+                            <el-button type="primary" size="large" class="submit-btn" :loading="loading"
+                                @click="submitRegister">登记并开始</el-button>
                         </el-form-item>
+
+                        <p class="form-tip">已经登记过？<a href="javascript:void(0)" @click="mode = 'login'">快速登录</a></p>
                     </el-form>
                 </div>
             </section>
@@ -92,10 +125,20 @@ import { ElMessage } from 'element-plus';
 import HeroIllustration from './HeroIllustration.vue';
 
 const router = useRouter();
-const formRef = ref(null);
+const mode = ref('login');
+const loading = ref(false);
+const loginRef = ref(null);
+const registerRef = ref(null);
 const recentSchools = ref([]);
 
-const userForm = reactive({
+const loginForm = reactive({
+    student_id: '',
+    name: '',
+    test_round: 1
+});
+
+const registerForm = reactive({
+    student_id: '',
     name: '',
     school: '',
     grade: null,
@@ -103,7 +146,14 @@ const userForm = reactive({
     birth_date: null
 });
 
-const rules = {
+const loginRules = {
+    student_id: [{ required: true, message: '请输入学号', trigger: 'blur' }],
+    name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+    test_round: [{ required: true, message: '请填写本次是第几次测验', trigger: 'blur' }]
+};
+
+const registerRules = {
+    student_id: [{ required: true, message: '请输入学号', trigger: 'blur' }],
     name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
     school: [{ required: true, message: '请输入学校', trigger: 'blur' }],
     grade: [{ required: true, message: '请输入年级', trigger: 'blur' }],
@@ -121,7 +171,7 @@ onMounted(async () => {
 
             // 如果有最近的学校，自动填充最后一个
             if (recentSchools.value.length > 0) {
-                userForm.school = recentSchools.value[recentSchools.value.length - 1];
+                registerForm.school = recentSchools.value[recentSchools.value.length - 1];
             }
         }
     } catch (error) {
@@ -139,43 +189,87 @@ const querySchools = (queryString, callback) => {
     callback(results.map(school => ({ value: school })));
 };
 
-// 修改 submitForm 函数
-const submitForm = async () => {
-    if (!formRef.value) return;
+// 登录成功后统一保存用户信息并跳转
+const enterPlatform = (user) => {
+    localStorage.setItem('userInfo', JSON.stringify(user));
+    localStorage.removeItem('userAvatarData');
+    router.push('/selection');
+};
 
-    // 后台管理入口：用户名输入 Yanglab 时直接进入管理后台（无需密码）
-    if (userForm.name.trim() === 'Yanglab') {
+const submitLogin = async () => {
+    if (!loginRef.value) return;
+
+    // 后台管理入口：学号输入 Yanglab 时直接进入管理后台
+    if (loginForm.student_id.trim() === 'Yanglab') {
         router.push('/yanglab');
         return;
     }
 
-    await formRef.value.validate(async (valid) => {
-        if (valid) {
-            try {
-                // 调用后端API创建或获取用户信息
-                const response = await fetch('/api/users/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(userForm)
-                });
+    await loginRef.value.validate(async (valid) => {
+        if (!valid) return;
 
-                const result = await response.json();
+        loading.value = true;
+        try {
+            const response = await fetch('/api/users/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_id: loginForm.student_id.trim(),
+                    name: loginForm.name.trim(),
+                    test_round: loginForm.test_round
+                })
+            });
 
-                if (response.ok) {
-                    // 后端直接返回用户对象，保存包含ID的完整用户信息到本地存储
-                    localStorage.setItem('userInfo', JSON.stringify(result));
+            const result = await response.json();
 
-                    // 导航到测试选择页面
-                    router.push('/selection');
-                } else {
-                    throw new Error(result.detail || result.message || '创建用户失败');
-                }
-            } catch (error) {
-                console.error('创建用户失败:', error);
-                ElMessage.error('创建用户失败，请重试');
+            if (response.ok) {
+                enterPlatform(result);
+            } else {
+                ElMessage.error(result.detail || '登录失败，请重试');
             }
+        } catch (error) {
+            console.error('登录失败:', error);
+            ElMessage.error('登录失败，请检查网络后重试');
+        } finally {
+            loading.value = false;
+        }
+    });
+};
+
+const submitRegister = async () => {
+    if (!registerRef.value) return;
+
+    await registerRef.value.validate(async (valid) => {
+        if (!valid) return;
+
+        loading.value = true;
+        try {
+            const response = await fetch('/api/users/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_id: registerForm.student_id.trim(),
+                    name: registerForm.name,
+                    school: registerForm.school,
+                    grade: registerForm.grade,
+                    class_number: registerForm.class_number,
+                    birth_date: registerForm.birth_date
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                ElMessage.success('登记成功');
+                enterPlatform(result);
+            } else {
+                ElMessage.error(result.detail || '登记失败，请重试');
+            }
+        } catch (error) {
+            console.error('登记失败:', error);
+            ElMessage.error('登记失败，请检查网络后重试');
+        } finally {
+            loading.value = false;
         }
     });
 };
@@ -201,93 +295,52 @@ const submitForm = async () => {
 .brand {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
 }
 
 .brand-mark svg {
-    width: 38px;
-    height: 38px;
+    width: 46px;
+    height: 46px;
     display: block;
 }
 
 .brand-name {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: clamp(20px, 2.1vw, 30px);
+    font-weight: 800;
     color: var(--ink-900);
     letter-spacing: .01em;
+    white-space: nowrap;
 }
 
 /* 主区域 */
 .cover-main {
     flex: 1;
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(380px, .95fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(360px, 440px);
     align-items: center;
+    justify-content: center;
     gap: clamp(24px, 5vw, 72px);
     padding: clamp(8px, 2vw, 24px) clamp(20px, 5vw, 56px) clamp(32px, 5vw, 64px);
-    max-width: 1360px;
+    max-width: 1280px;
     width: 100%;
     margin: 0 auto;
 }
 
 /* 左侧主视觉 */
 .cover-hero {
-    text-align: center;
-}
-
-.hero-title {
-    font-size: clamp(26px, 3.4vw, 42px);
-    line-height: 1.25;
-    background: linear-gradient(120deg, var(--ink-900) 20%, var(--brand-600) 78%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    margin-bottom: clamp(8px, 2vw, 20px);
+    display: flex;
+    justify-content: center;
 }
 
 .hero-art {
     display: flex;
     justify-content: center;
+    width: 100%;
 }
 
-.module-chips {
-    list-style: none;
-    margin: clamp(8px, 2vw, 20px) 0 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
+.hero-art :deep(.hero-svg) {
+    max-width: min(560px, 100%);
 }
-
-.module-chips li {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: var(--r-full);
-    background: rgba(255, 255, 255, .82);
-    border: 1px solid var(--line);
-    box-shadow: var(--sh-xs);
-    color: var(--ink-700);
-    font-size: 13px;
-    font-weight: 600;
-    backdrop-filter: blur(6px);
-}
-
-.dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.dot-reading { background: var(--hue-reading); }
-.dot-oral { background: var(--hue-oral); }
-.dot-attention { background: var(--hue-attention); }
-.dot-calc { background: var(--hue-calc); }
-.dot-literacy { background: var(--hue-literacy); }
-.dot-raven { background: var(--hue-raven); }
 
 /* 右侧表单卡 */
 .cover-form {
@@ -306,13 +359,37 @@ const submitForm = async () => {
     padding: clamp(24px, 3vw, 36px);
 }
 
-.form-head {
+/* 登录 / 注册切换 */
+.auth-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
     margin-bottom: 22px;
+    background: var(--brand-50, #eef2ff);
+    border-radius: var(--r-full);
 }
 
-.form-head h2 {
-    margin-top: 12px;
-    font-size: 22px;
+.switch-btn {
+    border: none;
+    background: transparent;
+    padding: 10px 0;
+    border-radius: var(--r-full);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink-500);
+    cursor: pointer;
+    transition: all .2s ease;
+}
+
+.switch-btn:hover {
+    color: var(--brand-600);
+}
+
+.switch-btn.active {
+    background: #fff;
+    color: var(--brand-600);
+    box-shadow: var(--sh-xs);
 }
 
 .form-row {
@@ -351,6 +428,23 @@ const submitForm = async () => {
     letter-spacing: .08em;
 }
 
+.form-tip {
+    margin: 16px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-500);
+}
+
+.form-tip a {
+    color: var(--brand-600);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.form-tip a:hover {
+    text-decoration: underline;
+}
+
 @media (max-width: 992px) {
     .cover-main {
         grid-template-columns: 1fr;
@@ -363,13 +457,13 @@ const submitForm = async () => {
 }
 
 @media (max-width: 520px) {
-    .form-row {
-        grid-template-columns: 1fr;
+    .brand-name {
+        font-size: 17px;
+        white-space: normal;
     }
 
-    .module-chips li {
-        font-size: 12px;
-        padding: 6px 12px;
+    .form-row {
+        grid-template-columns: 1fr;
     }
 }
 </style>

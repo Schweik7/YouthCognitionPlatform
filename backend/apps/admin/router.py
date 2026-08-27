@@ -51,7 +51,19 @@ def _resolve_audio_path(stored: Optional[str]) -> Optional[Path]:
     return None
 
 # 通用用户列（所有测试共有）
-_COMMON_COLUMNS = ["姓名", "学校", "年级", "班级", "出生日期", "测试时间", "结束时间", "状态"]
+_COMMON_COLUMNS = [
+    "姓名",
+    "学号",
+    "测验序号",
+    "学校",
+    "年级",
+    "班级",
+    "出生日期",
+    "登录时间",
+    "测试时间",
+    "结束时间",
+    "状态",
+]
 
 
 def _status_text(obj) -> str:
@@ -281,10 +293,13 @@ def _query_sessions(
 def _common_cells(obj, user) -> Dict[str, Any]:
     return {
         "姓名": user.name,
+        "学号": getattr(user, "student_id", None) or "",
+        "测验序号": getattr(user, "test_round", None) or "",
         "学校": user.school,
         "年级": user.grade,
         "班级": user.class_number,
         "出生日期": _fmt(user.birth_date),
+        "登录时间": _fmt(getattr(user, "last_login_at", None)),
         "测试时间": _fmt(obj.start_time),
         "结束时间": _fmt(getattr(obj, "end_time", None)),
         "状态": _status_text(obj),

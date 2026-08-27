@@ -689,8 +689,9 @@ onUnmounted(() => {
 /* ---------- 测试容器 ---------- */
 .test-container {
     max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
-    height: calc(100vh - 100px);
+    min-height: calc(100vh - 100px);
     display: flex;
     flex-direction: column;
 }
@@ -749,7 +750,7 @@ onUnmounted(() => {
     50% { opacity: .6; }
 }
 
-/* ---------- 题目区 ---------- */
+/* ---------- 题目区（左图右选项，保证主图完整显示） ---------- */
 .question-area {
     background: var(--surface);
     padding: clamp(14px, 2vw, 22px);
@@ -757,47 +758,55 @@ onUnmounted(() => {
     border-radius: var(--r-lg);
     box-shadow: var(--sh-sm);
     margin-bottom: 14px;
-    height: calc(100vh - 200px);
-    display: flex;
-    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+    align-items: center;
+    gap: clamp(14px, 2vw, 26px);
 }
 
 .main-image-container {
     text-align: center;
-    margin-bottom: 16px;
     padding: 16px;
     background: var(--surface-alt);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    flex: 1;
+    height: 100%;
+    min-height: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 0;
 }
 
 .main-image {
     max-width: 100%;
     max-height: 100%;
+    width: auto;
+    height: auto;
     object-fit: contain;
 }
 
 /* ---------- 选项 ---------- */
 .options-container {
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-    flex-shrink: 0;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    overflow-y: auto;
 }
 
 .options-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-content: center;
     gap: 10px;
+    width: 100%;
 }
 
+/* 8 选项时同样按 3 列排布，单元格不会被压得过小 */
 .options-grid.options-8 {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .option-item {
@@ -809,6 +818,9 @@ onUnmounted(() => {
     background: var(--surface);
     transition: all .24s cubic-bezier(.22, .8, .3, 1);
     aspect-ratio: 1;
+    max-width: 168px;
+    width: 100%;
+    justify-self: center;
 }
 
 .option-item:hover {
@@ -1012,9 +1024,21 @@ onUnmounted(() => {
 }
 
 /* ---------- 响应式 ---------- */
+@media (max-width: 900px) {
+    .question-area {
+        grid-template-columns: 1fr;
+        flex: none;
+        align-items: stretch;
+    }
+
+    .main-image-container { min-height: 240px; }
+
+    .options-container { height: auto; }
+}
+
 @media (max-width: 768px) {
     .options-grid,
-    .options-grid.options-8 { grid-template-columns: repeat(2, 1fr); }
+    .options-grid.options-8 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     .sidebar { width: 220px; }
     .sidebar.collapsed { transform: translateX(-220px); }

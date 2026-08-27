@@ -8,11 +8,10 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from database import get_session
 from logger_config import logger
 from .models import User
-from .schemas import UserCreate, UserResponse, SchoolsResponse
+from .schemas import UserCreate, UserResponse, SchoolsResponse, UserRegister, UserLogin
 
 
 router = APIRouter(tags=["用户管理"])
-
 
 @router.get("/schools/recent", response_model=SchoolsResponse)
 async def get_recent_schools(session: Session = Depends(get_session)):
@@ -91,6 +90,99 @@ async def create_user(user_data: UserCreate, session: Session = Depends(get_sess
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"创建用户失败: {str(e)}"
             )
+
+
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register_user(data: UserRegister, session: Session = Depends(get_session)):
+    """首次登记：填写一次基本信息并绑定学号，之后凭学号即可登录"""
+    student_id = data.student_id.strip()
+    if not student_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请填写学号")
+
+    try:
+        if session.exec(select(User).where(User.student_id == student_id)).first():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该学号已登记，请直接用学号登录")
+
+        # 同名同校同班的历史用户直接绑定学号，避免重复建档、丢失既有成绩
+        existing = session.exec(
+            select(User).where(
+                User.name == data.name,
+                User.school == data.school,
+                User.grade == data.grade,
+                User.class_number == data.class_number,
+            )
+        ).first()
+
+        if existing and not existing.student_id:
+            existing.student_id = student_id
+            if data.birth_date and not existing.birth_date:
+                existing.birth_date = data.birth_date
+            session.add(existing)
+            session.commit()
+            session.refresh(existing)
+            return existing
+
+        user = User(
+            name=data.name,
+            school=data.school,
+            grade=data.grade,
+            class_number=data.class_number,
+            birth_date=data.birth_date,
+            student_id=student_id,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+    except HTTPException:
+        raise
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该学号已登记，请直接用学号登录")
+    except Exception:
+        session.rollback()
+        logger.exception("学号登记失败")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="登记失败，请稍后重试"
+        )
+
+
+@router.post("/login", response_model=UserResponse)
+async def login_user(data: UserLogin, session: Session = Depends(get_session)):
+    """凭学号 + 姓名登录"""
+    try:
+        user = session.exec(
+            select(User).where(
+                User.student_id == data.student_id.strip(),
+                User.name == data.name.strip(),
+            )
+        ).first()
+    except OperationalError:
+        session.rollback()
+        logger.exception("登录时数据库连接异常")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="数据库暂时不可用，请稍后重试"
+        )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="学号与姓名不匹配，或该学号尚未登记"
+        )
+
+    # 记录本次测验序号与开始时间，供后台导出统计
+    try:
+        if data.test_round:
+            user.test_round = data.test_round
+        user.last_login_at = datetime.now()
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    except Exception:
+        session.rollback()
+        # 记录失败不应挡住学生开始测验
+        logger.exception("记录登录信息失败")
+
+    return user
 
 
 @router.get("/{user_id}", response_model=UserResponse)
