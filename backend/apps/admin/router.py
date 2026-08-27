@@ -25,8 +25,10 @@ from apps.literacy_test.models import LiteracyTest, LiteracyAudioRecord
 from apps.oral_reading_fluency.models import OralReadingFluencyTest, OralReadingAudioRecord
 from apps.raven_test.models import RavenTestSession, RavenAnswer
 from apps.oral_reading_fluency.service import CHARACTER_ROWS
+from apps.admin.auth import auth_router, require_admin
 
-router = APIRouter(tags=["后台管理"])
+# 除登录接口外，后台所有接口都需要管理员令牌
+router = APIRouter(tags=["后台管理"], dependencies=[Depends(require_admin)])
 
 # 后端根目录（config 中 UPLOAD_DIR = <backend>/uploads）
 BACKEND_DIR = Path(UPLOAD_DIR).parent
@@ -50,20 +52,22 @@ def _resolve_audio_path(stored: Optional[str]) -> Optional[Path]:
             return c
     return None
 
-# 通用用户列（所有测试共有）
-_COMMON_COLUMNS = [
-    "姓名",
-    "学号",
-    "测验序号",
-    "学校",
-    "年级",
-    "班级",
-    "出生日期",
-    "登录时间",
-    "测试时间",
-    "结束时间",
-    "状态",
-]
+# 统一的表格结构：用户信息 -> 测试信息 -> 任务指标（各测试自定义）
+_USER_COLUMNS = ["姓名", "学号", "学校", "年级", "班级", "出生日期"]
+_TEST_COLUMNS = ["测验序号", "登录时间", "测试时间", "结束时间", "状态"]
+_COMMON_COLUMNS = _USER_COLUMNS + _TEST_COLUMNS
+
+
+def _column_groups(metric_labels: List[str], detail_labels: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """列分组信息，供前端渲染分组表头、导出时保持列序一致"""
+    groups = [
+        {"label": "用户信息", "columns": list(_USER_COLUMNS)},
+        {"label": "测试信息", "columns": list(_TEST_COLUMNS)},
+        {"label": "任务指标信息", "columns": list(metric_labels)},
+    ]
+    if detail_labels:
+        groups.append({"label": "任务明细信息", "columns": list(detail_labels)})
+    return groups
 
 
 def _status_text(obj) -> str:
@@ -292,13 +296,15 @@ def _query_sessions(
 
 def _common_cells(obj, user) -> Dict[str, Any]:
     return {
+        # 用户信息
         "姓名": user.name,
         "学号": getattr(user, "student_id", None) or "",
-        "测验序号": getattr(user, "test_round", None) or "",
         "学校": user.school,
         "年级": user.grade,
         "班级": user.class_number,
         "出生日期": _fmt(user.birth_date),
+        # 测试信息
+        "测验序号": getattr(user, "test_round", None) or "",
         "登录时间": _fmt(getattr(user, "last_login_at", None)),
         "测试时间": _fmt(obj.start_time),
         "结束时间": _fmt(getattr(obj, "end_time", None)),
@@ -335,7 +341,12 @@ def _build_dataset(
                 row["__has_audio__"] = True
             rows.append(row)
 
-        result[key] = {"label": cfg["label"], "columns": columns, "rows": rows}
+        result[key] = {
+            "label": cfg["label"],
+            "columns": columns,
+            "column_groups": _column_groups(metric_labels),
+            "rows": rows,
+        }
     return result
 
 
@@ -383,7 +394,12 @@ def _build_detail_dataset(
                     row["明细·" + label] = _fmt(getattr(it, attr, None))
                 rows.append(row)
 
-        result[key] = {"label": scfg["label"], "columns": columns, "rows": rows}
+        result[key] = {
+            "label": scfg["label"],
+            "columns": columns,
+            "column_groups": _column_groups(session_labels, detail_labels),
+            "rows": rows,
+        }
     return result
 
 

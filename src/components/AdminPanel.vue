@@ -8,7 +8,11 @@
             <span class="header-mark"></span>
             <h2>测试结果后台管理</h2>
           </div>
-          <el-button text @click="goHome">返回首页</el-button>
+          <div class="header-actions">
+            <span class="admin-user" v-if="adminName">管理员：{{ adminName }}</span>
+            <el-button text @click="goHome">返回首页</el-button>
+            <el-button text type="danger" @click="logout">退出登录</el-button>
+          </div>
         </div>
       </template>
 
@@ -74,14 +78,22 @@
             @selection-change="(rows) => onSelectionChange(key, rows)"
           >
             <el-table-column type="selection" width="42" reserve-selection />
+            <!-- 统一表头：用户信息 / 测试信息 / 任务指标信息 -->
             <el-table-column
-              v-for="col in tests[key].columns"
-              :key="col"
-              :prop="col"
-              :label="col"
-              min-width="110"
-              show-overflow-tooltip
-            />
+              v-for="group in tests[key].column_groups"
+              :key="group.label"
+              :label="group.label"
+              align="center"
+            >
+              <el-table-column
+                v-for="col in group.columns"
+                :key="col"
+                :prop="col"
+                :label="col"
+                min-width="110"
+                show-overflow-tooltip
+              />
+            </el-table-column>
             <el-table-column label="操作" width="170" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link size="small" @click="openDetail(key, row)">
@@ -123,7 +135,7 @@
               <el-table-column prop="stimulus" label="内容" min-width="160" show-overflow-tooltip />
               <el-table-column label="播放" min-width="240">
                 <template #default="{ row }">
-                  <audio v-if="row.has_file" controls preload="none" :src="row.audio_url" style="width: 100%; height: 32px;"></audio>
+                  <audio v-if="row.has_file" controls preload="none" :src="authUrl(row.audio_url)" style="width: 100%; height: 32px;"></audio>
                   <span v-else class="muted">无录音</span>
                 </template>
               </el-table-column>
@@ -188,6 +200,39 @@ import { ElMessage } from 'element-plus';
 
 const router = useRouter();
 
+// ----- 管理员登录态 -----
+const adminToken = ref(localStorage.getItem('adminToken') || '');
+const adminName = ref(localStorage.getItem('adminName') || '');
+
+const clearAuth = () => {
+  adminToken.value = '';
+  localStorage.removeItem('adminToken');
+  localStorage.removeItem('adminName');
+};
+
+const logout = () => {
+  clearAuth();
+  router.push('/');
+};
+
+// 带令牌的请求（后台接口都需要）
+const authFetch = async (url, options = {}) => {
+  const response = await fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${adminToken.value}` }
+  });
+  if (response.status === 401) {
+    clearAuth();
+    ElMessage.error('登录已过期，请重新登录');
+    router.push('/');
+    throw new Error('未登录');
+  }
+  return response;
+};
+
+// 浏览器直接打开的链接（下载 / 音频）带不了请求头，改用 token 查询参数
+const authUrl = (url) => `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(adminToken.value)}`;
+
 const dateRange = ref([]);
 const school = ref('');
 const name = ref('');
@@ -227,7 +272,7 @@ const fetchResults = async () => {
   loading.value = true;
   try {
     const params = buildParams();
-    const response = await fetch(`/api/admin/results?${params.toString()}`);
+    const response = await authFetch(`/api/admin/results?${params.toString()}`);
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.detail || '查询失败');
@@ -264,7 +309,7 @@ const openRecordings = async (key, row) => {
   recLoading.value = true;
   recData.value = null;
   try {
-    const response = await fetch(`/api/admin/audio/recordings?test=${test}&test_id=${testId}`);
+    const response = await authFetch(`/api/admin/audio/recordings?test=${test}&test_id=${testId}`);
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.detail || '获取录音失败');
@@ -289,7 +334,7 @@ const openDetail = async (key, row) => {
   detailLoading.value = true;
   detailData.value = null;
   try {
-    const response = await fetch(`/api/admin/detail?test_type=${key}&test_id=${row.__test_id__}`);
+    const response = await authFetch(`/api/admin/detail?test_type=${key}&test_id=${row.__test_id__}`);
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.detail || '获取明细失败');
@@ -304,7 +349,7 @@ const openDetail = async (key, row) => {
 
 const downloadAllAudio = () => {
   const { test, testId } = recCtx.value;
-  const url = `/api/admin/audio/download-all?test=${test}&test_id=${testId}`;
+  const url = authUrl(`/api/admin/audio/download-all?test=${test}&test_id=${testId}`);
   const a = document.createElement('a');
   a.href = url;
   document.body.appendChild(a);
@@ -325,7 +370,7 @@ const download = ({ testType = 'all', selected = false } = {}) => {
     }
     params.append('ids', ids.join(','));
   }
-  const url = `/api/admin/export?${params.toString()}`;
+  const url = authUrl(`/api/admin/export?${params.toString()}`);
   // 触发浏览器下载
   const a = document.createElement('a');
   a.href = url;
@@ -334,7 +379,15 @@ const download = ({ testType = 'all', selected = false } = {}) => {
   document.body.removeChild(a);
 };
 
-onMounted(fetchResults);
+onMounted(() => {
+  // 未登录直接回到封面页，由封面页的「后台登录」入口进入
+  if (!adminToken.value) {
+    ElMessage.warning('请先登录后台');
+    router.push('/');
+    return;
+  }
+  fetchResults();
+});
 </script>
 
 <style scoped>
@@ -345,6 +398,18 @@ onMounted(fetchResults);
     radial-gradient(900px 460px at 96% 2%, rgba(18, 179, 168, .08), transparent 58%),
     var(--canvas);
   padding: 1px 0 40px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-user {
+  font-size: 13px;
+  color: var(--text-muted, #7a8296);
+  margin-right: 4px;
 }
 
 .admin-container {

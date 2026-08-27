@@ -19,6 +19,9 @@
                 </span>
                 <span class="brand-name">中小学生学习困难筛查线上平台</span>
             </div>
+            <div class="topbar-actions">
+                <el-button class="admin-entry" plain @click="adminDialog = true">后台登录</el-button>
+            </div>
         </header>
 
         <main class="cover-main">
@@ -115,6 +118,23 @@
                 </div>
             </section>
         </main>
+
+        <!-- 管理员登录 -->
+        <el-dialog v-model="adminDialog" title="后台管理登录" width="380px" align-center>
+            <el-form ref="adminRef" :model="adminForm" :rules="adminRules" label-position="top" @submit.prevent>
+                <el-form-item label="管理员账号" prop="username">
+                    <el-input v-model="adminForm.username" placeholder="请输入管理员账号" size="large"></el-input>
+                </el-form-item>
+                <el-form-item label="密码" prop="password">
+                    <el-input v-model="adminForm.password" type="password" show-password placeholder="请输入密码"
+                        size="large" @keyup.enter="submitAdminLogin"></el-input>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="adminDialog = false">取消</el-button>
+                <el-button type="primary" :loading="adminLoading" @click="submitAdminLogin">登录后台</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -145,6 +165,16 @@ const registerForm = reactive({
     class_number: null,
     birth_date: null
 });
+
+const adminDialog = ref(false);
+const adminLoading = ref(false);
+const adminRef = ref(null);
+const adminForm = reactive({ username: '', password: '' });
+
+const adminRules = {
+    username: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
+    password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+};
 
 const loginRules = {
     student_id: [{ required: true, message: '请输入学号', trigger: 'blur' }],
@@ -196,14 +226,45 @@ const enterPlatform = (user) => {
     router.push('/selection');
 };
 
+// 管理员登录：拿到令牌后存入本地，再进入后台
+const submitAdminLogin = async () => {
+    if (!adminRef.value) return;
+
+    await adminRef.value.validate(async (valid) => {
+        if (!valid) return;
+
+        adminLoading.value = true;
+        try {
+            const response = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: adminForm.username.trim(),
+                    password: adminForm.password
+                })
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('adminToken', result.token);
+                localStorage.setItem('adminName', result.username);
+                adminDialog.value = false;
+                adminForm.password = '';
+                router.push('/yanglab');
+            } else {
+                ElMessage.error(result.detail || '登录失败，请重试');
+            }
+        } catch (error) {
+            console.error('管理员登录失败:', error);
+            ElMessage.error('登录失败，请检查网络后重试');
+        } finally {
+            adminLoading.value = false;
+        }
+    });
+};
+
 const submitLogin = async () => {
     if (!loginRef.value) return;
-
-    // 后台管理入口：学号输入 Yanglab 时直接进入管理后台
-    if (loginForm.student_id.trim() === 'Yanglab') {
-        router.push('/yanglab');
-        return;
-    }
 
     await loginRef.value.validate(async (valid) => {
         if (!valid) return;
@@ -290,6 +351,21 @@ const submitRegister = async () => {
 /* 顶部品牌 */
 .cover-topbar {
     padding: 22px clamp(20px, 5vw, 56px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.topbar-actions {
+    flex: none;
+}
+
+.admin-entry {
+    border-radius: 999px;
+    padding: 0 18px;
+    height: 38px;
+    font-weight: 600;
 }
 
 .brand {

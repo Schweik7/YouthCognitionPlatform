@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
+    # 后台管理员账号（可通过环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 覆盖）
+    ADMIN_USERNAME: str = "Yanglab"
+    ADMIN_PASSWORD: str = "Yanglab@2025"
+    ADMIN_TOKEN_EXPIRE_MINUTES: int = 60 * 12  # 后台登录有效期
+
     # CORS设置 - 根据环境动态配置
     CORS_ORIGINS: List[str] = []
 
