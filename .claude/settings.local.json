@@ -9,7 +9,11 @@
       "Bash(curl:*)",
       "Read(//etc/**)",
       "Bash(printenv)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(rtk read *)",
+      "Bash(rtk ls *)",
+      "Bash(rtk grep *)",
+      "Bash(rtk curl *)"
     ],
     "deny": []
   }
