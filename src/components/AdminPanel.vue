@@ -60,6 +60,14 @@
             v-if="activeTab && selectedCount"
             @click="download({ testType: activeTab, selected: true })"
           >下载选中({{ selectedCount }})</el-button>
+          <el-button
+            type="danger"
+            size="small"
+            plain
+            v-if="activeTab && selectedCount"
+            :loading="deleting"
+            @click="deleteSelected"
+          >删除选中({{ selectedCount }})</el-button>
         </div>
       </div>
 
@@ -72,6 +80,7 @@
           :label="`${tests[key].label} (${tests[key].rows.length})`"
         >
           <el-table
+            :key="`${key}-${tableVersion}`"
             :data="tests[key].rows"
             border stripe max-height="520" size="small"
             row-key="__test_id__"
@@ -196,7 +205,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
 
@@ -290,6 +299,50 @@ const fetchResults = async () => {
     ElMessage.error(e.message || '查询失败');
   } finally {
     loading.value = false;
+  }
+};
+
+const deleting = ref(false);
+// 删除后强制重建表格，清掉 reserve-selection 里残留的已删 ID
+const tableVersion = ref(0);
+
+// 删除勾选的记录：连同明细与录音一并清除，先让管理员确认
+const deleteSelected = async () => {
+  const key = activeTab.value;
+  const ids = selections[key] || [];
+  if (!ids.length) {
+    ElMessage.warning('请先勾选要删除的记录');
+    return;
+  }
+
+  const label = tests[key] ? tests[key].label : '该测验';
+  try {
+    await ElMessageBox.confirm(
+      `将删除「${label}」的 ${ids.length} 条记录，包含逐题明细与已上传的录音，删除后无法恢复。`,
+      '确认删除',
+      { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' }
+    );
+  } catch (e) {
+    return; // 管理员取消
+  }
+
+  deleting.value = true;
+  try {
+    const response = await authFetch(
+      `/api/admin/records?test_type=${key}&ids=${ids.join(',')}`,
+      { method: 'DELETE' }
+    );
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || '删除失败');
+
+    ElMessage.success(`已删除 ${result.deleted} 条记录、${result.detail_deleted} 条明细、${result.audio_deleted} 个录音`);
+    selections[key] = [];
+    tableVersion.value += 1;
+    await fetchResults();
+  } catch (e) {
+    if (e.message !== '未登录') ElMessage.error(e.message || '删除失败');
+  } finally {
+    deleting.value = false;
   }
 };
 

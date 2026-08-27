@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from sqlmodel import Session, select
 
 from database import get_session
+from logger_config import logger
 from config import UPLOAD_DIR
 from apps.users.models import User
 from apps.reading_fluency.models import TestSession as ReadingSession, Trial as ReadingTrial
@@ -519,6 +520,70 @@ async def export_results(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.delete("/records")
+async def delete_records(
+    test_type: str = Query(..., description="测试类型 key"),
+    ids: str = Query(..., description="要删除的会话 ID，逗号分隔"),
+    session: Session = Depends(get_session),
+):
+    """删除勾选的测试记录：连同其明细与录音文件一起清除，不可恢复"""
+    if test_type not in TEST_REGISTRY:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="未知的测试类型")
+
+    id_list = _parse_ids(ids)
+    if not id_list:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请先勾选要删除的记录")
+
+    Model = TEST_REGISTRY[test_type]["model"]
+    dcfg = DETAIL_REGISTRY[test_type]
+    DetailModel = dcfg["model"]
+
+    try:
+        sessions = session.exec(select(Model).where(Model.id.in_(id_list))).all()  # type: ignore
+        if not sessions:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="记录不存在或已被删除")
+
+        found_ids = [obj.id for obj in sessions]
+        details = session.exec(
+            select(DetailModel).where(getattr(DetailModel, dcfg["fk"]).in_(found_ids))  # type: ignore
+        ).all()
+
+        # 先删磁盘上的录音，再删数据库记录；文件删不掉不阻断整体删除
+        audio_removed = 0
+        for item in details:
+            path = _resolve_audio_path(getattr(item, "audio_file_path", None))
+            if path is None:
+                continue
+            try:
+                path.unlink()
+                audio_removed += 1
+            except OSError:
+                logger.warning(f"删除录音文件失败：{path}")
+
+        for item in details:
+            session.delete(item)
+        for obj in sessions:
+            session.delete(obj)
+        session.commit()
+
+        logger.info(f"后台删除 {test_type} 记录 {found_ids}，同时清除明细 {len(details)} 条、录音 {audio_removed} 个")
+        return {
+            "success": True,
+            "deleted": len(found_ids),
+            "detail_deleted": len(details),
+            "audio_deleted": audio_removed,
+            "ids": found_ids,
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        session.rollback()
+        logger.exception("删除测试记录失败")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="删除失败，请稍后重试"
+        )
 
 
 @router.get("/detail")
