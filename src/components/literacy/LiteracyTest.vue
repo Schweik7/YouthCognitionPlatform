@@ -437,6 +437,7 @@ const startTest = async () => {
     if (result.success) {
       testId.value = result.data.test_id
       testStarted.value = true
+      testStartAt = performance.now()
       recordedCharacters.value.clear()
       unknownCharacters.value.clear()
       return true
@@ -450,7 +451,11 @@ const startTest = async () => {
   }
 }
 
+let testStartAt = 0 // 测验开始时刻（performance.now）
+
 const finishTest = async () => {
+  // 以点击"完成测试"的时刻为结束点，不含确认框和上传耗时
+  const actualDurationMs = Math.round(performance.now() - testStartAt)
   try {
     await ElMessageBox.confirm(
       `确定完成测试吗？已录制 ${recordedGroups.value.size} 个组的音频`,
@@ -477,7 +482,8 @@ const finishTest = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        unknown_characters: unknownCharsArray
+        unknown_characters: unknownCharsArray,
+        actual_duration_ms: actualDurationMs
       })
     })
     

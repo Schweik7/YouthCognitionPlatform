@@ -23,6 +23,8 @@ class LiteracyTest(BaseModel, table=True):
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     start_time: datetime = Field(default_factory=datetime.now)
     end_time: Optional[datetime] = None
+    total_time_seconds: Optional[int] = None  # 测试总耗时（秒）
+    actual_duration_ms: Optional[int] = None  # 前端计时的实际用时（毫秒）
     status: TestStatus = Field(default=TestStatus.PENDING)
     
     # 测试结果统计

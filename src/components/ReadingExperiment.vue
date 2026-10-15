@@ -275,6 +275,8 @@ const isJuniorHighLevel = computed(() => selectedLevel.value === 'junior_high');
 
 // 记录开始时间的方法（用于计算反应时间）
 let trialStartTime = 0;
+let formalStartAt = 0; // 正式测试开始时刻（performance.now）
+let lastAnswerAt = 0; // 正式测试最后一次作答时刻
 // 获取用户信息
 const getUserInfo = async () => {
   const userInfoStr = localStorage.getItem('userInfo');
@@ -426,16 +428,17 @@ const updateTestSession = async (progress) => {
     console.error('更新测试会话请求失败:', error);
   }
 };
-// 完成测试会话
-const completeTestSession = async () => {
+// 完成测试会话（附带前端计时的实际用时，只做记录，不影响计分）
+const completeTestSession = async (completion) => {
   if (!testSessionId.value) return;
-  
+
   try {
     const response = await fetch(`/api/reading-fluency/sessions/${testSessionId.value}/complete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify(completion)
     });
     
     if (response.ok) {
@@ -664,6 +667,7 @@ const handleAnswer = (answer) => {
     if (currentTrial) {
       currentTrial.userAnswer = answer;
       currentTrial.responseTime = responseTime;
+      lastAnswerAt = performance.now();
 
       // 保存到服务器
       saveTrialWithSession({
@@ -738,6 +742,7 @@ const startFormalTest = async () => {
     // 只有在成功创建会话后才启动计时器
     if (testSessionId.value) {
       startTimer(); // 启动计时器
+      formalStartAt = performance.now();
       prepareCurrentTrial();
     } else {
       console.error('无法启动测试：会话创建失败');
@@ -841,11 +846,20 @@ const nextTrial = () => {
 
 // 修改 endTest 方法
 const endTest = async () => {
+  // 倒计时结束与最后一题的延迟跳转可能同时触发，只结束一次
+  if (testEnded.value) return;
   clearInterval(timerInterval.value);
   testEnded.value = true;
-  
+
+  // 全部做完时以最后一题作答时刻为结束点，否则以结束时刻为准
+  const finishedAll = formalTrials.value.every(t => t.userAnswer !== null);
+  const endAt = finishedAll ? lastAnswerAt : performance.now();
+
   // 完成测试会话
-  await completeTestSession();
+  await completeTestSession({
+    actual_duration_ms: Math.round(endAt - formalStartAt),
+    finished_all: finishedAll
+  });
   
   phase.value = 'end';
   ElMessage.success('实验已完成，感谢您的参与！');

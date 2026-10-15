@@ -326,7 +326,11 @@ const completeTestSession = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({
+        actual_duration_ms: Math.round((formalEndAt || performance.now()) - formalStartAt),
+        finished_all: finishedAll
+      })
     })
 
     if (response.ok) {
@@ -453,7 +457,10 @@ const startTest = async () => {
     problemStartTime.value = Date.now()
 
     // 启动计时器
-    startTimer(() => endTest())
+    startTimer(handleTimeUp)
+    formalStartAt = performance.now()
+    formalEndAt = 0
+    finishedAll = false
 
     // 聚焦答案输入框
     nextTick(() => {
@@ -499,8 +506,27 @@ const handleSubmitAnswer = async (userAnswer) => {
   }
 }
 
+let formalStartAt = 0 // 正式测试开始时刻（performance.now）
+let formalEndAt = 0 // 提交或时间到的时刻，不含保存数据的网络耗时
+let finishedAll = false
+
+// 时间到：先自动提交已填写的答案，否则本次作答全部丢失
+const handleTimeUp = () => {
+  formalEndAt = performance.now()
+  if (testComponent.value?.submitAllAnswers) {
+    testComponent.value.submitAllAnswers()
+  } else {
+    endTest()
+  }
+}
+
 // 处理批量提交答案
 const handleSubmitAllAnswers = async (answerData) => {
+  if (testEnded.value) return
+  if (!formalEndAt) formalEndAt = performance.now()
+  stopTimer()
+  finishedAll = (testComponent.value?.completedCount ?? 0) >= problems.value.length
+
   // 批量保存答题结果
   await saveBatchProblems(answerData)
   

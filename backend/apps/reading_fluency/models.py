@@ -39,6 +39,8 @@ class TestSession(BaseModel, table=True):
     end_time: Optional[datetime] = None
     is_completed: bool = Field(default=False)
     total_time_seconds: Optional[int] = None  # 测试总耗时（秒）
+    actual_duration_ms: Optional[int] = None  # 前端计时的实际用时（毫秒），正式开始到结束
+    finished_all: Optional[bool] = None  # 是否在时限内做完全部题目
     progress: int = Field(default=0)  # 进度（已完成的试题数量）
     total_questions: int = Field(default=0)  # 总题目数量
     correct_count: int = Field(default=0)  # 正确答题数量
@@ -132,6 +134,8 @@ class TestSessionResponse(SQLModel):
     end_time: Optional[datetime]
     is_completed: bool
     total_time_seconds: Optional[int]
+    actual_duration_ms: Optional[int] = None
+    finished_all: Optional[bool] = None
     progress: int
     total_questions: int
     correct_count: int

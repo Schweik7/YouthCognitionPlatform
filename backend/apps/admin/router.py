@@ -94,6 +94,8 @@ TEST_REGISTRY: Dict[str, Dict[str, Any]] = {
             ("correct_count", "正确数"),
             ("progress", "已完成数"),
             ("total_time_seconds", "用时(秒)"),
+            ("actual_duration_ms", "实际用时(毫秒)"),
+            ("finished_all", "是否全部做完"),
         ],
     },
     "oral_reading_fluency": {
@@ -118,6 +120,8 @@ TEST_REGISTRY: Dict[str, Dict[str, Any]] = {
             ("missed_count", "遗漏数"),
             ("total_score", "得分"),
             ("total_time_seconds", "用时(秒)"),
+            ("actual_duration_ms", "实际用时(毫秒)"),
+            ("finished_all", "是否全部做完"),
         ],
     },
     "calculation": {
@@ -130,6 +134,8 @@ TEST_REGISTRY: Dict[str, Dict[str, Any]] = {
             ("total_score", "得分"),
             ("max_score", "满分"),
             ("total_time_seconds", "用时(秒)"),
+            ("actual_duration_ms", "实际用时(毫秒)"),
+            ("finished_all", "是否全部做完"),
         ],
     },
     "literacy": {
@@ -139,6 +145,8 @@ TEST_REGISTRY: Dict[str, Dict[str, Any]] = {
             ("total_characters", "总字数"),
             ("correct_characters", "正确字数"),
             ("total_score", "得分"),
+            ("total_time_seconds", "用时(秒)"),
+            ("actual_duration_ms", "实际用时(毫秒)"),
             ("evaluation_status", "评测状态"),
         ],
     },
@@ -152,6 +160,8 @@ TEST_REGISTRY: Dict[str, Dict[str, Any]] = {
             ("iq", "智商"),
             ("user_age", "年龄"),
             ("total_time_seconds", "用时(秒)"),
+            ("actual_duration_ms", "实际用时(毫秒)"),
+            ("finished_all", "是否全部做完"),
         ],
     },
 }

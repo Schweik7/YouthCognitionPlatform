@@ -9,6 +9,7 @@ import csv
 from config import settings
 from logger_config import logger
 from apps.users.models import User
+from database import SessionCompletion
 from .models import (
     Trial,
     TestSession,
@@ -308,7 +309,7 @@ def get_test_session_results(session: Session, test_session_id: int) -> Dict[str
 
     # 计算统计信息
     total_trials = len(trials)
-    correct_trials = sum(1 for trial in trials if trial.is_correct or trial.user_answer)
+    correct_trials = sum(1 for trial in trials if trial.is_correct)
     avg_response_time = (
         sum(trial.response_time for trial in trials) / total_trials if total_trials > 0 else 0
     )
@@ -412,7 +413,11 @@ def list_user_test_sessions(session: Session, user_id: int) -> List[TestSession]
     return list(session.exec(query).all())
 
 
-def complete_test_session(session: Session, test_session_id: int) -> Optional[TestSession]:
+def complete_test_session(
+    session: Session,
+    test_session_id: int,
+    completion: Optional[SessionCompletion] = None,
+) -> Optional[TestSession]:
     """完成测试会话"""
     test_session = session.get(TestSession, test_session_id)
     if not test_session:
@@ -425,6 +430,8 @@ def complete_test_session(session: Session, test_session_id: int) -> Optional[Te
     # 计算总用时（秒）
     delta = test_session.end_time - test_session.start_time
     test_session.total_time_seconds = int(delta.total_seconds())
+    if completion:
+        completion.apply_to(test_session)
 
     session.add(test_session)
     session.commit()
@@ -531,7 +538,7 @@ def get_user_results(session: Session, user_id: int) -> Dict[str, Any] | None:
             "testSessions": test_sessions,
         }
 
-    correct_trials = sum(1 for trial in trials if trial.is_correct or trial.user_answer)
+    correct_trials = sum(1 for trial in trials if trial.is_correct)
     average_response_time = sum(trial.response_time for trial in trials) / total_trials
 
     results = {

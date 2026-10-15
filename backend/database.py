@@ -30,6 +30,17 @@ class BaseModel(SQLModel):
         arbitrary_types_allowed = True
 
 
+class SessionCompletion(SQLModel):
+    """完成测验时前端提交的用时信息（各测验共用，只做记录，不参与计分）"""
+
+    actual_duration_ms: Optional[int] = None  # 前端计时：正式开始到结束的实际用时（毫秒）
+    finished_all: Optional[bool] = None  # 是否在时限内做完全部题目
+
+    def apply_to(self, test_session) -> None:
+        test_session.actual_duration_ms = self.actual_duration_ms
+        test_session.finished_all = self.finished_all
+
+
 # 会话上下文管理器
 def get_session():
     with Session(engine) as session:
@@ -59,6 +70,19 @@ def ensure_schema_upgrades():
             "gender": "VARCHAR(8) NULL",
             "test_round": "INT NULL",
             "last_login_at": "DATETIME NULL",
+        },
+        **{
+            table: {"actual_duration_ms": "INT NULL", "finished_all": "TINYINT(1) NULL"}
+            for table in (
+                "rf_test_sessions",
+                "at_test_sessions",
+                "calc_test_sessions",
+                "raven_test_sessions",
+            )
+        },
+        "literacy_tests": {
+            "total_time_seconds": "INT NULL",
+            "actual_duration_ms": "INT NULL",
         },
     }
 

@@ -9,6 +9,7 @@ from fractions import Fraction
 
 from logger_config import logger
 from apps.users.models import User
+from database import SessionCompletion
 from .models import (
     CalculationTestSession,
     CalculationProblem,
@@ -175,7 +176,11 @@ def list_user_test_sessions(session: Session, user_id: int) -> List[CalculationT
     return list(session.exec(query).all())
 
 
-def complete_test_session(session: Session, test_session_id: int) -> Optional[CalculationTestSession]:
+def complete_test_session(
+    session: Session,
+    test_session_id: int,
+    completion: Optional[SessionCompletion] = None,
+) -> Optional[CalculationTestSession]:
     """完成测试会话"""
     test_session = session.get(CalculationTestSession, test_session_id)
     if not test_session:
@@ -188,6 +193,8 @@ def complete_test_session(session: Session, test_session_id: int) -> Optional[Ca
     # 计算总用时（秒）
     delta = test_session.end_time - test_session.start_time
     test_session.total_time_seconds = int(delta.total_seconds())
+    if completion:
+        completion.apply_to(test_session)
 
     # 计算总分（每道正确题得1分）
     query = select(CalculationProblem).where(

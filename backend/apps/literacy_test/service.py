@@ -302,7 +302,10 @@ async def update_test_completion_status(test_id: int):
             test.total_score = total_score
             test.group_scores = json.dumps(group_scores, ensure_ascii=False)
             test.status = TestStatus.COMPLETED
-            test.end_time = datetime.now()
+            # 结束时间以学生点"完成"为准，不被后台评分完成时间覆盖
+            if not test.end_time:
+                test.end_time = datetime.now()
+                test.total_time_seconds = int((test.end_time - test.start_time).total_seconds())
             test.evaluation_status = "completed"
             test.evaluation_completed_at = datetime.now()
             
@@ -417,7 +420,9 @@ def get_user_tests(user_id: int) -> List[Dict[str, Any]]:
             pass
 
 
-def finish_test_manually(test_id: int, unknown_characters: List[str]) -> bool:
+def finish_test_manually(
+    test_id: int, unknown_characters: List[str], actual_duration_ms: Optional[int] = None
+) -> bool:
     """手动完成测验，将未录音的字符标记为不认识"""
     session_gen = get_session()
     session = next(session_gen)
@@ -488,7 +493,9 @@ def finish_test_manually(test_id: int, unknown_characters: List[str]) -> bool:
         # 更新测验状态为完成
         test.status = TestStatus.COMPLETED
         test.end_time = datetime.now()
-        
+        test.total_time_seconds = int((test.end_time - test.start_time).total_seconds())
+        test.actual_duration_ms = actual_duration_ms
+
         session.commit()
         
         # 计算最终分数将在session commit后同步计算

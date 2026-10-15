@@ -455,7 +455,12 @@ const confirmSubmit = async () => {
 
 // 提交测试
 const submitTest = async () => {
+    // 时间到与确认提交可能先后触发，只提交一次
+    if (submitted) return;
+    submitted = true;
     clearInterval(timerInterval.value);
+    const actualDurationMs = Math.round(performance.now() - formalStartAt);
+    const finishedAll = Object.keys(userAnswers.value).length >= questions.value.length;
 
     const loading = ElLoading.service({
         lock: true,
@@ -466,7 +471,12 @@ const submitTest = async () => {
     try {
         // 完成测试会话
         const response = await fetch(`/api/raven-test/sessions/${testSessionId.value}/complete`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                actual_duration_ms: actualDurationMs,
+                finished_all: finishedAll
+            })
         });
 
         if (response.ok) {
@@ -501,6 +511,8 @@ const submitTest = async () => {
         ElMessage.error('网络错误，无法提交测试');
     } finally {
         loading.close();
+        // 提交失败时允许学生重新提交
+        if (phase.value !== 'result') submitted = false;
     }
 };
 
@@ -526,8 +538,13 @@ const nextPhase = async () => {
 
         // 启动计时器
         startTimer();
+        formalStartAt = performance.now();
+        submitted = false;
     }
 };
+
+let formalStartAt = 0; // 正式测试开始时刻（performance.now）
+let submitted = false;
 
 // 图片加载错误处理
 const handleImageError = (event) => {

@@ -213,7 +213,12 @@ const updateTimer = () => {
 
     if (remainingTime.value <= 0) {
         clearInterval(timerInterval.value);
-        endTest();
+        timedOut = true;
+        formalEndAt = performance.now();
+        // 时间到也要先保存已点击的位置，否则本次作答全部丢失
+        saveClickedPositions()
+            .catch((error) => console.error('超时保存点击记录失败:', error))
+            .finally(() => endTest());
     }
 };
 
@@ -221,7 +226,14 @@ const updateTimer = () => {
 const startTimer = () => {
     if (timerInterval.value) clearInterval(timerInterval.value);
     timerInterval.value = setInterval(updateTimer, 1000);
+    formalStartAt = performance.now();
+    formalEndAt = 0;
+    timedOut = false;
 };
+
+let formalStartAt = 0; // 正式测试开始时刻（performance.now）
+let formalEndAt = 0; // 提交确认或时间到的时刻，不含保存数据的网络耗时
+let timedOut = false; // 是否因时间到而结束（否则为学生主动提交）
 
 // 获取用户信息
 const getUserInfo = async () => {
@@ -481,6 +493,10 @@ const submitTest = () => {
         }
     )
         .then(() => {
+            // 确认框打开期间若已超时，超时流程已保存过，避免重复保存
+            if (timedOut || testEnded.value) return;
+            clearInterval(timerInterval.value);
+            formalEndAt = performance.now();
             saveClickedPositions()
                 .then(() => {
                     endTest();
@@ -555,6 +571,7 @@ const endTest = async () => {
 
     testEnded.value = true;
     clearInterval(timerInterval.value);
+    const actualDurationMs = Math.round((formalEndAt || performance.now()) - formalStartAt);
 
     // 显示加载中提示
     const loading = ElLoading.service({
@@ -566,7 +583,12 @@ const endTest = async () => {
     try {
         // 完成测试会话
         const response = await fetch(`/api/attention-test/sessions/${testSessionId.value}/complete`, {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                actual_duration_ms: actualDurationMs,
+                finished_all: !timedOut // 时限内主动提交视为做完
+            })
         });
 
         if (response.ok) {

@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from config import settings
 from logger_config import logger
 from apps.users.models import User
+from database import SessionCompletion
 from .models import (
     RavenTestSession,
     RavenAnswer,
@@ -313,7 +314,11 @@ def save_answers_batch(session: Session, batch_data: RavenAnswerBatchCreate) -> 
     return count
 
 
-def complete_test_session(session: Session, test_session_id: int) -> Optional[RavenTestSession]:
+def complete_test_session(
+    session: Session,
+    test_session_id: int,
+    completion: Optional[SessionCompletion] = None,
+) -> Optional[RavenTestSession]:
     """完成测试会话并计算结果"""
     test_session = session.get(RavenTestSession, test_session_id)
     if not test_session:
@@ -347,6 +352,8 @@ def complete_test_session(session: Session, test_session_id: int) -> Optional[Ra
     # 计算总用时（秒）
     delta = test_session.end_time - test_session.start_time
     test_session.total_time_seconds = int(delta.total_seconds())
+    if completion:
+        completion.apply_to(test_session)
 
     session.add(test_session)
     session.commit()

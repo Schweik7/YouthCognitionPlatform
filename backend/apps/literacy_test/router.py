@@ -2,7 +2,7 @@ import os
 import asyncio
 import base64
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from pathlib import Path
@@ -37,6 +37,7 @@ class UploadAudioRequest(BaseModel):
 
 class FinishTestRequest(BaseModel):
     unknown_characters: List[str]
+    actual_duration_ms: Optional[int] = None  # 前端计时的实际用时（毫秒）
 
 class EmptyGroupRequest(BaseModel):
     test_id: int
@@ -269,7 +270,9 @@ async def finish_literacy_test(
 ) -> Dict[str, Any]:
     """手动完成识字量测验"""
     try:
-        result = finish_test_manually(test_id, request.unknown_characters)
+        result = finish_test_manually(
+            test_id, request.unknown_characters, request.actual_duration_ms
+        )
         if result:
             return {
                 "success": True,

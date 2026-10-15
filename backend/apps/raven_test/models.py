@@ -15,6 +15,8 @@ class RavenTestSession(BaseModel, table=True):
     end_time: Optional[datetime] = None
     is_completed: bool = Field(default=False)
     total_time_seconds: Optional[int] = None  # 测试总耗时（秒）
+    actual_duration_ms: Optional[int] = None  # 前端计时的实际用时（毫秒），正式开始到结束
+    finished_all: Optional[bool] = None  # 是否在时限内做完全部题目
 
     # 当前进度（用于继续未完成的测试）
     current_question: int = Field(default=0)  # 当前题目索引（0-71）
@@ -96,6 +98,8 @@ class RavenSessionResponse(SQLModel):
     end_time: Optional[datetime]
     is_completed: bool
     total_time_seconds: Optional[int]
+    actual_duration_ms: Optional[int] = None
+    finished_all: Optional[bool] = None
     current_question: int
     raw_score: int
     percentile: Optional[float]

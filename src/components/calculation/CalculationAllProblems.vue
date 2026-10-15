@@ -628,6 +628,9 @@ watch(() => props.problems, (newProblems) => {
   initializeFractionAnswers()
   initializeDecimalAnswers()
 }, { deep: true, immediate: true })
+
+// 供父组件在时间到时自动提交、判断是否全部做完
+defineExpose({ submitAllAnswers, completedCount })
 </script>
 
 <style scoped>

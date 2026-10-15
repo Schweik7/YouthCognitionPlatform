@@ -3,7 +3,7 @@ from sqlmodel import Session
 from typing import List, Dict, Any, Optional
 
 from logger_config import logger
-from database import get_session
+from database import get_session, SessionCompletion
 from ..users.models import User
 from .models import (
     AttentionTestSession,
@@ -114,9 +114,13 @@ async def list_user_sessions_route(user_id: int, session: Session = Depends(get_
 
 
 @router.post("/sessions/{test_session_id}/complete", response_model=AttentionSessionResponse)
-async def complete_session_route(test_session_id: int, session: Session = Depends(get_session)):
+async def complete_session_route(
+    test_session_id: int,
+    completion: Optional[SessionCompletion] = None,
+    session: Session = Depends(get_session),
+):
     """完成测试会话"""
-    test_session = complete_test_session(session, test_session_id)
+    test_session = complete_test_session(session, test_session_id, completion)
     if not test_session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="测试会话不存在")
     return test_session
